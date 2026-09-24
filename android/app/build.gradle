@@ -1,0 +1,42 @@
+plugins {
+    id 'com.android.application'
+}
+
+// GitHub Actions run number -> versionCode, so every build installs over the previous one
+def buildNumber = (System.getenv('GITHUB_RUN_NUMBER') ?: '1').toInteger()
+
+android {
+    namespace 'io.github.joelthornton.goalmachine'
+    compileSdk 34
+
+    defaultConfig {
+        applicationId 'io.github.joelthornton.goalmachine'
+        minSdk 24
+        targetSdk 34
+        versionCode buildNumber
+        versionName "1.0.${buildNumber}"
+    }
+
+    // A fixed key so each new APK can be installed as an update over the last one. It lives in the repo because
+    // this app is sideloaded among friends; move it to repository secrets before ever publishing to Google Play.
+    signingConfigs {
+        release {
+            storeFile file('goalmachine.keystore')
+            storePassword 'goalmachine'
+            keyAlias 'goalmachine'
+            keyPassword 'goalmachine'
+        }
+    }
+
+    buildTypes {
+        release {
+            minifyEnabled false
+            signingConfig signingConfigs.release
+        }
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_1_8
+        targetCompatibility JavaVersion.VERSION_1_8
+    }
+}

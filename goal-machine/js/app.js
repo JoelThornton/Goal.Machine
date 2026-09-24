@@ -53,6 +53,7 @@
         <div class="logo">GOAL<span>MACHINE</span></div>
         <p>${GM.players.length.toLocaleString()} Premier League players · every one with 50+ apps · 1992 to today</p>
         <button class="btn small" id="install" hidden>📲 Install app</button>
+        ${/Android/i.test(navigator.userAgent) && !window.AndroidApp ? `<a class="btn small ghost" href="${GM.APK_URL}">🤖 Get the Android app</a>` : ''}
       </header>
       <div class="hard-toggle" role="group" aria-label="Difficulty">
         <button class="${hard ? '' : 'on'}" data-hard="0">🙂 Normal<small>clubs, years &amp; apps shown</small></button>

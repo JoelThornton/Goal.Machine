@@ -71,7 +71,7 @@ It is a PWA, so it works offline and can be installed:
 
 - **Android (Chrome):** open the site and tap *📲 Install app* on the home screen (or ⋮ → *Install app*).
 - **iPhone (Safari):** Share → *Add to Home Screen*.
-- **A real .apk:** go to https://www.pwabuilder.com, paste the site URL and choose *Android → Generate*. It wraps the site as a Trusted Web Activity APK you can sideload or send to friends.
+- **Android APK:** download it from https://github.com/JoelThornton/JoelThornton.github.io/releases/latest/download/goal-machine.apk. The `android/` folder is a small WebView app around the live site, and the *Android APK* GitHub Actions workflow rebuilds and publishes it whenever `android/` changes on `master`. Because the app loads the live site, game updates need no new APK.
 
 ## Global leaderboard
 

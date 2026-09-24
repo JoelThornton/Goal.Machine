@@ -19,7 +19,8 @@
     GM.$$('.modal-wrap').forEach(m => m.remove());
     app.className = 'page-' + (path || 'home');
     switch (path) {
-      case 'draft': return GM.draft.start(app, GM.draft.RULES[q.m] ? q.m : 'classic', { seed: q.seed, vs: q.vs, vss: q.vss ? +q.vss : undefined });
+      case 'draft': return GM.draft.start(app, GM.draft.RULES[q.m] ? q.m : 'classic',
+        { seed: q.seed, vs: q.vs, vss: q.vss ? +q.vss : undefined, hard: q.seed ? q.h === '1' : GM.isHard() });
       case 'daily': return GM.draft.start(app, 'daily');
       case 'hilo': return GM.hilo(app);
       case 'whoami': return GM.whoami(app);
@@ -37,6 +38,8 @@
   function home() {
     const dailyDone = GM.store.get('daily:' + GM.today());
     const gridDone = GM.store.get('hist:grid:' + GM.today(), []).length > 0;
+    const hard = GM.isHard();
+    const pb = k => GM.best(hard && GM.HARD_MODES.includes(k) ? k + 'h' : k);
     const card = (href, icon, title, sub, best, extra = '') =>
       `<a class="mode-card ${extra}" href="${href}"><span class="mode-icon">${icon}</span><span class="mode-text"><b>${title}</b><small>${sub}</small></span>${best != null ? `<span class="pb">${best ? 'PB ' + best : ''}</span>` : ''}</a>`;
     app.innerHTML = `
@@ -45,23 +48,27 @@
         <p>${GM.players.length.toLocaleString()} Premier League players · every one with 50+ apps · 1992 to today</p>
         <button class="btn small" id="install" hidden>📲 Install app</button>
       </header>
+      <div class="hard-toggle" role="group" aria-label="Difficulty">
+        <button class="${hard ? '' : 'on'}" data-hard="0">🙂 Normal<small>clubs, years &amp; apps shown</small></button>
+        <button class="${hard ? 'on' : ''}" data-hard="1">🥵 Hard<small>names &amp; positions only</small></button>
+      </div>
       <section>
         ${card('#/daily', '📅', 'Daily 442', dailyDone ? `Done today – ${dailyDone.final ? dailyDone.final.total + ' pts' : ''} · come back tomorrow` : 'Same spins for everyone today. One shot.', null, 'featured' + (dailyDone ? ' done' : ''))}
       </section>
       <h3 class="section-title">442 – build an XI worth 442 PL goals</h3>
       <section class="cards">
-        ${card('#/draft?m=wild', '🃏', 'Wildcard', 'Scout, re-roll, subs, double-ups', GM.best('wild'))}
-        ${card('#/draft?m=classic', '⚽', 'Classic', 'Pure knowledge, no help', GM.best('classic'))}
-        ${card('#/draft?m=hardcore', '💀', 'Hardcore', 'Go over 442 and you bust. ×1.5', GM.best('hardcore'))}
-        ${card('#/draft?m=deep', '🔦', 'Deep Cuts', 'Any 50-app journeyman. Target 200', GM.best('deep'))}
+        ${card('#/draft?m=wild', '🃏', 'Wildcard', 'Scout, re-roll, subs, double-ups', pb('wild'))}
+        ${card('#/draft?m=classic', '⚽', 'Classic', 'Pure knowledge, no help', pb('classic'))}
+        ${card('#/draft?m=hardcore', '💀', 'Hardcore', 'Go over 442 and you bust. ×1.5', pb('hardcore'))}
+        ${card('#/draft?m=deep', '🔦', 'Deep Cuts', 'Any 50-app journeyman. Target 200', pb('deep'))}
       </section>
       <h3 class="section-title">More games</h3>
       <section class="cards">
-        ${card('#/hilo', '↕️', 'Higher or Lower', 'More goals? More apps? Keep the streak', GM.best('hilo'))}
-        ${card('#/whoami', '🕵️', 'Who Am I?', 'Guess the player from his club path', GM.best('whoami'))}
+        ${card('#/hilo', '↕️', 'Higher or Lower', 'More goals? More apps? Keep the streak', pb('hilo'))}
+        ${card('#/whoami', '🕵️', 'Who Am I?', 'Guess the player from his club path', pb('whoami'))}
         ${card('#/dailygrid', '#️⃣', gridDone ? 'Daily Club Grid ✓' : 'Daily Club Grid', 'Played for both? 3×3 grid', GM.best('grid'))}
         ${card('#/grid', '🔀', 'Random Club Grid', 'Endless grids', null)}
-        ${card('#/tally', '🎯', 'Guess the Tally', 'How many PL goals did he score?', GM.best('tally'))}
+        ${card('#/tally', '🎯', 'Guess the Tally', 'How many PL goals did he score?', pb('tally'))}
       </section>
       <section class="cards">
         ${card('#/leaderboard', '🏆', 'Leaderboards', GM.lb.enabled ? 'Global + your bests' : 'Your best scores', null)}
@@ -69,6 +76,7 @@
         ${card('#/about', 'ℹ️', 'About the data', `Updated ${GM.dataDate}`, null)}
       </section>
       <footer class="muted center">Name on leaderboard: <a href="#" id="rename">${GM.esc(GM.getName() || 'not set')}</a></footer>`;
+    GM.$$('[data-hard]').forEach(b => b.onclick = () => { GM.setHard(b.dataset.hard === '1'); home(); });
     const ib = GM.$('#install');
     if (installEvt) ib.hidden = false;
     ib.onclick = async () => { if (installEvt) { installEvt.prompt(); installEvt = null; ib.hidden = true; } };
@@ -81,11 +89,15 @@
 
   /* ---------------------------------------------------------------- leaderboard */
   async function leaderboard(m) {
-    const tabs = ['daily:' + GM.today(), 'wild', 'classic', 'hardcore', 'deep', 'hilo', 'whoami', 'grid:' + GM.today(), 'grid', 'tally'];
-    m = m && tabs.includes(m) ? m : (m || 'wild');
+    const hard = m ? /^[a-z]+h$/.test(m) && GM.MODES[m] != null : GM.isHard();
+    const tabs = ['daily:' + GM.today(), 'wild', 'classic', 'hardcore', 'deep', 'hilo', 'whoami', 'grid:' + GM.today(), 'grid', 'tally']
+      .map(k => hard && GM.HARD_MODES.includes(k) ? k + 'h' : k);
+    m = m && tabs.includes(m) ? m : tabs[1];
+    const flip = hard ? m.replace(/h$/, '') : (GM.HARD_MODES.includes(m) ? m + 'h' : m);
     const label = k => k.startsWith('daily:') ? '📅 Today' : k.startsWith('grid:') ? '#️⃣ Grid today' : `${GM.MODES[k].icon} ${GM.MODES[k].name}`;
     const local = GM.store.get('hist:' + m, []);
     app.innerHTML = `<div class="topbar"><a href="#/" class="back">‹</a><h2>🏆 Leaderboards</h2><span></span></div>
+      <div class="hard-toggle small"><a class="${hard ? '' : 'on'}" href="#/leaderboard?m=${encodeURIComponent(hard ? flip : m)}">🙂 Normal</a><a class="${hard ? 'on' : ''}" href="#/leaderboard?m=${encodeURIComponent(hard ? m : flip)}">🥵 Hard</a></div>
       <div class="tabs">${tabs.map(k => `<a class="tab ${k === m ? 'active' : ''}" href="#/leaderboard?m=${encodeURIComponent(k)}">${label(k)}</a>`).join('')}</div>
       ${GM.lb.enabled ? `<h3 class="section-title">🌍 Global</h3><div id="global" class="lb"><div class="muted">Loading…</div></div>` :
         `<div class="banner">Global leaderboard isn’t switched on yet – use <b>⚔️ Challenge a friend</b> after a 442 game to go head-to-head on the same spins.</div>`}

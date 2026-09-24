@@ -102,9 +102,10 @@ GM.initials = name => name.split(/\s+/).filter(Boolean).map(w => w[0]).join('').
 GM.today = () => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; };
 GM.sleep = ms => new Promise(r => setTimeout(r, ms));
 
-GM.avatar = function (p, cls = '') {
-  const [, bg, fg] = GM.CLUB[p.clubs[p.clubs.length - 1]] || [0, '#334', '#fff'];
-  const img = p.code ? `<img loading="lazy" alt="" src="https://resources.premierleague.com/premierleague/photos/players/110x140/p${p.code}.png" onerror="this.remove()">` : '';
+GM.avatar = function (p, cls = '', plain = false) {
+  // plain = hard mode: no photo, no club colours
+  const [, bg, fg] = plain ? [0, '#23483b', '#e8f5ee'] : GM.CLUB[p.clubs[p.clubs.length - 1]] || [0, '#334', '#fff'];
+  const img = p.code && !plain ? `<img loading="lazy" alt="" src="https://resources.premierleague.com/premierleague/photos/players/110x140/p${p.code}.png" onerror="this.remove()">` : '';
   return `<span class="avatar ${cls}" style="--cb:${bg};--cf:${fg}"><b>${GM.initials(p.name)}</b>${img}</span>`;
 };
 
@@ -245,6 +246,15 @@ GM.MODES = {
   grid: { name: 'Club Grid', icon: '#️⃣' },
   tally: { name: 'Guess the Tally', icon: '🎯' },
 };
+
+// Hard mode: games show names + positions only (no clubs, years, apps, nationality); Who Am I? saves the
+// clubs for the last clue. Scores go to "<mode>h".
+GM.HARD_MODES = ['classic', 'wild', 'hardcore', 'deep', 'hilo', 'whoami', 'tally'];
+GM.isHard = () => GM.store.get('hard', false);
+GM.setHard = v => GM.store.set('hard', !!v);
+Object.keys(GM.MODES).filter(k => GM.HARD_MODES.includes(k)).forEach(k => {
+  GM.MODES[k + 'h'] = { name: GM.MODES[k].name + ' (Hard)', icon: GM.MODES[k].icon };
+});
 
 GM.best = mode => GM.store.get('best:' + mode, 0);
 

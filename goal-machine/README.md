@@ -19,6 +19,10 @@ Live (once merged to the Pages branch): `https://joelthornton.github.io/goal-mac
 | #️⃣ Club Grid | A 3×3 grid in the Immaculate Grid style (daily or random). Obscure answers score more |
 | 🎯 Guess the Tally | How many PL goals did he score? |
 
+**🥵 Hard mode** (toggle on the home screen) strips the cards back to names and positions: no clubs, years, apps, nationality, photos or club colours. It covers the 442 games, Higher or Lower and Guess the Tally. In Who Am I?, hard mode starts with position and nationality and saves the clubs for the last clue. Hard scores have their own leaderboards. The Daily 442 always uses normal mode so everyone plays the same game.
+
+**Signing a player:** tap a player on the reels, and the open slots he can play light up on the pitch. Tap one to sign him. Nothing is placed until you choose.
+
 **Scoring (442 modes):** 1000 − 5 × (goals off target), plus 500 for a bullseye and +50 for each unused wildcard.
 
 ### Wildcards
@@ -47,7 +51,7 @@ Every player has real positions: **GK, LB, CB, RB, LM, CM, RM, ST**. The XI's sl
 - **`tools/positions_manual.py`**, a hand-compiled list covering about 650 players. It fills in the (mostly pre-2010) players Transfermarkt doesn't have and gives famous utility men their full range: Dublin ST/CB, Bale RM/LM/LB/ST, Milner CM/RM/LB/RB, Ashley Young, Phil Neville, O'Shea and others
 - **FPL position changes and a goalscoring-midfielder rule**, which add a second role (a midfielder listed as a forward in FPL can also play ST)
 
-When a player fits more than one open slot, you choose where he plays. Gegenpress turns empty LM/RM slots into strikers, and Park the Bus drops two empty attacking slots to centre-back. Corrections are welcome in `positions_manual.py`.
+You always choose the slot yourself from the highlighted options. Gegenpress turns empty LM/RM slots into strikers, and Park the Bus drops two empty attacking slots to centre-back. Corrections are welcome in `positions_manual.py`.
 
 ## Install it like an app (Android / iPhone)
 

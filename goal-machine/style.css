@@ -227,3 +227,15 @@ footer { margin-top: 24px; }
 .wc-list li { font-size: .9rem; }
 .pitch-row.crowded .slot-name { font-size: .6rem; }
 .pitch-row.crowded .avatar { width: 28px; height: 28px; }
+
+/* hard mode toggle + slot targeting */
+.hard-toggle { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; background: rgba(0,0,0,.25); padding: 4px; border-radius: 14px; margin: 6px 0 14px; }
+.hard-toggle > * { border: 0; background: transparent; color: var(--muted); padding: 9px 6px; border-radius: 10px; font: 700 .95rem Inter, sans-serif; cursor: pointer; text-align: center; text-decoration: none; display: flex; flex-direction: column; align-items: center; }
+.hard-toggle > * small { font-weight: 500; font-size: .7rem; }
+.hard-toggle > .on { background: var(--accent); color: #0a2a1f; }
+.hard-toggle.small > * { padding: 6px; font-size: .85rem; }
+.pitch.placing .slot.empty:not(.target), .pitch.placing .slot.filled { opacity: .35; }
+.slot.target { border: 2px solid var(--accent) !important; background: rgba(200,255,61,.25); cursor: pointer; animation: glow 1s ease-in-out infinite alternate; }
+@keyframes glow { from { box-shadow: 0 0 0 0 rgba(200,255,61,.0); } to { box-shadow: 0 0 14px 3px rgba(200,255,61,.6); } }
+.reel.hard { min-height: 170px; justify-content: center; }
+.reel.hard .reel-goals { margin-top: auto; }

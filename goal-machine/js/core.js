@@ -238,6 +238,7 @@ GM.autocomplete = function (input, box, onPick, { exclude } = {}) {
 GM.MODES = {
   classic: { name: '442 Classic', icon: '⚽' },
   wild: { name: '442 Wildcard', icon: '🃏' },
+  ultimate: { name: 'Ultimate Wildcard', icon: '👑' },
   hardcore: { name: '442 Hardcore', icon: '💀' },
   deep: { name: 'Deep Cuts', icon: '🔦' },
   daily: { name: 'Daily 442', icon: '📅' },
@@ -249,7 +250,7 @@ GM.MODES = {
 
 // Hard mode: games show names + positions only (no clubs, years, apps, nationality); Who Am I? saves the
 // clubs for the last clue. Scores go to "<mode>h".
-GM.HARD_MODES = ['classic', 'wild', 'hardcore', 'deep', 'hilo', 'whoami', 'tally'];
+GM.HARD_MODES = ['ultimate', 'classic', 'wild', 'hardcore', 'deep', 'hilo', 'whoami', 'tally'];
 GM.isHard = () => GM.store.get('hard', false);
 GM.setHard = v => GM.store.set('hard', !!v);
 Object.keys(GM.MODES).filter(k => GM.HARD_MODES.includes(k)).forEach(k => {

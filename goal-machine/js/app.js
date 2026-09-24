@@ -53,6 +53,9 @@
         <button class="${hard ? 'on' : ''}" data-hard="1">🥵 Hard<small>names &amp; positions only</small></button>
       </div>
       <section>
+        ${card('#/draft?m=ultimate', '👑', 'Ultimate Wildcard', 'Most PL goals wins. Every player equally likely – find the scorers.', pb('ultimate'), 'featured ultimate')}
+      </section>
+      <section>
         ${card('#/daily', '📅', 'Daily 442', dailyDone ? `Done today – ${dailyDone.final ? dailyDone.final.total + ' pts' : ''} · come back tomorrow` : 'Same spins for everyone today. One shot.', null, 'featured' + (dailyDone ? ' done' : ''))}
       </section>
       <h3 class="section-title">442 – build an XI worth 442 PL goals</h3>
@@ -90,9 +93,9 @@
   /* ---------------------------------------------------------------- leaderboard */
   async function leaderboard(m) {
     const hard = m ? /^[a-z]+h$/.test(m) && GM.MODES[m] != null : GM.isHard();
-    const tabs = ['daily:' + GM.today(), 'wild', 'classic', 'hardcore', 'deep', 'hilo', 'whoami', 'grid:' + GM.today(), 'grid', 'tally']
+    const tabs = ['ultimate', 'daily:' + GM.today(), 'wild', 'classic', 'hardcore', 'deep', 'hilo', 'whoami', 'grid:' + GM.today(), 'grid', 'tally']
       .map(k => hard && GM.HARD_MODES.includes(k) ? k + 'h' : k);
-    m = m && tabs.includes(m) ? m : tabs[1];
+    m = m && tabs.includes(m) ? m : tabs[0];
     const flip = hard ? m.replace(/h$/, '') : (GM.HARD_MODES.includes(m) ? m + 'h' : m);
     const label = k => k.startsWith('daily:') ? '📅 Today' : k.startsWith('grid:') ? '#️⃣ Grid today' : `${GM.MODES[k].icon} ${GM.MODES[k].name}`;
     const local = GM.store.get('hist:' + m, []);

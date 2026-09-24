@@ -31,6 +31,8 @@
     hardcore: { target: 442, wild: false, bust: true, weight: p => p.fame },
     deep: { target: 200, wild: false, bust: false, weight: () => 1 },
     daily: { target: 442, wild: true, bust: false, weight: p => p.fame },
+    // purist mode: no target, just rack up as many goals as possible; every player equally likely
+    ultimate: { target: null, max: true, wild: true, bust: false, weight: () => 1, noWild: ['rotation', 'bus'] },
   };
 
   let S = null; // game state
@@ -78,7 +80,7 @@
     let wildShown = !!special;
     for (let i = 0; i < n; i++) {
       if (S.rules.wild && S.spin >= 1 && !wildShown && i < 2 && r() < 0.28) {
-        const types = Object.keys(WILDCARDS);
+        const types = Object.keys(WILDCARDS).filter(t => !(S.rules.noWild || []).includes(t));
         reels.push({ wild: r.weighted(types, t => WILDCARDS[t].w) });
         wildShown = true;
         continue;
@@ -201,7 +203,7 @@
     S.phase = 'reveal';
     S.selected = i;
     render();
-    const bust = S.rules.bust && total() > S.target;
+    const bust = S.rules.bust && !S.rules.max && total() > S.target;
     await GM.sleep(S.reels.some(r => !r.wild) ? 1500 : 700);
     S.xi.forEach(s => { s.fresh = false; });
     S.spin++;
@@ -268,6 +270,7 @@
   /* ---------------------------------------------------------------- scoring / finish */
   function scoreFor(st) {
     const t = st.xi.reduce((a, s) => a + s.g, 0);
+    if (st.rules.max) return { total: t, parts: [['⚽ Total PL goals', t]], diff: null, t };
     const diff = Math.abs(st.target - t);
     const parts = [];
     if (st.rules.bust && t > st.target) return { total: 0, parts: [['💥 Bust – you went over ' + st.target, 0]], diff, t };
@@ -344,6 +347,16 @@
 
   function counterHtml() {
     const t = total();
+    const left0 = emptySlots();
+    if (S.rules.max) {
+      const pb = GM.best(modeKey());
+      const mod0 = S.modifier ? ` · <b>${WILDCARDS[S.modifier].icon} ${WILDCARDS[S.modifier].name}</b>` : '';
+      return `<div class="counter max">
+      <div class="counter-num"><b>${t}</b><span>goals</span></div>
+      <div class="bar"><i style="width:${pb ? Math.min(100, t / pb * 100) : 0}%"></i></div>
+      <div class="counter-sub">${pb ? (t > pb ? '🔥 Beating your best (' + pb + ')' : `Your best: ${pb}`) : 'Set your first score'} · ${left0} slot${left0 === 1 ? '' : 's'} left · <span class="${S.spinsLeft <= left0 ? 'warn' : ''}">${S.spinsLeft} spin${S.spinsLeft === 1 ? '' : 's'} left</span>${mod0}</div>
+    </div>`;
+    }
     const pct = Math.min(100, t / S.target * 100);
     const over = t > S.target;
     const left = emptySlots();
@@ -397,14 +410,16 @@
   function help() {
     const r = S.rules;
     GM.modal(`<h3>How to play</h3>
-      <p>Build an XI whose players have scored <b>${S.target}</b> Premier League goals between them.</p>
-      <p>Each spin shows three players who fit an open position. Their goal tallies are hidden – sign the one you think gets you closest.</p>
+      ${r.max ? `<p>👑 <b>Ultimate Wildcard:</b> no target – build the XI with the <b>most Premier League goals</b> you can. Every player with 50+ apps is equally likely to turn up, so you’ll mostly see journeymen: spot the goalscorers and use your wildcards well.</p>
+      <p>Each spin shows three players who fit an open position. Their goal tallies are hidden until you sign one.</p>`
+      : `<p>Build an XI whose players have scored <b>${S.target}</b> Premier League goals between them.</p>
+      <p>Each spin shows three players who fit an open position. Their goal tallies are hidden – sign the one you think gets you closest.</p>`}
       <p>Every player has real positions – <b>GK, LB, CB, RB, LM, CM, RM, ST</b> – and can only go in a slot he actually played. Utility men (Dublin up front or at centre-back, Bale at LB/LM/RM/ST, Milner…) show every position they can fill, and you choose where he goes.</p>
-      ${r.wild ? `<p><b>Wildcards</b> appear on the reels from the 2nd spin. You get <b>${SPIN_BUDGET} spins</b> for 11 signings, so grabbing a wildcard costs one of your spare spins. Hold up to 3; each unused one is +${UNUSED_BONUS} at full time.</p>
-      <ul class="wc-list">${Object.values(WILDCARDS).map(w => `<li>${w.icon} <b>${w.name}</b> – ${w.desc}</li>`).join('')}</ul>` : ''}
+      ${r.wild ? `<p><b>Wildcards</b> appear on the reels from the 2nd spin. You get <b>${SPIN_BUDGET} spins</b> for 11 signings, so grabbing a wildcard costs one of your spare spins. Hold up to 3${r.max ? '.' : `; each unused one is +${UNUSED_BONUS} at full time.`}</p>
+      <ul class="wc-list">${Object.entries(WILDCARDS).filter(([k]) => !(r.noWild || []).includes(k)).map(([, w]) => `<li>${w.icon} <b>${w.name}</b> – ${w.desc}</li>`).join('')}</ul>` : ''}
       ${r.bust ? '<p>💀 <b>Hardcore:</b> go over and you bust with zero. Survive and your score is multiplied ×1.5.</p>' : ''}
       ${S.mode === 'deep' ? '<p>🔦 <b>Deep Cuts:</b> every 50+ appearance player is equally likely – cult heroes and journeymen galore. Target is 200.</p>' : ''}
-      <p><b>Scoring:</b> 1000 − 5 per goal off target. Exactly ${S.target} = +500 bullseye bonus.</p>
+      <p><b>Scoring:</b> ${r.max ? 'your score is your XI’s total PL goals (after any wildcard modifiers).' : `1000 − 5 per goal off target. Exactly ${S.target} = +500 bullseye bonus.`}</p>
       <p>🤝 A player who shares a club with your last signing may turn up to tempt you.</p>
       ${S.hard ? '<p>🥵 <b>Hard mode:</b> just names and positions – no clubs, years, apps or nationality. Separate leaderboard.</p>' : ''}
       <div class="row"><button class="btn" data-close>Got it</button></div>`);
@@ -418,9 +433,9 @@
     root.innerHTML = `
       <div class="topbar"><a href="#/" class="back">‹</a><h2>${GM.MODES[S.mode].icon} Full time</h2><span></span></div>
       <div class="result">
-        <div class="result-total ${sc.diff === 0 ? 'bull' : ''}">${sc.t}<small>goals · target ${S.target}</small></div>
-        <div class="result-score">${sc.total}<small>points</small></div>
-        <table class="breakdown">${sc.parts.map(([k, v]) => `<tr><td>${k}</td><td>+${v}</td></tr>`).join('')}</table>
+        <div class="result-total ${sc.diff === 0 ? 'bull' : ''}">${sc.t}<small>${S.rules.max ? 'PL goals' : `goals · target ${S.target}`}</small></div>
+        ${S.rules.max ? '' : `<div class="result-score">${sc.total}<small>points</small></div>
+        <table class="breakdown">${sc.parts.map(([k, v]) => `<tr><td>${k}</td><td>+${v}</td></tr>`).join('')}</table>`}
         ${S.vs ? `<div class="banner">${sc.total > S.vss ? '🎉 You beat' : sc.total == S.vss ? '🤝 You drew with' : '😬 You lost to'} <b>${GM.esc(S.vs)}</b> (${GM.esc(S.vss)})</div>` : ''}
         <div class="muted">Personal best: ${Math.max(best, sc.total)}</div>
       </div>
@@ -442,13 +457,16 @@
       const name = await GM.askName() || 'A friend';
       const m = S.mode === 'daily' ? 'wild' : S.mode;
       const url = `${GM.baseUrl()}#/draft?m=${m}&seed=${encodeURIComponent(S.seed)}${S.hard ? '&h=1' : ''}&vs=${encodeURIComponent(name)}&vss=${sc.total}`;
-      GM.share(`⚽ Goal Machine – I scored ${sc.total} in ${GM.MODES[m].name}${S.hard ? ' (Hard)' : ''} (${sc.t}/${S.target} goals). Same spins, can you beat me?`, url);
+      GM.share(S.rules.max
+        ? `⚽ Goal Machine – my ${GM.MODES[m].name}${S.hard ? ' (Hard)' : ''} XI scored ${sc.t} PL goals. Same spins, can you beat it?`
+        : `⚽ Goal Machine – I scored ${sc.total} in ${GM.MODES[m].name}${S.hard ? ' (Hard)' : ''} (${sc.t}/${S.target} goals). Same spins, can you beat me?`, url);
     };
   }
 
   function resultText(sc) {
     const icons = S.log.map(l => ({ G: '🧤', D: '🛡️', M: '⚙️', F: '⚽' }[GM.GROUP[l]] || l)).join('');
     const head = S.mode === 'daily' ? `Daily 442 · ${GM.today()}` : GM.MODES[S.mode].name + (S.hard ? ' (Hard)' : '');
+    if (S.rules.max) return `⚽ Goal Machine – ${head}\n👑 ${sc.t} PL goals\n${icons}`;
     return `⚽ Goal Machine – ${head}\n${sc.t}/${S.target} goals${sc.diff === 0 ? ' 🎯 BULLSEYE' : ''} · ${sc.total} pts\n${icons}`;
   }
 })();

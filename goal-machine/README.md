@@ -9,6 +9,7 @@ Live (once merged to the Pages branch): `https://joelthornton.github.io/goal-mac
 
 | Mode | What it is |
 | --- | --- |
+| 👑 Ultimate Wildcard | The main mode. There's no target: build the XI with the most PL goals you can. Every 50+ app player is equally likely, so you have to find the scorers among the journeymen. All wildcards are in play except Rotation Risk and Park the Bus. Your score is your total goals |
 | 📅 Daily 442 | The same spins for everyone today, one attempt, with a shareable emoji result |
 | 🃏 Wildcard | 13 wildcards appear on the reels (see below). You get 16 spins for 11 signings, so grabbing a wildcard costs a spare spin |
 | ⚽ Classic | No help |

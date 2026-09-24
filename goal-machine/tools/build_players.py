@@ -423,6 +423,47 @@ for p in players:
     if not p['nat'] and p['name'] in NAT_MANUAL:
         p['nat'] = NAT_MANUAL[p['name']]
 
+# ---------------------------------------------------------------- secondary positions
+# The sources only give one position, so versatility comes from FPL position changes, simple
+# stat rules (goalscoring midfielders can play up top, low-scoring forwards are usually wingers)
+# and a hand-picked list of famous utility men.
+L = {'Goalkeeper': 'G', 'Defender': 'D', 'Midfielder': 'M', 'Forward': 'F'}
+EXTRA_POS = {
+    'Dion Dublin': 'D', 'Gareth Bale': 'DF', 'James Milner': 'D', 'Chris Sutton': 'D', 'Phil Neville': 'M',
+    "John O'Shea": 'M', 'Ashley Young': 'DF', 'Luis Antonio Valencia': 'M', 'Victor Moses': 'D', 'Michail Antonio': 'DF',
+    'Trent Alexander-Arnold': 'M', 'Oleksandr Zinchenko': 'M', 'Fernandinho': 'D', 'Eric Dier': 'DM', 'Emre Can': 'D',
+    'Wayne Rooney': 'M', 'Paul Scholes': 'F', 'Ryan Giggs': 'F', 'Tim Cahill': 'F', 'Marouane Fellaini': 'F',
+    'Kevin Nolan': 'F', 'Steven Gerrard': 'F', 'Frank Lampard': 'F', 'David Luiz': 'M', 'Kieran Trippier': 'M',
+    'Rodri': 'D', 'Declan Rice': 'D', 'John Stones': 'M', 'Rio Ferdinand': 'M', 'Fabinho': 'D', 'Carlos Tevez': 'M',
+    'Kevin De Bruyne': 'F', 'Bernardo Silva': 'F', 'Phil Foden': 'F', 'Son Heung-Min': 'F', 'Mohamed Salah': 'F',
+    'Sadio Mané': 'F', 'Raheem Sterling': 'F', 'Riyad Mahrez': 'F', 'Roberto Firmino': 'M', 'Dwight Yorke': 'M',
+    'Teddy Sheringham': 'M', 'Dennis Bergkamp': 'M', 'Gianfranco Zola': 'M', 'Eric Cantona': 'M', 'Robbie Keane': 'M',
+    'Jamie Carragher': 'M', 'Gary Neville': 'M', 'Javier Mascherano': 'D', 'Lucas Leiva': 'D', 'Jordan Henderson': 'D',
+    'Joshua Kimmich': 'D', 'Joao Cancelo': 'M', 'Danny Murphy': 'F', 'Emile Heskey': 'M', 'Kyle Walker': 'M',
+    'Ben White': 'M', 'Matthijs de Ligt': '', 'Richarlison': 'M', 'Kai Havertz': 'M', 'Leandro Trossard': 'F',
+    'Jarrod Bowen': 'F', 'Bukayo Saka': 'F', 'Cole Palmer': 'F', 'Dominic Solanke': 'M', 'Nicolas Anelka': 'M',
+    'Dimitar Berbatov': 'M', 'Juan Mata': 'F', 'Eden Hazard': 'F', 'Robert Pirès': 'F', 'Freddie Ljungberg': 'F',
+    'Marc Overmars': 'F', 'David Ginola': 'F', 'Steve McManaman': 'F', 'Jesse Lingard': 'F', 'Andros Townsend': 'F',
+}
+for p in players:
+    prim = L[p['pos']]
+    ps = [prim]
+    def add(x):
+        if x and x not in ps and x != 'G' and prim != 'G':
+            ps.append(x)
+    if p['code']:
+        for pos_name, n in fpl_pos[p['code']].items():
+            if n >= 1:
+                add(L[pos_name])
+    ratio = p['goals'] / max(1, p['apps'])
+    if prim == 'M' and ratio >= 0.2 and p['goals'] >= 15:
+        add('F')
+    if prim == 'F' and ratio < 0.2:
+        add('M')
+    for x in EXTRA_POS.get(p['name'], ''):
+        add(x)
+    p['poss'] = ''.join(ps[:3])
+
 # ---------------------------------------------------------------- output
 out = [p for p in players if p['apps'] >= MIN_APPS]
 out.sort(key=lambda p: (-p['apps'], p['name']))
@@ -435,8 +476,8 @@ nats = sorted({p['nat'] for p in out if p['nat']})
 compact = dict(
     generated=pd.Timestamp.now().strftime('%Y-%m-%d'),
     clubs=clubs, nats=nats,
-    # [name, pos, natIdx(-1 unknown), [clubIdx...], apps, goals, firstSeason, lastSeason, fplCode(0 none)]
-    players=[[p['name'], 'GDMF'[['Goalkeeper', 'Defender', 'Midfielder', 'Forward'].index(p['pos'])],
+    # [name, positions (primary first, e.g. 'MF'), natIdx(-1 unknown), [clubIdx...], apps, goals, firstSeason, lastSeason, fplCode(0 none)]
+    players=[[p['name'], p['poss'],
               nats.index(p['nat']) if p['nat'] else -1, [clubs.index(c) for c in p['clubs']],
               p['apps'], p['goals'], p['first'], p['last'], int(p['code'] or 0)] for p in out])
 OUT = os.environ.get('OUT', f'{S}/players.js')

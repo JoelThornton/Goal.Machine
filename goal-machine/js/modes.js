@@ -83,7 +83,7 @@
     next();
     const clues = () => [
       `<div class="clue"><b>Clubs</b><div class="path">${target.clubs.map(c => GM.clubChip(c, true)).join('<span class="arrow">→</span>')}</div><small>PL career ${GM.era(target)}</small></div>`,
-      `<div class="clue"><b>Position</b> ${GM.POS_NAME[target.pos]}</div>`,
+      `<div class="clue"><b>Position</b> ${target.poss.map(x => GM.POS_NAME[x]).join(' / ')}</div>`,
       `<div class="clue"><b>Nationality</b> ${GM.flag(target.nat)} ${GM.esc(target.nat || 'Unknown')}</div>`,
       `<div class="clue"><b>PL record</b> ${target.apps} apps · ${target.goals} goals</div>`,
       `<div class="clue"><b>Initials</b> ${GM.initials(target.name).split('').join('. ')}.</div>`,

@@ -10,7 +10,7 @@ Live (once merged to the Pages branch): `https://joelthornton.github.io/goal-mac
 | Mode | What it is |
 | --- | --- |
 | 📅 Daily 442 | The same spins for everyone today, one attempt, with a shareable emoji result |
-| 🃏 Wildcard | Wildcards appear on the reels: Scout's IQ, Roll Again, Tweak the XI, Double Up, Half Time. Unused ones are worth +100 at full time |
+| 🃏 Wildcard | 13 wildcards appear on the reels (see below). You get 16 spins for 11 signings, so grabbing a wildcard costs a spare spin |
 | ⚽ Classic | No help |
 | 💀 Hardcore | Go over 442 and you bust with a score of zero; survive and your score is ×1.5 |
 | 🔦 Deep Cuts | Every 50-app player is equally likely, so expect lots of journeymen. The target is 200 |
@@ -19,7 +19,29 @@ Live (once merged to the Pages branch): `https://joelthornton.github.io/goal-mac
 | #️⃣ Club Grid | A 3×3 grid in the Immaculate Grid style (daily or random). Obscure answers score more |
 | 🎯 Guess the Tally | How many PL goals did he score? |
 
-**Scoring (442 modes):** 1000 − 5 × (goals off target), plus 500 for a bullseye.
+**Scoring (442 modes):** 1000 − 5 × (goals off target), plus 500 for a bullseye and +50 for each unused wildcard.
+
+### Wildcards
+
+| | Wildcard | Effect |
+| --- | --- | --- |
+| 🔍 | Scout's IQ | Shows the goal tallies on the reels this turn |
+| 🎰 | Roll Again | A free re-spin |
+| 🔄 | Make a Sub | Releases a player from your XI, taking his goals off |
+| 💯 | Centurion Throw | A free spin of players with 100+ PL goals |
+| ⚡ | Gegenpress | Your wide midfield slots become strikers (4-2-4) |
+| 🚌 | Park the Bus | Two empty attacking slots drop into defence |
+| ©️ | Captain's Armband | Your next signing's goals count double |
+| 🩹 | Rotation Risk | Your next signing's goals count half |
+| 🎲 | Double or Nothing | Coin toss: your next signing counts ×2 or ×0 |
+| ⏰ | Deadline Day | A free spin with five players to choose from |
+| ❤️ | One-Club Man | A free spin of players who played for only one PL club |
+| 🧳 | Journeyman | A free spin of players with 4+ PL clubs |
+| 📼 | 90s Throwback | A free spin of players whose PL career began in the 90s |
+
+### Multi-position players
+
+About 330 players can fill more than one position. Their positions come from FPL position changes, a winger/goal-rate rule and a hand-picked list (Dublin, Bale, Milner, Ashley Young and others). When a player fits more than one open slot, you choose where he plays.
 
 **Playing against friends:** after any 442 game, tap *Challenge a friend*. The link gives them the same seed, so they get the same luck on the spins, and it shows them the score to beat.
 
@@ -31,10 +53,10 @@ It is a PWA, so it works offline and can be installed:
 - **iPhone (Safari):** Share → *Add to Home Screen*.
 - **A real .apk:** go to https://www.pwabuilder.com, paste the site URL and choose *Android → Generate*. It wraps the site as a Trusted Web Activity APK you can sideload or send to friends.
 
-## Global leaderboard (optional)
+## Global leaderboard
 
-Out of the box, scores are stored on each device and friends compete with challenge links.
-To get a shared online leaderboard, create a free Supabase project and run this in the SQL editor:
+The leaderboard runs on the `goal-machine` Supabase project, and `config.js` holds its public (publishable) key. Row-level security only allows reading scores and adding new ones. The leaderboard shows each name's best score per mode through the `best_scores` view.
+To recreate it in a new project, run this in the SQL editor:
 
 ```sql
 create table public.scores (
@@ -49,9 +71,13 @@ create index scores_mode_score on public.scores (mode, score desc);
 alter table public.scores enable row level security;
 create policy "anyone can read scores" on public.scores for select using (true);
 create policy "anyone can add a score" on public.scores for insert with check (true);
+create view public.best_scores with (security_invoker = on) as
+  select distinct on (mode, lower(btrim(name))) mode, btrim(name) as name, score, created_at
+  from public.scores order by mode, lower(btrim(name)), score desc, created_at asc;
+grant select on public.best_scores to anon, authenticated;
 ```
 
-Then put the project URL and the **anon / publishable** key into `config.js`. Note that there is no anti-cheat, so this setup suits a board shared with friends.
+Then put the project URL and the publishable key into `config.js`. There is no anti-cheat, so this setup suits a board shared with friends.
 
 ## Data
 

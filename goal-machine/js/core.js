@@ -14,7 +14,7 @@ GM.fold = function (s) {
   const D = window.PL_DATA;
   GM.dataDate = D.generated;
   GM.players = D.players.map((r, i) => ({
-    id: i, name: r[0], pos: r[1], nat: r[2] >= 0 ? D.nats[r[2]] : null,
+    id: i, name: r[0], pos: r[1][0], poss: r[1].split(''), nat: r[2] >= 0 ? D.nats[r[2]] : null,
     clubs: r[3].map(c => D.clubs[c]), apps: r[4], goals: r[5], first: r[6], last: r[7], code: r[8],
   }));
   GM.clubs = D.clubs;
@@ -263,7 +263,10 @@ GM.lb = {
   get cfg() { return window.GM_CONFIG || {}; },
   get enabled() { return !!(this.cfg.supabaseUrl && this.cfg.supabaseAnonKey); },
   headers() {
-    return { apikey: this.cfg.supabaseAnonKey, Authorization: 'Bearer ' + this.cfg.supabaseAnonKey, 'Content-Type': 'application/json' };
+    const k = this.cfg.supabaseAnonKey;
+    const h = { apikey: k, 'Content-Type': 'application/json' };
+    if (k.startsWith('eyJ')) h.Authorization = 'Bearer ' + k; // legacy JWT anon keys
+    return h;
   },
   async submit(mode, score, name, meta) {
     const r = await fetch(`${this.cfg.supabaseUrl}/rest/v1/scores`, {
@@ -273,7 +276,7 @@ GM.lb = {
     if (!r.ok) throw new Error(await r.text());
   },
   async top(mode, limit = 25) {
-    const r = await fetch(`${this.cfg.supabaseUrl}/rest/v1/scores?select=name,score,created_at&mode=eq.${encodeURIComponent(mode)}&order=score.desc,created_at.asc&limit=${limit}`,
+    const r = await fetch(`${this.cfg.supabaseUrl}/rest/v1/best_scores?select=name,score,created_at&mode=eq.${encodeURIComponent(mode)}&order=score.desc,created_at.asc&limit=${limit}`,
       { headers: this.headers() });
     if (!r.ok) throw new Error(await r.text());
     return r.json();

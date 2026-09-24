@@ -78,7 +78,7 @@ footer { margin-top: 24px; }
   radial-gradient(circle at 50% 0, transparent 44px, rgba(255,255,255,.35) 45px, transparent 47px),
   linear-gradient(90deg, transparent calc(50% - 60px), rgba(255,255,255,.3) calc(50% - 60px), rgba(255,255,255,.3) calc(50% - 58px), transparent calc(50% - 58px), transparent calc(50% + 58px), rgba(255,255,255,.3) calc(50% + 58px), rgba(255,255,255,.3) calc(50% + 60px), transparent calc(50% + 60px)) bottom / 100% 44px no-repeat; }
 .pitch-row { display: flex; justify-content: space-evenly; margin: 6px 0; position: relative; }
-.slot { width: 76px; min-height: 66px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; border-radius: 12px; font-size: .72rem; text-align: center; }
+.slot { position: relative; flex: 0 1 76px; min-width: 0; width: 76px; min-height: 66px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; border-radius: 12px; font-size: .72rem; text-align: center; }
 .slot.empty { border: 2px dashed rgba(255,255,255,.35); background: rgba(0,0,0,.12); }
 .slot.filled { background: rgba(0,0,0,.28); }
 .slot.fresh { animation: pop .5s; }
@@ -212,3 +212,15 @@ footer { margin-top: 24px; }
   .slot { width: 66px; } .slot-name { max-width: 64px; }
   .reel { min-height: 200px; } .reel-name { font-size: .88rem; }
 }
+
+/* v2: formations, positions, wildcards */
+.pitch-row { gap: 4px; }
+.slot.empty.moved { border-color: var(--accent2); }
+.oop { position: absolute; top: 2px; left: 2px; font-size: .55rem; font-weight: 800; background: var(--accent2); color: #3a2a00; border-radius: 4px; padding: 0 3px; }
+.shape { position: absolute; right: 8px; bottom: 6px; font: 700 .8rem Oswald, sans-serif; color: rgba(255,255,255,.55); }
+.reel-meta .pos + .pos { margin-left: -2px; }
+.pos-choice { display: grid; gap: 8px; margin-top: 10px; }
+.pos-choice .btn { justify-content: flex-start; background: var(--panel2); color: var(--text); }
+.special-banner { text-align: center; margin-top: 12px; font: 700 1.1rem Oswald, sans-serif; color: var(--accent2); letter-spacing: 1px; }
+.warn { color: var(--accent2); font-weight: 800; }
+.wc-list li { font-size: .9rem; }

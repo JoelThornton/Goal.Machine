@@ -24,6 +24,7 @@
   /* =============================================================== HIGHER OR LOWER */
   GM.hilo = function (root) {
     const r = GM.rng(GM.newSeed());
+    const hard = GM.isHard(), key = hard ? 'hiloh' : 'hilo';
     let streak = 0, a, b, stat, busy = false;
     const pickStat = () => (r() < 0.55 ? 'goals' : 'apps');
     const draw = (exclude) => {
@@ -35,14 +36,14 @@
     const label = s => s === 'goals' ? 'PL goals' : 'PL appearances';
 
     function card(p, show, id) {
-      return `<div class="hl-card" id="${id}">${GM.avatar(p, 'lg')}<div class="reel-name">${GM.esc(p.name)}</div>
-        <div class="reel-meta">${GM.posBadges(p)} ${GM.flag(p.nat)} ${GM.era(p)}</div>
-        <div class="chips">${p.clubs.map(c => GM.clubChip(c)).join('')}</div>
+      return `<div class="hl-card" id="${id}">${GM.avatar(p, 'lg', hard)}<div class="reel-name">${GM.esc(p.name)}</div>
+        <div class="reel-meta">${GM.posBadges(p)}${hard ? '' : ` ${GM.flag(p.nat)} ${GM.era(p)}`}</div>
+        ${hard ? '' : `<div class="chips">${p.clubs.map(c => GM.clubChip(c)).join('')}</div>`}
         <div class="hl-val">${show ? `<b>${p[stat]}</b>` : '<b>?</b>'}<small>${label(stat)}</small></div></div>`;
     }
     function render() {
-      root.innerHTML = `${top('Higher or Lower', '↕️')}
-        <div class="hl-head">Streak <b>${streak}</b> · Best ${GM.best('hilo')}</div>
+      root.innerHTML = `${top('Higher or Lower' + (hard ? ' · Hard' : ''), '↕️')}
+        <div class="hl-head">Streak <b>${streak}</b> · Best ${GM.best(key)}</div>
         <div class="hl">${card(a, true, 'hla')}<div class="vs">VS</div>${card(b, false, 'hlb')}</div>
         <div class="hl-q">Does <b>${GM.esc(b.name)}</b> have more or fewer ${label(stat)} than ${GM.esc(a.name.split(' ').slice(-1)[0])}?</div>
         <div class="actions row2"><button class="btn big up" data-g="1">⬆ Higher</button><button class="btn big down" data-g="-1">⬇ Lower</button></div>
@@ -62,7 +63,7 @@
         busy = false; render();
       } else {
         GM.$$('[data-g]', root).forEach(x => x.disabled = true);
-        gameOver(GM.$('#hl-over', root), 'hilo', streak, `<div class="muted">${GM.esc(b.name)}: ${b[stat]} vs ${GM.esc(a.name)}: ${a[stat]}</div>`, () => GM.hilo(root));
+        gameOver(GM.$('#hl-over', root), key, streak, `<div class="muted">${GM.esc(b.name)}: ${b[stat]} vs ${GM.esc(a.name)}: ${a[stat]}</div>`, () => GM.hilo(root));
       }
     }
     render();
@@ -77,22 +78,26 @@
   GM.whoami = function (root) {
     const r = GM.rng(GM.newSeed());
     const ROUNDS = 10, PTS = [500, 400, 300, 200, 100];
+    const hard = GM.isHard(), key = hard ? 'whoamih' : 'whoami';
     let round = 0, score = 0, target, clue, results = [], wrong = [];
     const pool = P.filter(p => p.apps >= 100 || p.goals >= 25);
     const next = () => { target = r.weighted(pool, p => Math.pow(p.fame, 1.15)); clue = 0; wrong = []; };
     next();
-    const clues = () => [
-      `<div class="clue"><b>Clubs</b><div class="path">${target.clubs.map(c => GM.clubChip(c, true)).join('<span class="arrow">→</span>')}</div><small>PL career ${GM.era(target)}</small></div>`,
-      `<div class="clue"><b>Position</b> ${target.poss.map(x => GM.POS_NAME[x]).join(' / ')}</div>`,
-      `<div class="clue"><b>Nationality</b> ${GM.flag(target.nat)} ${GM.esc(target.nat || 'Unknown')}</div>`,
-      `<div class="clue"><b>PL record</b> ${target.apps} apps · ${target.goals} goals</div>`,
-      `<div class="clue"><b>Initials</b> ${GM.initials(target.name).split('').join('. ')}.</div>`,
-    ];
+    const clues = () => {
+      const clubs = `<div class="clue"><b>Clubs</b><div class="path">${target.clubs.map(c => GM.clubChip(c, true)).join('<span class="arrow">→</span>')}</div>${hard ? '' : `<small>PL career ${GM.era(target)}</small>`}</div>`;
+      const pos = `<div class="clue"><b>Position</b> ${target.poss.map(x => GM.POS_NAME[x]).join(' / ')}</div>`;
+      const nat = `<div class="clue"><b>Nationality</b> ${GM.flag(target.nat)} ${GM.esc(target.nat || 'Unknown')}</div>`;
+      const rec = `<div class="clue"><b>PL record</b> ${target.apps} apps · ${target.goals} goals</div>`;
+      const era = `<div class="clue"><b>PL career</b> ${GM.era(target)}</div>`;
+      const ini = `<div class="clue"><b>Initials</b> ${GM.initials(target.name).split('').join('. ')}.</div>`;
+      // hard: start vague, clubs only as the last clue and no initials
+      return hard ? [pos, nat, era, rec, clubs] : [clubs, pos, nat, rec, ini];
+    };
     const isMatch = p => p.id === target.id ||
       (p.clubs.join() === target.clubs.join() && p.first === target.first && p.last === target.last && p.poss.join() === target.poss.join());
 
     function render() {
-      root.innerHTML = `${top('Who Am I?', '🕵️')}
+      root.innerHTML = `${top('Who Am I?' + (hard ? ' · Hard' : ''), '🕵️')}
         <div class="hl-head">Round <b>${round + 1}</b>/${ROUNDS} · Score <b>${score}</b> · worth ${PTS[clue] || 0}</div>
         <div class="clues">${clues().slice(0, clue + 1).join('')}</div>
         ${wrong.length ? `<div class="wrong">${wrong.map(p => `<span>✗ ${GM.esc(p.name)}</span>`).join('')}</div>` : ''}
@@ -121,7 +126,7 @@
           round++;
           if (round >= ROUNDS) {
             root.innerHTML = top('Who Am I?', '🕵️') + `<div class="center big-emoji">${results.join('')}</div>`;
-            gameOver(root, 'whoami', score, '', () => GM.whoami(root), `⚽ Goal Machine – Who Am I?\n${results.join('')}\n${score} pts`);
+            gameOver(root, key, score, '', () => GM.whoami(root), `⚽ Goal Machine – Who Am I?${hard ? ' (Hard)' : ''}\n${results.join('')}\n${score} pts`);
           } else { next(); render(); }
         },
       });
@@ -229,17 +234,18 @@
   /* =============================================================== GUESS THE TALLY */
   GM.tally = function (root) {
     const r = GM.rng(GM.newSeed());
+    const hard = GM.isHard(), key = hard ? 'tallyh' : 'tally';
     const ROUNDS = 10;
     let round = 0, score = 0, p;
     const pool = P.filter(x => x.pos !== 'G');
     const next = () => { p = r.weighted(pool, x => x.fame); };
     next();
     function render() {
-      root.innerHTML = `${top('Guess the Tally', '🎯')}
+      root.innerHTML = `${top('Guess the Tally' + (hard ? ' · Hard' : ''), '🎯')}
         <div class="hl-head">Round <b>${round + 1}</b>/${ROUNDS} · Score <b>${score}</b></div>
-        <div class="hl-card solo">${GM.avatar(p, 'lg')}<div class="reel-name">${GM.esc(p.name)}</div>
-          <div class="reel-meta">${GM.posBadges(p)} ${GM.flag(p.nat)} ${GM.era(p)} · ${p.apps} apps</div>
-          <div class="chips">${p.clubs.map(c => GM.clubChip(c)).join('')}</div></div>
+        <div class="hl-card solo">${GM.avatar(p, 'lg', hard)}<div class="reel-name">${GM.esc(p.name)}</div>
+          <div class="reel-meta">${GM.posBadges(p)}${hard ? '' : ` ${GM.flag(p.nat)} ${GM.era(p)} · ${p.apps} apps`}</div>
+          ${hard ? '' : `<div class="chips">${p.clubs.map(c => GM.clubChip(c)).join('')}</div>`}</div>
         <form class="tally-form"><label>How many Premier League goals?</label>
           <input class="input big-input" type="number" inputmode="numeric" min="0" max="400" required id="tg">
           <button class="btn big">Lock it in</button></form><div id="tover"></div>`;
@@ -254,7 +260,7 @@
           <p><b>+${pts}</b> ${d === 0 ? '🎯 Spot on!' : ''}</p><button class="btn" data-close>${round + 1 < ROUNDS ? 'Next' : 'See score'}</button></div>`, {
           onClose: () => {
             round++;
-            if (round >= ROUNDS) { root.innerHTML = top('Guess the Tally', '🎯'); gameOver(root, 'tally', score, '', () => GM.tally(root)); }
+            if (round >= ROUNDS) { root.innerHTML = top('Guess the Tally', '🎯'); gameOver(root, key, score, '', () => GM.tally(root)); }
             else { next(); render(); }
           },
         });

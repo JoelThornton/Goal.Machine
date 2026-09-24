@@ -58,7 +58,7 @@
       xi: FORMATION.map(pos => ({ pos, p: null, g: 0, mod: null, as: null })),
       reels: [], selected: -1, revealed: false, revealNext: false, special: null,
       inv: [], modifier: null, subbing: false, used: [], last: null,
-      phase: 'spin', vs: opts.vs, vss: opts.vss, log: [], pending: null,
+      phase: 'spin', vs: opts.vs, vss: opts.vss, log: [], pending: null, wildUsed: 0, coinWin: false,
       hard: mode !== 'daily' && !!opts.hard,
     };
     render();
@@ -189,6 +189,7 @@
     if (S.modifier === 'coin') {
       const heads = GM.rng(`${S.seed}|coin|${S.spin}|${S.respins}`)() < 0.5;
       g = heads ? g * 2 : 0;
+      if (heads) S.coinWin = true;
       GM.toast(heads ? `🎲 Heads! ${S.st.name} doubled` : `🎲 Tails… his ${S.st.label} count for nothing`, 2600);
     }
     slot.p = p.id; slot.g = g; slot.mod = S.modifier === 'coin' ? (g ? 'captain' : 'zero') : S.modifier;
@@ -224,7 +225,7 @@
     const w = S.inv[k];
     const wc = WILDCARDS[w];
     if (S.phase === 'spinning' || S.phase === 'reveal' || S.phase === 'done') return;
-    const consume = () => { S.inv.splice(k, 1); S.log.push(wc.icon); };
+    const consume = () => { S.inv.splice(k, 1); S.log.push(wc.icon); S.wildUsed++; };
     switch (wc.kind) {
       case 'reveal':
         if (S.phase === 'pick') S.revealed = true; else S.revealNext = true;
@@ -265,6 +266,7 @@
     s.p = null; s.g = 0; s.mod = null; s.as = null;
     S.inv.splice(S.subbing, 1);
     S.log.push('🔄');
+    S.wildUsed++;
     S.subbing = false;
     render();
   }
@@ -285,6 +287,16 @@
     S.phase = 'done';
     const sc = scoreFor(S);
     S.final = sc;
+    const xiSlots = S.xi.filter(s => s.p != null).map(s => ({ ...s, player: byId(s.p) }));
+    if (GM.collectDraft && !S.readonly) {
+      const rating = GM.teamRating(xiSlots);
+      S.collected = GM.collectDraft({
+        mode: S.mode, stat: S.stat, total: sc.t, hard: S.hard, xi: xiSlots.map(s => s.player),
+        rating: rating.score, pairs: rating.pairs.length, wildUsed: S.wildUsed, coinWin: S.coinWin,
+        bull: sc.diff === 0, closeness: S.target ? Math.round(sc.diff * 442 / S.target) : null,
+      });
+      S.collected = { n: S.collected.newPlayers.length, total: S.collected.total, badges: S.collected.fresh.map(x => x.icon + ' ' + x.name) };
+    }
     if (S.mode === 'daily') GM.store.set('daily2:' + GM.today(), { ...S, rules: undefined });
     render();
     if (!S.readonly) {
@@ -430,6 +442,7 @@
         ${S.vs ? `<div class="banner">${sc.total > S.vss ? '🎉 You beat' : sc.total == S.vss ? '🤝 You drew with' : '😬 You lost to'} <b>${GM.esc(S.vs)}</b> (${GM.esc(S.vss)})</div>` : ''}
         <div class="muted">Personal best: ${fmt(Math.max(best, sc.total))}</div>
       </div>
+      ${S.collected ? `<a class="collected" href="#/album">📒 ${S.collected.n ? `<b>+${S.collected.n}</b> new player${S.collected.n === 1 ? '' : 's'} for your album` : 'No new players this time'} · ${S.collected.total.toLocaleString()} collected${S.collected.badges.length ? `<br>🏅 ${S.collected.badges.join(' · ')}` : ''} ›</a>` : ''}
       ${GM.report ? GM.report(xi, S.st) : ''}
       ${pitchHtml()}
       <div class="actions col">

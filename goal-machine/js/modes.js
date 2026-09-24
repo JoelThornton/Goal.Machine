@@ -5,7 +5,8 @@
   const P = GM.players;
   const top = (label, icon) => `<div class="topbar"><a href="#/" class="back">‹</a><h2>${icon} ${label}</h2><span></span></div>`;
 
-  async function gameOver(root, mode, score, lines, again, shareText) {
+  async function gameOver(root, mode, score, lines, again, shareText, extra) {
+    if (GM.checkGame) GM.checkGame(mode, score, extra);
     const { isBest } = await GM.recordScore(mode, score);
     const box = document.createElement('div');
     box.className = 'result';
@@ -226,7 +227,7 @@
       const grid = [0, 1, 2].map(i => [0, 1, 2].map(j => filled[i * 3 + j] ? '🟩' : '⬛').join('')).join('\n');
       const txt = `⚽ Goal Machine – ${daily ? 'Daily Club Grid ' + GM.today() : 'Club Grid'}\n${grid}\n${score()} pts`;
       if (daily && score() > GM.best('grid')) GM.store.set('best:grid', score());
-      gameOver(GM.$('#gover', root), daily ? 'grid:' + GM.today() : 'grid', score(), '', () => GM.grid(root, false), txt);
+      gameOver(GM.$('#gover', root), daily ? 'grid:' + GM.today() : 'grid', score(), '', () => GM.grid(root, false), txt, { full: filled.every(Boolean) });
     }
     render();
   };

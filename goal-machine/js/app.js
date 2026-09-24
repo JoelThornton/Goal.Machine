@@ -30,6 +30,7 @@
       case 'tally': return GM.tally(app);
       case 'leaderboard': return leaderboard(q.m);
       case 'players': return playerIndex();
+      case 'album': return GM.album(app, GM.STATS[q.s] ? q.s : 'goals');
       case 'about': return about();
       default: return home();
     }
@@ -80,6 +81,7 @@
         ${card('#/tally', '🔢', 'Guess the Tally', 'How many PL goals did he score?', pb('tally'))}
       </section>
       <section class="cards">
+        ${(() => { const s = GM.albumSummary(); return card('#/album', '📒', 'Album & badges', `${s.players.toLocaleString()}/${GM.players.length.toLocaleString()} players collected · ${s.badges}/${s.totalBadges} badges`, null, 'album-card'); })()}
         ${card('#/leaderboard', '🏆', 'Leaderboards', GM.lb.enabled ? 'Global + your bests' : 'Your best scores', null)}
         ${card('#/players', '📖', 'Player index', 'Search every player in the game', null)}
         ${card('#/about', 'ℹ️', 'About the data', `Updated ${GM.dataDate}`, null)}

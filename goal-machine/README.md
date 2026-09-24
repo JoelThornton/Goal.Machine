@@ -56,6 +56,15 @@ Every player has real positions: **GK, LB, CB, RB, LM, CM, RM, ST**. The XI's sl
 
 You always choose the slot yourself from the highlighted options. Gegenpress turns empty LM/RM slots into strikers, and Park the Bus drops two empty attacking slots to centre-back. Corrections are welcome in `positions_manual.py`.
 
+## 📒 Album & badges
+
+- **Collection:** every player you sign in a draft is added to your album (x / 2,039).
+- **Dream XI:** built automatically from your best collected player in each position, by goals, assists or apps.
+- **Sets:** Hall of Fame, Golden Boot winners, World Cup winners, Champions League winners, the 100 Club, one-club men, and one for each club.
+- **Badges:** 32 to unlock across every game, e.g. 300/400/500 Club, Bullseye, Invincibles, Band of Brothers, Globetrotter, Pantheon (collect every Hall of Famer).
+
+The album is saved on your device.
+
 ## Install it like an app (Android / iPhone)
 
 It is a PWA, so it works offline and can be installed:

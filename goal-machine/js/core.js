@@ -4,6 +4,7 @@
 const GM = window.GM = {};
 
 /* ------------------------------------------------------------------ data */
+GM.GROUP = { GK: 'G', LB: 'D', CB: 'D', RB: 'D', LM: 'M', CM: 'M', RM: 'M', ST: 'F' };
 GM.fold = function (s) {
   return s.normalize('NFKD').replace(/[̀-ͯ]/g, '').toLowerCase()
     .replace(/ø/g, 'o').replace(/æ/g, 'ae').replace(/ß/g, 'ss').replace(/ı/g, 'i').replace(/ł/g, 'l').replace(/đ/g, 'd')
@@ -14,17 +15,21 @@ GM.fold = function (s) {
   const D = window.PL_DATA;
   GM.dataDate = D.generated;
   GM.players = D.players.map((r, i) => ({
-    id: i, name: r[0], pos: r[1][0], poss: r[1].split(''), nat: r[2] >= 0 ? D.nats[r[2]] : null,
+    id: i, name: r[0], poss: r[1].split('/'), nat: r[2] >= 0 ? D.nats[r[2]] : null,
     clubs: r[3].map(c => D.clubs[c]), apps: r[4], goals: r[5], first: r[6], last: r[7], code: r[8],
   }));
   GM.clubs = D.clubs;
   GM.nats = D.nats;
   // "fame" weight – used so the reels lean towards players people have heard of
-  GM.players.forEach(p => { p.fame = p.apps * (1 + p.goals / 30); p.key = GM.fold(p.name); });
+  GM.players.forEach(p => { p.pos = GM.GROUP[p.poss[0]]; p.fame = p.apps * (1 + p.goals / 30); p.key = GM.fold(p.name); });
 })();
 
-GM.POS_NAME = { G: 'Goalkeeper', D: 'Defender', M: 'Midfielder', F: 'Forward' };
-GM.POS_SHORT = { G: 'GK', D: 'DEF', M: 'MID', F: 'FWD' };
+GM.POS_NAME = {
+  GK: 'Goalkeeper', LB: 'Left-back', CB: 'Centre-back', RB: 'Right-back', LM: 'Left midfield', CM: 'Centre midfield',
+  RM: 'Right midfield', ST: 'Striker', G: 'Goalkeeper', D: 'Defender', M: 'Midfielder', F: 'Forward',
+};
+GM.POS_SHORT = { GK: 'GK', LB: 'LB', CB: 'CB', RB: 'RB', LM: 'LM', CM: 'CM', RM: 'RM', ST: 'ST', G: 'GK', D: 'DEF', M: 'MID', F: 'FWD' };
+GM.posBadges = p => p.poss.map(x => `<span class="pos pos-${GM.GROUP[x]}" title="${GM.POS_NAME[x]}">${x}</span>`).join('');
 
 GM.season = y => `${y}/${String((y + 1) % 100).padStart(2, '0')}`;
 GM.currentSeason = Math.max(...window.PL_DATA.players.map(r => r[7]));
@@ -212,7 +217,7 @@ GM.autocomplete = function (input, box, onPick, { exclude } = {}) {
   let items = [], active = 0;
   const render = () => {
     box.innerHTML = items.map((p, i) => `<button type="button" class="ac-item ${i === active ? 'active' : ''}" data-i="${i}">
-      <span>${GM.flag(p.nat)} ${GM.esc(p.name)}</span><small>${GM.POS_SHORT[p.pos]} · ${GM.era(p)}</small></button>`).join('');
+      <span>${GM.flag(p.nat)} ${GM.esc(p.name)}</span><small>${p.poss.join('/')} · ${GM.era(p)}</small></button>`).join('');
     box.hidden = !items.length;
   };
   input.addEventListener('input', () => {

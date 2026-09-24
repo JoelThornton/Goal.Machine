@@ -216,7 +216,8 @@ footer { margin-top: 24px; }
 /* v2: formations, positions, wildcards */
 .pitch-row { gap: 4px; }
 .slot.empty.moved { border-color: var(--accent2); }
-.oop { position: absolute; top: 2px; left: 2px; font-size: .55rem; font-weight: 800; background: var(--accent2); color: #3a2a00; border-radius: 4px; padding: 0 3px; }
+.slot-pos { position: absolute; top: 2px; left: 3px; font-size: .55rem; font-weight: 800; color: rgba(255,255,255,.7); }
+.slot-pos.oop { background: var(--accent2); color: #3a2a00; border-radius: 4px; padding: 0 3px; }
 .shape { position: absolute; right: 8px; bottom: 6px; font: 700 .8rem Oswald, sans-serif; color: rgba(255,255,255,.55); }
 .reel-meta .pos + .pos { margin-left: -2px; }
 .pos-choice { display: grid; gap: 8px; margin-top: 10px; }
@@ -224,3 +225,5 @@ footer { margin-top: 24px; }
 .special-banner { text-align: center; margin-top: 12px; font: 700 1.1rem Oswald, sans-serif; color: var(--accent2); letter-spacing: 1px; }
 .warn { color: var(--accent2); font-weight: 800; }
 .wc-list li { font-size: .9rem; }
+.pitch-row.crowded .slot-name { font-size: .6rem; }
+.pitch-row.crowded .avatar { width: 28px; height: 28px; }

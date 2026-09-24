@@ -445,24 +445,91 @@ EXTRA_POS = {
     'Dimitar Berbatov': 'M', 'Juan Mata': 'F', 'Eden Hazard': 'F', 'Robert Pirès': 'F', 'Freddie Ljungberg': 'F',
     'Marc Overmars': 'F', 'David Ginola': 'F', 'Steve McManaman': 'F', 'Jesse Lingard': 'F', 'Andros Townsend': 'F',
 }
+def broad_extras(p):
+    """Extra broad roles (D/M/F) from FPL listings, the curated list and a goalscoring-midfielder rule."""
+    prim = L[p['pos']]
+    ext = []
+    if prim == 'G':
+        return ext
+    if p['code']:
+        ext += [L[k] for k in fpl_pos[p['code']] if L[k] not in (prim, 'G')]
+    if prim == 'M' and p['goals'] / max(1, p['apps']) >= 0.2 and p['goals'] >= 15:
+        ext.append('F')
+    ext += [x for x in EXTRA_POS.get(p['name'], '') if x != prim]
+    return list(dict.fromkeys(ext))
+
+# detailed positions: Transfermarkt profile -> GK LB CB RB LM CM RM ST
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from positions_manual import POSITIONS as MANUAL_POS
+TM2 = pd.read_csv(f'{S}/football-datasets/datalake/transfermarkt/player_profiles/player_profiles.csv', low_memory=False,
+                  usecols=['player_name', 'date_of_birth', 'citizenship', 'position', 'main_position'])
+TM2['n'] = TM2.player_name.str.replace(r'\s*\(\d+\)$', '', regex=True).map(norm)
+tm2 = collections.defaultdict(list)
+for r in TM2.itertuples():
+    tm2[r.n].append(r)
+TM_DETAIL = {'Goalkeeper': 'GK', 'Centre-Back': 'CB', 'Sweeper': 'CB', 'Left-Back': 'LB', 'Right-Back': 'RB',
+             'Defensive Midfield': 'CM', 'Central Midfield': 'CM', 'Attacking Midfield': 'CM', 'Left Midfield': 'LM',
+             'Right Midfield': 'RM', 'Left Winger': 'LM', 'Right Winger': 'RM', 'Centre-Forward': 'ST',
+             'Second Striker': 'ST', 'Defender': 'CB', 'Midfield': 'CM', 'Attack': 'ST'}
+GROUP = {'GK': 'G', 'LB': 'D', 'CB': 'D', 'RB': 'D', 'LM': 'M', 'CM': 'M', 'RM': 'M', 'ST': 'F'}
+DEFAULT = {'G': 'GK', 'D': 'CB', 'M': 'CM', 'F': 'ST'}
+TM_BROAD = {'Goalkeeper': 'G', 'Defender': 'D', 'Midfield': 'M', 'Attack': 'F'}
+
+def tm_match(p):
+    names = {p['name']} | (fpl_names[p['code']] if p['code'] else set())
+    c = list({id(x): x for n in names for x in tm2.get(norm(n), [])}.values())
+    if p['nat']:
+        c2 = [x for x in c if isinstance(x.citizenship, str) and p['nat'].lower().split()[0] in x.citizenship.lower()]
+        c = c2 or c
+    b = fpl_birth.get(p['code'])
+    if b:
+        c2 = [x for x in c if str(x.date_of_birth)[:10] == b]
+        c = c2 or c
+    def age_ok(x):
+        try:
+            return 15 <= p['first'] - int(str(x.date_of_birth)[:4]) <= 40
+        except ValueError:
+            return True
+    c = [x for x in c if age_ok(x)]
+    if len(c) > 1:
+        prim = L[p['pos']]
+        c = [x for x in c if TM_BROAD.get(x.main_position) == prim or (prim == 'M' and x.main_position == 'Attack')] or c
+    return c[0] if len(c) == 1 else None
+
+src_count = collections.Counter()
 for p in players:
     prim = L[p['pos']]
-    ps = [prim]
-    def add(x):
-        if x and x not in ps and x != 'G' and prim != 'G':
-            ps.append(x)
-    if p['code']:
-        for pos_name, n in fpl_pos[p['code']].items():
-            if n >= 1:
-                add(L[pos_name])
-    ratio = p['goals'] / max(1, p['apps'])
-    if prim == 'M' and ratio >= 0.2 and p['goals'] >= 15:
-        add('F')
-    if prim == 'F' and ratio < 0.2:
-        add('M')
-    for x in EXTRA_POS.get(p['name'], ''):
-        add(x)
-    p['poss'] = ''.join(ps[:3])
+    if prim == 'G':
+        p['poss'] = 'GK'
+        continue
+    if p['name'] in MANUAL_POS:
+        p['poss'] = '/'.join(MANUAL_POS[p['name']][:4])
+        src_count['manual'] += 1
+        continue
+    ps = []
+    m = tm_match(p) if prim != 'G' else None
+    if m is not None and isinstance(m.position, str):
+        d = TM_DETAIL.get(m.position.split(' - ')[-1].strip(), DEFAULT[prim])
+        # trust the PL's own category for the primary role if Transfermarkt disagrees (late-career moves)
+        ps = [d] if GROUP[d] == prim else [DEFAULT[prim], d]
+        src_count['transfermarkt'] += 1
+    else:
+        ps = [DEFAULT[prim]]
+        src_count['default'] += 1
+        p['pos_default'] = True
+    for x in broad_extras(p):
+        if any(GROUP[q] == x for q in ps):
+            continue
+        if x == 'D':
+            ps.append({'LM': 'LB', 'RM': 'RB'}.get(ps[0], 'CB'))
+        elif x == 'M':
+            ps.append({'LB': 'LM', 'RB': 'RM'}.get(ps[0], 'CM'))
+        elif x == 'F':
+            ps.append('ST')
+    p['poss'] = '/'.join(list(dict.fromkeys(ps))[:4])
+for p in players:
+    p['pos'] = {'G': 'Goalkeeper', 'D': 'Defender', 'M': 'Midfielder', 'F': 'Forward'}[GROUP[p['poss'].split('/')[0]]]
+print('detailed positions from', dict(src_count), file=sys.stderr)
 
 # ---------------------------------------------------------------- output
 out = [p for p in players if p['apps'] >= MIN_APPS]

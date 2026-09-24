@@ -36,7 +36,7 @@
 
     function card(p, show, id) {
       return `<div class="hl-card" id="${id}">${GM.avatar(p, 'lg')}<div class="reel-name">${GM.esc(p.name)}</div>
-        <div class="reel-meta"><span class="pos pos-${p.pos}">${GM.POS_SHORT[p.pos]}</span> ${GM.flag(p.nat)} ${GM.era(p)}</div>
+        <div class="reel-meta">${GM.posBadges(p)} ${GM.flag(p.nat)} ${GM.era(p)}</div>
         <div class="chips">${p.clubs.map(c => GM.clubChip(c)).join('')}</div>
         <div class="hl-val">${show ? `<b>${p[stat]}</b>` : '<b>?</b>'}<small>${label(stat)}</small></div></div>`;
     }
@@ -89,7 +89,7 @@
       `<div class="clue"><b>Initials</b> ${GM.initials(target.name).split('').join('. ')}.</div>`,
     ];
     const isMatch = p => p.id === target.id ||
-      (p.clubs.join() === target.clubs.join() && p.first === target.first && p.last === target.last && p.pos === target.pos);
+      (p.clubs.join() === target.clubs.join() && p.first === target.first && p.last === target.last && p.poss.join() === target.poss.join());
 
     function render() {
       root.innerHTML = `${top('Who Am I?', '🕵️')}
@@ -238,7 +238,7 @@
       root.innerHTML = `${top('Guess the Tally', '🎯')}
         <div class="hl-head">Round <b>${round + 1}</b>/${ROUNDS} · Score <b>${score}</b></div>
         <div class="hl-card solo">${GM.avatar(p, 'lg')}<div class="reel-name">${GM.esc(p.name)}</div>
-          <div class="reel-meta"><span class="pos pos-${p.pos}">${GM.POS_SHORT[p.pos]}</span> ${GM.flag(p.nat)} ${GM.era(p)} · ${p.apps} apps</div>
+          <div class="reel-meta">${GM.posBadges(p)} ${GM.flag(p.nat)} ${GM.era(p)} · ${p.apps} apps</div>
           <div class="chips">${p.clubs.map(c => GM.clubChip(c)).join('')}</div></div>
         <form class="tally-form"><label>How many Premier League goals?</label>
           <input class="input big-input" type="number" inputmode="numeric" min="0" max="400" required id="tg">

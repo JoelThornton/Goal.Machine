@@ -2,8 +2,8 @@
 'use strict';
 
 (function () {
-  // slot order: GK, LB, CB, CB, RB, LM, CM, CM, RM, ST, ST
-  const FORMATION = ['G', 'D', 'D', 'D', 'D', 'M', 'M', 'M', 'M', 'F', 'F'];
+  const FORMATION = ['GK', 'LB', 'CB', 'CB', 'RB', 'LM', 'CM', 'CM', 'RM', 'ST', 'ST'];
+  const SIDE = { LB: 0, LM: 0, RB: 2, RM: 2 }; // for left-to-right ordering on the pitch
   const WIDE_MIDS = [5, 8];
   const SPIN_BUDGET = 16; // wildcard modes: 11 signings + 5 spare spins to spend on grabbing wildcards
   const UNUSED_BONUS = 50;
@@ -14,8 +14,8 @@
     respin: { icon: '🎰', name: 'Roll Again', w: 3, kind: 'respin', desc: 'Throw these back and spin again – free.' },
     sub: { icon: '🔄', name: 'Make a Sub', w: 2, kind: 'sub', desc: 'Release a player from your XI. His goals come off.' },
     centurion: { icon: '💯', name: 'Centurion Throw', w: 1.5, kind: 'special', desc: 'A free spin of three players with 100+ PL goals.', filter: p => p.goals >= 100 },
-    gegenpress: { icon: '⚡', name: 'Gegenpress', w: 1.5, kind: 'formation', desc: 'Your wide midfield slots push up and become strikers.' },
-    bus: { icon: '🚌', name: 'Park the Bus', w: 1.5, kind: 'formation', desc: 'Two empty attacking slots drop back into defence.' },
+    gegenpress: { icon: '⚡', name: 'Gegenpress', w: 1.5, kind: 'formation', desc: 'Your empty LM and RM slots push up and become strikers.' },
+    bus: { icon: '🚌', name: 'Park the Bus', w: 1.5, kind: 'formation', desc: 'Two empty attacking slots drop back to centre-back.' },
     captain: { icon: '©️', name: "Captain's Armband", w: 1.5, kind: 'modifier', desc: 'Your next signing’s goals count double.' },
     rotation: { icon: '🩹', name: 'Rotation Risk', w: 1.5, kind: 'modifier', desc: 'Your next signing’s goals count half (rounded down).' },
     coin: { icon: '🎲', name: 'Double or Nothing', w: 1, kind: 'modifier', desc: 'Coin toss on your next signing: his goals count ×2… or ×0.' },
@@ -146,7 +146,7 @@
     return new Promise(res => {
       const m = GM.modal(`<h3>Where does ${GM.esc(p.name)} play?</h3>
         <p class="muted">He can fill more than one of your open positions.</p>
-        <div class="pos-choice">${options.map(o => `<button class="btn" data-pos="${o}"><span class="pos pos-${o}">${GM.POS_SHORT[o]}</span> ${GM.POS_NAME[o]}</button>`).join('')}</div>
+        <div class="pos-choice">${options.map(o => `<button class="btn" data-pos="${o}"><span class="pos pos-${GM.GROUP[o]}">${o}</span> ${GM.POS_NAME[o]}</button>`).join('')}</div>
         <div class="row"><button class="btn ghost" data-close>Cancel</button></div>`, { onClose: () => res(null) });
       GM.$$('[data-pos]', m.el).forEach(b => b.onclick = () => { m.el.parentNode.remove(); res(b.dataset.pos); });
     });
@@ -178,7 +178,7 @@
         GM.toast(heads ? '🎲 Heads! Goals doubled' : '🎲 Tails… his goals count for nothing', 2600);
       }
       slot.p = p.id; slot.g = g; slot.mod = S.modifier === 'coin' ? (g ? 'captain' : 'zero') : S.modifier;
-      slot.as = pos !== p.pos ? pos : null;
+      slot.as = pos !== p.poss[0] ? pos : null;
       slot.fresh = true;
       S.modifier = null;
       S.last = p.id;
@@ -229,10 +229,10 @@
         break;
       case 'formation': {
         const idx = w === 'gegenpress'
-          ? [...WIDE_MIDS, 6, 7].filter(i => S.xi[i].pos === 'M' && S.xi[i].p == null).slice(0, 2)
-          : [9, 10, 5, 8, 6, 7].filter(i => S.xi[i].pos !== 'D' && S.xi[i].p == null).slice(0, 2);
-        if (!idx.length) { GM.toast(w === 'gegenpress' ? 'No free midfield slots to push up' : 'No free attacking slots to drop back'); return; }
-        idx.forEach(i => { S.xi[i].pos = w === 'gegenpress' ? 'F' : 'D'; });
+          ? WIDE_MIDS.filter(i => ['LM', 'RM'].includes(S.xi[i].pos) && S.xi[i].p == null)
+          : [9, 10, 6, 7, 5, 8].filter(i => ['ST', 'CM', 'LM', 'RM'].includes(S.xi[i].pos) && S.xi[i].p == null).slice(0, 2);
+        if (!idx.length) { GM.toast(w === 'gegenpress' ? 'Your LM and RM slots are already filled' : 'No free attacking slots to drop back'); return; }
+        idx.forEach(i => { S.xi[i].pos = w === 'gegenpress' ? 'ST' : 'CB'; });
         GM.toast(w === 'gegenpress' ? `⚡ Gegenpress! ${idx.length} midfield slot${idx.length > 1 ? 's' : ''} → strikers` : `🚌 Bus parked: ${idx.length} slot${idx.length > 1 ? 's' : ''} → defence`);
         if (S.phase === 'pick' && !S.reels.some(x => x.wild || fits(byId(x.id), openPos()))) { S.respins++; consume(); doSpin(); return; }
         break;
@@ -283,7 +283,7 @@
   }
 
   /* ---------------------------------------------------------------- rendering */
-  const posBadges = p => p.poss.map(x => `<span class="pos pos-${x}">${GM.POS_SHORT[x]}</span>`).join('');
+  const posBadges = GM.posBadges;
 
   function reelInner(x) {
     if (!x) return '';
@@ -304,21 +304,23 @@
   const MOD_TAG = { captain: '<i title="Captain – doubled">©</i>', rotation: '<i title="Rotation Risk – halved">🩹</i>', zero: '<i title="Double or Nothing – lost">🎲</i>' };
   function slotHtml(s, i) {
     if (s.p == null) {
-      return `<div class="slot empty ${s.pos !== FORMATION[i] ? 'moved' : ''}" data-slot="${i}"><span class="pos pos-${s.pos}">${GM.POS_SHORT[s.pos]}</span></div>`;
+      return `<div class="slot empty ${s.pos !== FORMATION[i] ? 'moved' : ''}" data-slot="${i}" title="${GM.POS_NAME[s.pos]}"><span class="pos pos-${GM.GROUP[s.pos]}">${s.pos}</span></div>`;
     }
     const p = byId(s.p);
     const surname = p.name.includes(' ') ? p.name.split(' ').slice(1).join(' ') : p.name;
     return `<div class="slot filled ${s.fresh ? 'fresh' : ''}" data-slot="${i}" title="${GM.esc(p.name)}">
       ${GM.avatar(p)}<span class="slot-name">${GM.esc(surname)}</span>
-      <span class="slot-goals">${s.g}${MOD_TAG[s.mod] || ''}</span>${s.as ? `<span class="oop" title="Playing out of position">${GM.POS_SHORT[s.as]}</span>` : ''}</div>`;
+      <span class="slot-goals">${s.g}${MOD_TAG[s.mod] || ''}</span><span class="slot-pos ${s.as ? 'oop' : ''}" title="${s.as ? 'Playing out of his usual position' : GM.POS_NAME[s.pos]}">${s.pos}</span></div>`;
   }
 
   function pitchHtml() {
-    const rows = ['F', 'M', 'D', 'G'].map(pos => S.xi.map((s, i) => [s, i]).filter(([s]) => s.pos === pos)).filter(r => r.length);
+    const lat = i => SIDE[FORMATION[i]] ?? 1;
+    const rows = ['F', 'M', 'D', 'G'].map(g => S.xi.map((s, i) => [s, i]).filter(([s]) => GM.GROUP[s.pos] === g)
+      .sort((a, b) => lat(a[1]) - lat(b[1]) || a[1] - b[1])).filter(r => r.length);
     const shape = rows.slice(0, -1).reverse().map(r => r.length).join('-');
     return `<div class="pitch ${S.subbing !== false ? 'subbing' : ''}">
       <div class="pitch-lines"></div><div class="shape">${shape}</div>
-      ${rows.map(r => `<div class="pitch-row">${r.map(([s, i]) => slotHtml(s, i)).join('')}</div>`).join('')}
+      ${rows.map(r => `<div class="pitch-row ${r.length > 4 ? 'crowded' : ''}">${r.map(([s, i]) => slotHtml(s, i)).join('')}</div>`).join('')}
     </div>`;
   }
 
@@ -375,7 +377,7 @@
     GM.modal(`<h3>How to play</h3>
       <p>Build an XI whose players have scored <b>${S.target}</b> Premier League goals between them.</p>
       <p>Each spin shows three players who fit an open position. Their goal tallies are hidden – sign the one you think gets you closest.</p>
-      <p>Players who could play more than one role (Dublin, Bale, Milner…) show every position they can fill – you choose where he goes.</p>
+      <p>Every player has real positions – <b>GK, LB, CB, RB, LM, CM, RM, ST</b> – and can only go in a slot he actually played. Utility men (Dublin up front or at centre-back, Bale at LB/LM/RM/ST, Milner…) show every position they can fill, and you choose where he goes.</p>
       ${r.wild ? `<p><b>Wildcards</b> appear on the reels from the 2nd spin. You get <b>${SPIN_BUDGET} spins</b> for 11 signings, so grabbing a wildcard costs one of your spare spins. Hold up to 3; each unused one is +${UNUSED_BONUS} at full time.</p>
       <ul class="wc-list">${Object.values(WILDCARDS).map(w => `<li>${w.icon} <b>${w.name}</b> – ${w.desc}</li>`).join('')}</ul>` : ''}
       ${r.bust ? '<p>💀 <b>Hardcore:</b> go over and you bust with zero. Survive and your score is multiplied ×1.5.</p>' : ''}
@@ -403,7 +405,7 @@
       <div class="xi-list">${S.xi.filter(s => s.p != null).map(s => {
         const p = byId(s.p);
         const tag = { captain: ` (${p.goals}×2)`, rotation: ` (${p.goals}÷2)`, zero: ` (${p.goals}×0)` }[s.mod] || '';
-        return `<div class="xi-row">${GM.avatar(p)}<span>${GM.esc(p.name)}${s.as ? ` <small>as ${GM.POS_SHORT[s.as]}</small>` : ''}</span><small>${p.apps} apps</small><b>${s.g}${tag}</b></div>`;
+        return `<div class="xi-row">${GM.avatar(p)}<span>${GM.esc(p.name)} <small>${s.pos}${s.as ? ' (out of position)' : ''}</small></span><small>${p.apps} apps</small><b>${s.g}${tag}</b></div>`;
       }).join('')}</div>
       <div class="actions col">
         ${S.mode !== 'daily' ? `<button class="btn big" id="again">🔁 Play again</button>` : `<div class="muted">New Daily 442 tomorrow</div>`}
@@ -422,7 +424,7 @@
   }
 
   function resultText(sc) {
-    const icons = S.log.map(l => ({ G: '🧤', D: '🛡️', M: '⚙️', F: '⚽' }[l] || l)).join('');
+    const icons = S.log.map(l => ({ G: '🧤', D: '🛡️', M: '⚙️', F: '⚽' }[GM.GROUP[l]] || l)).join('');
     const head = S.mode === 'daily' ? `Daily 442 · ${GM.today()}` : GM.MODES[S.mode].name;
     return `⚽ Goal Machine – ${head}\n${sc.t}/${S.target} goals${sc.diff === 0 ? ' 🎯 BULLSEYE' : ''} · ${sc.total} pts\n${icons}`;
   }

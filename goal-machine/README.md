@@ -39,11 +39,15 @@ Live (once merged to the Pages branch): `https://joelthornton.github.io/goal-mac
 | 🧳 | Journeyman | A free spin of players with 4+ PL clubs |
 | 📼 | 90s Throwback | A free spin of players whose PL career began in the 90s |
 
-### Multi-position players
+### Positions
 
-About 330 players can fill more than one position. Their positions come from FPL position changes, a winger/goal-rate rule and a hand-picked list (Dublin, Bale, Milner, Ashley Young and others). When a player fits more than one open slot, you choose where he plays.
+Every player has real positions: **GK, LB, CB, RB, LM, CM, RM, ST**. The XI's slots are GK, LB, CB, CB, RB, LM, CM, CM, RM, ST and ST, and a player can only go in a slot he actually played. Positions come from:
 
-**Playing against friends:** after any 442 game, tap *Challenge a friend*. The link gives them the same seed, so they get the same luck on the spins, and it shows them the score to beat.
+- **Transfermarkt profiles**, mapped onto these slots (winger → LM/RM, defensive or attacking midfield → CM, and so on)
+- **`tools/positions_manual.py`**, a hand-compiled list covering about 650 players. It fills in the (mostly pre-2010) players Transfermarkt doesn't have and gives famous utility men their full range: Dublin ST/CB, Bale RM/LM/LB/ST, Milner CM/RM/LB/RB, Ashley Young, Phil Neville, O'Shea and others
+- **FPL position changes and a goalscoring-midfielder rule**, which add a second role (a midfielder listed as a forward in FPL can also play ST)
+
+When a player fits more than one open slot, you choose where he plays. Gegenpress turns empty LM/RM slots into strikers, and Park the Bus drops two empty attacking slots to centre-back. Corrections are welcome in `positions_manual.py`.
 
 ## Install it like an app (Android / iPhone)
 

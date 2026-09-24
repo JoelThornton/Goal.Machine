@@ -229,12 +229,14 @@ GM.prompt = function (title, value = '', placeholder = '') {
 /* ------------------------------------------------------------------ share */
 GM.share = async function (text, url) {
   const full = url ? `${text}\n${url}` : text;
+  if (window.AndroidApp && window.AndroidApp.share) { window.AndroidApp.share(full); return; }  // Android app: native share sheet
   if (navigator.share) {
     try { await navigator.share({ text, url }); return; } catch (e) { if (e.name === 'AbortError') return; }
   }
   try { await navigator.clipboard.writeText(full); GM.toast('Copied to clipboard 📋'); }
   catch (e) { GM.modal(`<h3>Copy this</h3><textarea class="input" rows="5">${GM.esc(full)}</textarea><div class="row"><button class="btn" data-close>Done</button></div>`); }
 };
+GM.APK_URL = 'https://github.com/JoelThornton/JoelThornton.github.io/releases/latest/download/goal-machine.apk';
 GM.baseUrl = () => location.href.split('#')[0].split('?')[0];
 
 /* ------------------------------------------------------------------ player search (autocomplete) */

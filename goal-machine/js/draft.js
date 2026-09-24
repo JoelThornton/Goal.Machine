@@ -1,74 +1,82 @@
-/* Goal Machine – the 442 draft game (Classic / Wildcard / Hardcore / Deep Cuts / Daily) */
+/* Goal Machine – the XI draft: Ultimate Wildcard (most goals/assists/apps), Target (hit a number) and the Daily */
 'use strict';
 
 (function () {
   const FORMATION = ['GK', 'LB', 'CB', 'CB', 'RB', 'LM', 'CM', 'CM', 'RM', 'ST', 'ST'];
   const SIDE = { LB: 0, LM: 0, RB: 2, RM: 2 }; // for left-to-right ordering on the pitch
   const WIDE_MIDS = [5, 8];
-  const SPIN_BUDGET = 16; // wildcard modes: 11 signings + 5 spare spins to spend on grabbing wildcards
-  const UNUSED_BONUS = 50;
+  // Target mode numbers: 442 is the classic; the others were set so they're about as hard to hit (simulated)
+  const TARGETS = { goals: 442, assists: 333, apps: 3500 };
+  // "big number" filter for the Centurion Throw, per stat
+  const BIG = { goals: 100, assists: 50, apps: 400 };
 
   // kind: 'reveal' | 'respin' | 'special' (themed spin) | 'formation' | 'modifier' | 'sub'
   const WILDCARDS = {
-    scout: { icon: '🔍', name: "Scout's IQ", w: 3, kind: 'reveal', desc: 'See the PL goal tallies of the players on the reels this turn.' },
-    respin: { icon: '🎰', name: 'Roll Again', w: 3, kind: 'respin', desc: 'Throw these back and spin again – free.' },
-    sub: { icon: '🔄', name: 'Make a Sub', w: 2, kind: 'sub', desc: 'Release a player from your XI. His goals come off.' },
-    centurion: { icon: '💯', name: 'Centurion Throw', w: 1.5, kind: 'special', desc: 'A free spin of three players with 100+ PL goals.', filter: p => p.goals >= 100 },
-    gegenpress: { icon: '⚡', name: 'Gegenpress', w: 1.5, kind: 'formation', desc: 'Your empty LM and RM slots push up and become strikers.' },
-    bus: { icon: '🚌', name: 'Park the Bus', w: 1.5, kind: 'formation', desc: 'Two empty attacking slots drop back to centre-back.' },
-    captain: { icon: '©️', name: "Captain's Armband", w: 1.5, kind: 'modifier', desc: 'Your next signing’s goals count double.' },
-    rotation: { icon: '🩹', name: 'Rotation Risk', w: 1.5, kind: 'modifier', desc: 'Your next signing’s goals count half (rounded down).' },
-    coin: { icon: '🎲', name: 'Double or Nothing', w: 1, kind: 'modifier', desc: 'Coin toss on your next signing: his goals count ×2… or ×0.' },
-    deadline: { icon: '⏰', name: 'Deadline Day', w: 1.5, kind: 'special', desc: 'A free spin with FIVE players to choose from.', reels: 5 },
-    oneclub: { icon: '❤️', name: 'One-Club Man', w: 1, kind: 'special', desc: 'A free spin of players who only played for one PL club.', filter: p => p.clubs.length === 1 },
-    journeyman: { icon: '🧳', name: 'Journeyman', w: 1, kind: 'special', desc: 'A free spin of players who turned out for 4+ PL clubs.', filter: p => p.clubs.length >= 4 },
-    throwback: { icon: '📼', name: '90s Throwback', w: 1, kind: 'special', desc: 'A free spin of players whose PL career began in the 1990s.', filter: p => p.first <= 1999 },
+    scout: { icon: '🔍', name: "Scout's IQ", w: 3, kind: 'reveal', desc: st => `See the PL ${st.label} of the players on the reels this turn.` },
+    respin: { icon: '🎰', name: 'Roll Again', w: 3, kind: 'respin', desc: () => 'Throw these back and spin again – free.' },
+    sub: { icon: '🔄', name: 'Make a Sub', w: 2, kind: 'sub', desc: st => `Release a player from your XI. His ${st.label} come off.` },
+    centurion: { icon: '💯', name: 'Centurion Throw', w: 1.5, kind: 'special', desc: st => `A free spin of players with ${BIG[st.id]}+ PL ${st.label}.`, filter: (p, st) => p[st.key] >= BIG[st.id] },
+    gegenpress: { icon: '⚡', name: 'Gegenpress', w: 1.5, kind: 'formation', desc: () => 'Your empty LM and RM slots push up and become strikers.' },
+    bus: { icon: '🚌', name: 'Park the Bus', w: 1.5, kind: 'formation', desc: () => 'Two empty attacking slots drop back to centre-back.' },
+    captain: { icon: '©️', name: "Captain's Armband", w: 1.5, kind: 'modifier', desc: st => `Your next signing’s ${st.label} count double.` },
+    rotation: { icon: '🩹', name: 'Rotation Risk', w: 1.5, kind: 'modifier', desc: st => `Your next signing’s ${st.label} count half (rounded down).` },
+    coin: { icon: '🎲', name: 'Double or Nothing', w: 1, kind: 'modifier', desc: st => `Coin toss on your next signing: his ${st.label} count ×2… or ×0.` },
+    deadline: { icon: '⏰', name: 'Deadline Day', w: 1.5, kind: 'special', desc: () => 'A free spin with FIVE players to choose from.', reels: 5 },
+    oneclub: { icon: '❤️', name: 'One-Club Man', w: 1, kind: 'special', desc: () => 'A free spin of players who only played for one PL club.', filter: p => p.clubs.length === 1 },
+    journeyman: { icon: '🧳', name: 'Journeyman', w: 1, kind: 'special', desc: () => 'A free spin of players who turned out for 4+ PL clubs.', filter: p => p.clubs.length >= 4 },
+    throwback: { icon: '📼', name: '90s Throwback', w: 1, kind: 'special', desc: () => 'A free spin of players whose PL career began in the 1990s.', filter: p => p.first <= 1999 },
   };
 
   const RULES = {
-    classic: { target: 442, wild: false, bust: false, weight: p => p.fame },
-    wild: { target: 442, wild: true, bust: false, weight: p => p.fame },
-    hardcore: { target: 442, wild: false, bust: true, weight: p => p.fame },
-    deep: { target: 200, wild: false, bust: false, weight: () => 1 },
-    daily: { target: 442, wild: true, bust: false, weight: p => p.fame },
+    // purist mode: no target, rack up the biggest total you can; every player equally likely
+    ultimate: { max: true, weight: () => 1, noWild: ['rotation', 'bus'] },
+    // hit the number: reels lean towards well-known players so big numbers are in reach
+    target: { max: false, weight: p => p.fame, noWild: [] },
   };
+  RULES.daily = RULES.ultimate;
 
   let S = null; // game state
   let root = null;
 
-  GM.draft = { start, score: scoreFor, RULES, WILDCARDS, state: () => S, render: () => render() };
+  GM.draft = { start, RULES, WILDCARDS, TARGETS, state: () => S, render: () => render(), modeKey: (m, s, h) => keyFor(m, s, h) };
+
+  const statSuffix = s => ({ goals: '', assists: 'ast', apps: 'apps' }[s]);
+  function keyFor(mode, stat, hard) { return mode === 'daily' ? 'daily:' + GM.today() : mode + statSuffix(stat) + (hard ? 'h' : ''); }
 
   function start(el, mode, opts = {}) {
     root = el;
-    const rules = RULES[mode];
+    if (!RULES[mode]) mode = 'ultimate';
+    const stat = mode === 'daily' ? 'goals' : (GM.STATS[opts.stat] ? opts.stat : 'goals');
     const seed = mode === 'daily' ? 'daily:' + GM.today() : (opts.seed || GM.newSeed());
     if (mode === 'daily') {
-      const done = GM.store.get('daily:' + GM.today());
-      if (done && done.xi) { S = done; S.phase = 'done'; S.readonly = true; render(); return; }
+      const done = GM.store.get('daily2:' + GM.today());
+      if (done && done.xi) { S = done; S.rules = RULES.daily; S.phase = 'done'; S.readonly = true; render(); return; }
     }
     S = {
-      mode, seed, rules, target: rules.target, spin: 0, respins: 0,
-      spinsLeft: rules.wild ? SPIN_BUDGET : null,
+      mode, stat, seed, rules: RULES[mode], st: { ...GM.STATS[stat], id: stat },
+      target: RULES[mode].max ? null : TARGETS[stat], spin: 0, respins: 0,
       xi: FORMATION.map(pos => ({ pos, p: null, g: 0, mod: null, as: null })),
       reels: [], selected: -1, revealed: false, revealNext: false, special: null,
       inv: [], modifier: null, subbing: false, used: [], last: null,
-      phase: 'spin', vs: opts.vs, vss: opts.vss, log: [], pending: null,
+      phase: 'spin', vs: opts.vs, vss: opts.vss, log: [], pending: null, wildUsed: 0, coinWin: false,
       hard: mode !== 'daily' && !!opts.hard,
     };
     render();
   }
 
-  const modeKey = () => S.mode + (S.hard ? 'h' : '');
+  const modeKey = () => keyFor(S.mode, S.stat, S.hard);
+  const modeName = () => GM.MODES[S.mode === 'daily' ? 'daily' : S.mode + statSuffix(S.stat)].name;
+  const val = p => p[S.st.key];
   const total = () => S.xi.reduce((t, s) => t + s.g, 0);
   const openPos = () => [...new Set(S.xi.filter(s => s.p == null).map(s => s.pos))];
   const byId = id => GM.players[id];
   const fits = (p, open) => p.poss.some(x => open.includes(x));
   const emptySlots = () => S.xi.filter(s => s.p == null).length;
-  const hasFreeSpin = () => S.inv.some(w => WILDCARDS[w].kind === 'special');
+  const fmt = n => n.toLocaleString();
 
   /* ---------------------------------------------------------------- reel generation */
   function makeReels(special) {
-    const r = GM.rng(`${S.seed}|${S.spin}|${S.respins}|${special || ''}`);
+    const r = GM.rng(`${S.seed}|${S.stat}|${S.spin}|${S.respins}|${special || ''}`);
     const open = openPos();
     const used = new Set(S.used.concat(S.xi.filter(s => s.p != null).map(s => s.p)));
     const pool = GM.players.filter(p => fits(p, open) && !used.has(p.id));
@@ -77,8 +85,8 @@
     const reels = [];
     let wildShown = !!special;
     for (let i = 0; i < n; i++) {
-      if (S.rules.wild && S.spin >= 1 && !wildShown && i < 2 && r() < 0.28) {
-        const types = Object.keys(WILDCARDS);
+      if (S.spin >= 1 && !wildShown && i < 2 && r() < 0.28) {
+        const types = Object.keys(WILDCARDS).filter(t => !S.rules.noWild.includes(t));
         reels.push({ wild: r.weighted(types, t => WILDCARDS[t].w) });
         wildShown = true;
         continue;
@@ -87,7 +95,7 @@
       let cands = pool.filter(p => !taken.has(p.id));
       let mate = null;
       if (wc && wc.filter) {
-        const themed = cands.filter(wc.filter);
+        const themed = cands.filter(p => wc.filter(p, S.st));
         if (themed.length) cands = themed;
       } else if (i === 1 && S.last != null && r() < 0.35) {
         const lp = byId(S.last);
@@ -106,7 +114,6 @@
   /* ---------------------------------------------------------------- actions */
   async function doSpin(special) {
     if (S.phase !== 'spin' && S.phase !== 'pick') return;
-    if (!special && S.phase === 'spin' && S.spinsLeft != null) S.spinsLeft--;
     S.special = special || null;
     S.pending = null;
     S.reels = makeReels(special);
@@ -176,13 +183,14 @@
     const slot = S.xi[slotIdx];
     if (!targetSlots(p).includes(slotIdx)) { GM.toast(`${GM.esc(p.name)} can play ${p.poss.join(' / ')} – pick a highlighted slot`); return; }
     const pos = slot.pos;
-    let g = p.goals;
+    let g = val(p);
     if (S.modifier === 'captain') g *= 2;
     if (S.modifier === 'rotation') g = Math.floor(g / 2);
     if (S.modifier === 'coin') {
       const heads = GM.rng(`${S.seed}|coin|${S.spin}|${S.respins}`)() < 0.5;
       g = heads ? g * 2 : 0;
-      GM.toast(heads ? '🎲 Heads! Goals doubled' : '🎲 Tails… his goals count for nothing', 2600);
+      if (heads) S.coinWin = true;
+      GM.toast(heads ? `🎲 Heads! ${S.st.name} doubled` : `🎲 Tails… his ${S.st.label} count for nothing`, 2600);
     }
     slot.p = p.id; slot.g = g; slot.mod = S.modifier === 'coin' ? (g ? 'captain' : 'zero') : S.modifier;
     slot.as = pos !== p.poss[0] ? pos : null;
@@ -196,12 +204,11 @@
   }
 
   async function afterPick(i) {
-    // show what everyone on the reels scored before moving on
+    // show what everyone on the reels had before moving on
     S.revealed = true;
     S.phase = 'reveal';
     S.selected = i;
     render();
-    const bust = S.rules.bust && total() > S.target;
     await GM.sleep(S.reels.some(r => !r.wild) ? 1500 : 700);
     S.xi.forEach(s => { s.fresh = false; });
     S.spin++;
@@ -209,8 +216,7 @@
     S.selected = -1;
     S.revealed = false;
     S.special = null;
-    if (bust || emptySlots() === 0) return finish();
-    if (S.spinsLeft === 0 && !hasFreeSpin()) { GM.toast('⏱️ Out of spins – the window has shut!', 2600); return finish(); }
+    if (emptySlots() === 0) return finish();
     S.phase = 'spin';
     render();
   }
@@ -219,7 +225,7 @@
     const w = S.inv[k];
     const wc = WILDCARDS[w];
     if (S.phase === 'spinning' || S.phase === 'reveal' || S.phase === 'done') return;
-    const consume = () => { S.inv.splice(k, 1); S.log.push(wc.icon); };
+    const consume = () => { S.inv.splice(k, 1); S.log.push(wc.icon); S.wildUsed++; };
     switch (wc.kind) {
       case 'reveal':
         if (S.phase === 'pick') S.revealed = true; else S.revealNext = true;
@@ -256,66 +262,74 @@
   function release(slotIdx) {
     const s = S.xi[slotIdx];
     if (S.subbing === false || s.p == null) return;
-    GM.toast(`👋 ${byId(s.p).name} released (−${s.g})`);
+    GM.toast(`👋 ${byId(s.p).name} released (−${fmt(s.g)})`);
     s.p = null; s.g = 0; s.mod = null; s.as = null;
     S.inv.splice(S.subbing, 1);
     S.log.push('🔄');
+    S.wildUsed++;
     S.subbing = false;
-    if (S.spinsLeft === 0) S.spinsLeft = 1; // always allow a spin to fill the gap
     render();
   }
 
   /* ---------------------------------------------------------------- scoring / finish */
   function scoreFor(st) {
     const t = st.xi.reduce((a, s) => a + s.g, 0);
+    if (st.rules.max) return { total: t, parts: [], diff: null, t };
     const diff = Math.abs(st.target - t);
-    const parts = [];
-    if (st.rules.bust && t > st.target) return { total: 0, parts: [['💥 Bust – you went over ' + st.target, 0]], diff, t };
-    const base = Math.max(0, 1000 - 5 * diff);
-    parts.push([`Closeness (${diff} off)`, base]);
+    // closeness is measured in "442-goal units" so apps/assists targets score on the same scale
+    const d = Math.round(diff * 442 / st.target);
+    const parts = [[`Closeness (${fmt(diff)} off)`, Math.max(0, 1000 - 5 * d)]];
     if (diff === 0) parts.push(['🎯 Bullseye!', 500]);
-    if (st.rules.wild && st.inv.length) parts.push([`Unused wildcards ×${st.inv.length}`, UNUSED_BONUS * st.inv.length]);
-    let sum = parts.reduce((a, p) => a + p[1], 0);
-    if (st.rules.bust) { parts.push(['💀 Hardcore ×1.5', Math.round(sum * 0.5)]); sum = Math.round(sum * 1.5); }
-    return { total: sum, parts, diff, t };
+    return { total: parts.reduce((a, p) => a + p[1], 0), parts, diff, t };
   }
 
   async function finish() {
     S.phase = 'done';
     const sc = scoreFor(S);
     S.final = sc;
-    if (S.mode === 'daily') GM.store.set('daily:' + GM.today(), { ...S, rules: undefined });
+    const xiSlots = S.xi.filter(s => s.p != null).map(s => ({ ...s, player: byId(s.p) }));
+    if (GM.collectDraft && !S.readonly) {
+      const rating = GM.teamRating(xiSlots);
+      S.collected = GM.collectDraft({
+        mode: S.mode, stat: S.stat, total: sc.t, hard: S.hard, xi: xiSlots.map(s => s.player),
+        rating: rating.score, pairs: rating.pairs.length, wildUsed: S.wildUsed, coinWin: S.coinWin,
+        bull: sc.diff === 0, closeness: S.target ? Math.round(sc.diff * 442 / S.target) : null,
+      });
+      S.collected = { n: S.collected.newPlayers.length, total: S.collected.total, badges: S.collected.fresh.map(x => x.icon + ' ' + x.name) };
+    }
+    if (S.mode === 'daily') GM.store.set('daily2:' + GM.today(), { ...S, rules: undefined });
     render();
     if (!S.readonly) {
       if (S.mode === 'daily' && sc.total > GM.best('daily')) GM.store.set('best:daily', sc.total);
-      const { isBest } = await GM.recordScore(S.mode === 'daily' ? 'daily:' + GM.today() : modeKey(), sc.total, { t: sc.t });
+      const { isBest } = await GM.recordScore(modeKey(), sc.total, { t: sc.t });
       if (isBest && sc.total > 0 && S.mode !== 'daily') GM.toast('🏆 New personal best!');
     }
   }
 
   /* ---------------------------------------------------------------- rendering */
   const posBadges = GM.posBadges;
+  // a small secondary number on the reel card that isn't the stat being played for
+  const hintStat = p => S.stat === 'apps' ? '' : `<small>${fmt(p.apps)} apps</small>`;
 
   function reelInner(x) {
     if (!x) return '';
     if (x.wild) {
       const w = WILDCARDS[x.wild];
-      return `<div class="wild-card"><div class="wild-icon">${w.icon}</div><div class="wild-name">${w.name}</div><div class="wild-desc">${w.desc}</div><div class="tag">WILDCARD</div></div>`;
+      return `<div class="wild-card"><div class="wild-icon">${w.icon}</div><div class="wild-name">${w.name}</div><div class="wild-desc">${w.desc(S.st)}</div><div class="tag">WILDCARD</div></div>`;
     }
     const p = byId(x.id);
     const reveal = S.revealed;
+    const num = `<div class="reel-goals ${reveal ? 'show' : ''}">${reveal ? `<b>${fmt(val(p))}</b> ${S.st.label}` : `<b>?</b> ${S.st.label}`}${S.hard ? '' : hintStat(p)}</div>`;
     if (S.hard) {
       return `${GM.avatar(p, 'lg', true)}
       <div class="reel-name">${GM.esc(p.name)}</div>
-      <div class="reel-meta">${posBadges(p)}</div>
-      <div class="reel-goals ${reveal ? 'show' : ''}">${reveal ? `<b>${p.goals}</b> goals` : '<b>?</b> goals'}</div>`;
+      <div class="reel-meta">${posBadges(p)}</div>${num}`;
     }
     return `${x.mate ? `<div class="mate" title="Also played for ${GM.esc(x.mate.club)}, like ${GM.esc(x.mate.name)}">🤝 ${GM.clubShort(x.mate.club)} link · ${GM.esc(x.mate.name.split(' ').slice(-1)[0])}</div>` : ''}
       ${GM.avatar(p, 'lg')}
       <div class="reel-name">${GM.esc(p.name)}</div>
       <div class="reel-meta">${posBadges(p)} ${GM.flag(p.nat)} <span>${GM.era(p)}</span></div>
-      <div class="chips">${p.clubs.map(c => GM.clubChip(c)).join('')}</div>
-      <div class="reel-goals ${reveal ? 'show' : ''}">${reveal ? `<b>${p.goals}</b> goals` : '<b>?</b> goals'}<small>${p.apps} apps</small></div>`;
+      <div class="chips">${p.clubs.map(c => GM.clubChip(c)).join('')}</div>${num}`;
   }
 
   const MOD_TAG = { captain: '<i title="Captain – doubled">©</i>', rotation: '<i title="Rotation Risk – halved">🩹</i>', zero: '<i title="Double or Nothing – lost">🎲</i>' };
@@ -328,7 +342,7 @@
     const surname = p.name.includes(' ') ? p.name.split(' ').slice(1).join(' ') : p.name;
     return `<div class="slot filled ${s.fresh ? 'fresh' : ''}" data-slot="${i}" title="${GM.esc(p.name)}">
       ${GM.avatar(p)}<span class="slot-name">${GM.esc(surname)}</span>
-      <span class="slot-goals">${s.g}${MOD_TAG[s.mod] || ''}</span><span class="slot-pos ${s.as ? 'oop' : ''}" title="${s.as ? 'Playing out of his usual position' : GM.POS_NAME[s.pos]}">${s.pos}</span></div>`;
+      <span class="slot-goals">${fmt(s.g)}${MOD_TAG[s.mod] || ''}</span><span class="slot-pos" title="${GM.POS_NAME[s.pos]}">${s.pos}</span></div>`;
   }
 
   function pitchHtml() {
@@ -344,31 +358,38 @@
 
   function counterHtml() {
     const t = total();
-    const pct = Math.min(100, t / S.target * 100);
-    const over = t > S.target;
     const left = emptySlots();
     const mod = S.modifier ? ` · <b>${WILDCARDS[S.modifier].icon} ${WILDCARDS[S.modifier].name}</b>` : '';
+    if (S.rules.max) {
+      const pb = GM.best(S.mode === 'daily' ? 'daily' : modeKey());
+      return `<div class="counter max">
+      <div class="counter-num"><b>${fmt(t)}</b><span>${S.st.label}</span></div>
+      <div class="bar"><i style="width:${pb ? Math.min(100, t / pb * 100) : 0}%"></i></div>
+      <div class="counter-sub">${pb ? (t > pb ? '🔥 Beating your best (' + fmt(pb) + ')' : `Your best: ${fmt(pb)}`) : 'Set your first score'} · ${left} slot${left === 1 ? '' : 's'} left${mod}</div>
+    </div>`;
+    }
+    const over = t > S.target;
     return `<div class="counter ${over ? 'over' : ''}">
-      <div class="counter-num"><b>${t}</b><span>/ ${S.target}</span></div>
-      <div class="bar"><i style="width:${pct}%"></i></div>
-      <div class="counter-sub">${over ? `${t - S.target} over` : `${S.target - t} to go`} · ${left} slot${left === 1 ? '' : 's'} left${S.spinsLeft != null ? ` · <span class="${S.spinsLeft <= left ? 'warn' : ''}">${S.spinsLeft} spin${S.spinsLeft === 1 ? '' : 's'} left</span>` : ''}${mod}</div>
+      <div class="counter-num"><b>${fmt(t)}</b><span>/ ${fmt(S.target)} ${S.st.label}</span></div>
+      <div class="bar"><i style="width:${Math.min(100, t / S.target * 100)}%"></i></div>
+      <div class="counter-sub">${over ? `${fmt(t - S.target)} over` : `${fmt(S.target - t)} to go`} · ${left} slot${left === 1 ? '' : 's'} left${mod}</div>
     </div>`;
   }
 
   function render() {
     if (!S) return;
     if (S.phase === 'done') return renderDone();
-    const title = GM.MODES[S.mode].name + (S.hard ? ' · Hard' : '');
+    const icon = GM.MODES[S.mode === 'daily' ? 'daily' : S.mode].icon;
     const nReels = Math.max(3, S.reels.length);
     const sp = S.special && WILDCARDS[S.special];
     root.innerHTML = `
-      <div class="topbar"><a href="#/" class="back">‹</a><h2>${GM.MODES[S.mode].icon} ${title}</h2><button class="icon-btn" id="help">?</button></div>
+      <div class="topbar"><a href="#/" class="back">‹</a><h2>${icon} ${modeName()}${S.hard ? ' · Hard' : ''}</h2><button class="icon-btn" id="help">?</button></div>
       ${S.vs ? `<div class="banner">⚔️ Beat <b>${GM.esc(S.vs)}</b>’s score of <b>${GM.esc(S.vss)}</b></div>` : ''}
       ${counterHtml()}
       ${pitchHtml()}
-      ${S.rules.wild ? `<div class="inv"><span class="inv-label">Wildcards ${S.inv.length}/3</span>${S.inv.length ? S.inv.map((w, k) =>
-      `<button class="wild-btn ${S.subbing === k ? 'active' : ''}" data-w="${k}" title="${GM.esc(WILDCARDS[w].desc)}">${WILDCARDS[w].icon}<small>${WILDCARDS[w].name}</small></button>`).join('')
-        : '<span class="muted">none yet – they appear on the reels</span>'}${S.subbing !== false ? '<button class="btn small ghost" id="cancel-sub">Cancel</button>' : ''}</div>` : ''}
+      <div class="inv"><span class="inv-label">Wildcards ${S.inv.length}/3</span>${S.inv.length ? S.inv.map((w, k) =>
+      `<button class="wild-btn ${S.subbing === k ? 'active' : ''}" data-w="${k}" title="${GM.esc(WILDCARDS[w].desc(S.st))}">${WILDCARDS[w].icon}<small>${WILDCARDS[w].name}</small></button>`).join('')
+        : '<span class="muted">none yet – they appear on the reels</span>'}${S.subbing !== false ? '<button class="btn small ghost" id="cancel-sub">Cancel</button>' : ''}</div>
       ${sp && S.phase !== 'spin' ? `<div class="special-banner">${sp.icon} ${sp.name}</div>` : ''}
       <div class="reels">${Array.from({ length: nReels }, (_, i) => {
           const x = S.reels[i];
@@ -377,14 +398,12 @@
           return `<button class="reel ${x.wild ? 'is-wild' : ''} ${S.selected === i || S.pending === i ? 'selected' : ''} ${S.phase === 'reveal' && S.selected !== i ? 'dim' : ''} ${S.hard ? 'hard' : ''}" data-reel="${i}">${reelInner(x)}</button>`;
         }).join('')}</div>
       <div class="actions">
-        ${S.phase === 'spin' && S.spinsLeft !== 0 ? `<button class="btn big spin" id="spin">🎰 SPIN</button>` : ''}
-        ${S.phase === 'spin' && S.spinsLeft === 0 ? `<div class="hint">Out of spins – use a free-spin wildcard, or</div><button class="btn ghost" id="endgame">Blow the final whistle</button>` : ''}
-        ${S.phase === 'pick' && S.pending == null ? `<div class="hint">Tap a player, then tap the slot he’ll play in${S.reels.some(r => r.wild) ? ' – or grab the wildcard (costs this spin)' : ''}</div>` : ''}
+        ${S.phase === 'spin' ? `<button class="btn big spin" id="spin">🎰 SPIN</button>` : ''}
+        ${S.phase === 'pick' && S.pending == null ? `<div class="hint">Tap a player, then tap the slot he’ll play in${S.reels.some(r => r.wild) ? ' – or grab the wildcard' : ''}</div>` : ''}
         ${S.phase === 'pick' && S.pending != null ? `<div class="hint">📍 Now tap a highlighted slot on the pitch for <b>${GM.esc(byId(S.reels[S.pending].id).name)}</b> (${byId(S.reels[S.pending].id).poss.join(' / ')})</div>` : ''}
       </div>`;
     GM.$('#help', root).onclick = help;
     const spb = GM.$('#spin', root); if (spb) spb.onclick = () => doSpin();
-    const eg = GM.$('#endgame', root); if (eg) eg.onclick = () => finish();
     GM.$$('[data-reel]', root).forEach(b => b.onclick = () => sign(+b.dataset.reel));
     GM.$$('[data-w]', root).forEach(b => b.onclick = () => useWild(+b.dataset.w));
     GM.$$('[data-slot]', root).forEach(b => b.onclick = () => {
@@ -395,60 +414,61 @@
   }
 
   function help() {
-    const r = S.rules;
+    const r = S.rules, L = S.st.label;
     GM.modal(`<h3>How to play</h3>
-      <p>Build an XI whose players have scored <b>${S.target}</b> Premier League goals between them.</p>
-      <p>Each spin shows three players who fit an open position. Their goal tallies are hidden – sign the one you think gets you closest.</p>
-      <p>Every player has real positions – <b>GK, LB, CB, RB, LM, CM, RM, ST</b> – and can only go in a slot he actually played. Utility men (Dublin up front or at centre-back, Bale at LB/LM/RM/ST, Milner…) show every position they can fill, and you choose where he goes.</p>
-      ${r.wild ? `<p><b>Wildcards</b> appear on the reels from the 2nd spin. You get <b>${SPIN_BUDGET} spins</b> for 11 signings, so grabbing a wildcard costs one of your spare spins. Hold up to 3; each unused one is +${UNUSED_BONUS} at full time.</p>
-      <ul class="wc-list">${Object.values(WILDCARDS).map(w => `<li>${w.icon} <b>${w.name}</b> – ${w.desc}</li>`).join('')}</ul>` : ''}
-      ${r.bust ? '<p>💀 <b>Hardcore:</b> go over and you bust with zero. Survive and your score is multiplied ×1.5.</p>' : ''}
-      ${S.mode === 'deep' ? '<p>🔦 <b>Deep Cuts:</b> every 50+ appearance player is equally likely – cult heroes and journeymen galore. Target is 200.</p>' : ''}
-      <p><b>Scoring:</b> 1000 − 5 per goal off target. Exactly ${S.target} = +500 bullseye bonus.</p>
+      ${r.max ? `<p>👑 <b>${modeName()}:</b> no target – build the XI with the <b>most Premier League ${L}</b> you can. Every player with 50+ apps is equally likely to turn up, so you’ll mostly see journeymen: spot the big numbers and use your wildcards well.</p>`
+      : `<p>🎯 <b>${modeName()}:</b> build an XI whose players have <b>${fmt(S.target)}</b> Premier League ${L} between them – as close as you can, exactly for a bullseye.</p>`}
+      <p>Each spin shows three players who fit an open position. Their ${L} are hidden until you sign one. You keep spinning until the XI is full.</p>
+      <p>Every player has real positions – <b>GK, LB, CB, RB, LM, CM, RM, ST</b>. Tap a player, then tap one of the highlighted slots he can play.</p>
+      <p><b>Wildcards</b> appear on the reels from the 2nd spin – grab one instead of a player and use it when you like (hold up to 3):</p>
+      <ul class="wc-list">${Object.entries(WILDCARDS).filter(([k]) => !r.noWild.includes(k)).map(([, w]) => `<li>${w.icon} <b>${w.name}</b> – ${w.desc(S.st)}</li>`).join('')}</ul>
+      <p><b>Scoring:</b> ${r.max ? `your score is your XI’s total PL ${L} (after any wildcard modifiers).` : `1000 minus 5 for every ${S.stat === 'goals' ? 'goal' : `${fmt(Math.round(S.target / 442 * 10) / 10)} ${L}`} off target. Exactly ${fmt(S.target)} = +500 bullseye bonus.`}</p>
       <p>🤝 A player who shares a club with your last signing may turn up to tempt you.</p>
       ${S.hard ? '<p>🥵 <b>Hard mode:</b> just names and positions – no clubs, years, apps or nationality. Separate leaderboard.</p>' : ''}
       <div class="row"><button class="btn" data-close>Got it</button></div>`);
   }
 
   function renderDone() {
-    S.rules = RULES[S.mode] || RULES.daily;
     const sc = S.final || scoreFor(S);
     const best = GM.best(S.mode === 'daily' ? 'daily' : modeKey());
-    const shareText = resultText(sc);
+    const icon = GM.MODES[S.mode === 'daily' ? 'daily' : S.mode].icon;
+    const xi = S.xi.filter(s => s.p != null).map(s => ({ ...s, player: byId(s.p) }));
     root.innerHTML = `
-      <div class="topbar"><a href="#/" class="back">‹</a><h2>${GM.MODES[S.mode].icon} Full time</h2><span></span></div>
+      <div class="topbar"><a href="#/" class="back">‹</a><h2>${icon} Full time</h2><span></span></div>
       <div class="result">
-        <div class="result-total ${sc.diff === 0 ? 'bull' : ''}">${sc.t}<small>goals · target ${S.target}</small></div>
-        <div class="result-score">${sc.total}<small>points</small></div>
-        <table class="breakdown">${sc.parts.map(([k, v]) => `<tr><td>${k}</td><td>+${v}</td></tr>`).join('')}</table>
+        <div class="result-total ${sc.diff === 0 ? 'bull' : ''}">${fmt(sc.t)}<small>PL ${S.st.label}${S.rules.max ? '' : ` · target ${fmt(S.target)}`}</small></div>
+        ${S.rules.max ? '' : `<div class="result-score">${sc.total}<small>points</small></div>
+        <table class="breakdown">${sc.parts.map(([k, v]) => `<tr><td>${k}</td><td>+${v}</td></tr>`).join('')}</table>`}
         ${S.vs ? `<div class="banner">${sc.total > S.vss ? '🎉 You beat' : sc.total == S.vss ? '🤝 You drew with' : '😬 You lost to'} <b>${GM.esc(S.vs)}</b> (${GM.esc(S.vss)})</div>` : ''}
-        <div class="muted">Personal best: ${Math.max(best, sc.total)}</div>
+        <div class="muted">Personal best: ${fmt(Math.max(best, sc.total))}</div>
       </div>
+      ${S.collected ? `<a class="collected" href="#/album">📒 ${S.collected.n ? `<b>+${S.collected.n}</b> new player${S.collected.n === 1 ? '' : 's'} for your album` : 'No new players this time'} · ${S.collected.total.toLocaleString()} collected${S.collected.badges.length ? `<br>🏅 ${S.collected.badges.join(' · ')}` : ''} ›</a>` : ''}
+      ${GM.report ? GM.report(xi, S.st) : ''}
       ${pitchHtml()}
-      <div class="xi-list">${S.xi.filter(s => s.p != null).map(s => {
-        const p = byId(s.p);
-        const tag = { captain: ` (${p.goals}×2)`, rotation: ` (${p.goals}÷2)`, zero: ` (${p.goals}×0)` }[s.mod] || '';
-        return `<div class="xi-row">${GM.avatar(p)}<span>${GM.esc(p.name)} <small>${s.pos}${s.as ? ' (out of position)' : ''}</small></span><small>${p.apps} apps</small><b>${s.g}${tag}</b></div>`;
-      }).join('')}</div>
       <div class="actions col">
-        ${S.mode !== 'daily' ? `<button class="btn big" id="again">🔁 Play again</button>` : `<div class="muted">New Daily 442 tomorrow</div>`}
+        ${S.mode !== 'daily' ? `<button class="btn big" id="again">🔁 Play again</button>` : `<div class="muted">New Daily Ultimate tomorrow</div>`}
         <button class="btn" id="challenge">⚔️ Challenge a friend (same spins)</button>
         <button class="btn ghost" id="share">📤 Share result</button>
-        <a class="btn ghost" href="#/leaderboard?m=${encodeURIComponent(S.mode === 'daily' ? 'daily:' + GM.today() : modeKey())}">🏆 Leaderboard</a>
+        <a class="btn ghost" href="#/leaderboard?m=${encodeURIComponent(modeKey())}">🏆 Leaderboard</a>
       </div>`;
-    const again = GM.$('#again', root); if (again) again.onclick = () => start(root, S.mode, { hard: S.hard });
-    GM.$('#share', root).onclick = () => GM.share(shareText);
+    const again = GM.$('#again', root); if (again) again.onclick = () => start(root, S.mode, { hard: S.hard, stat: S.stat });
+    GM.$('#share', root).onclick = () => GM.share(resultText(sc));
     GM.$('#challenge', root).onclick = async () => {
       const name = await GM.askName() || 'A friend';
-      const m = S.mode === 'daily' ? 'wild' : S.mode;
-      const url = `${GM.baseUrl()}#/draft?m=${m}&seed=${encodeURIComponent(S.seed)}${S.hard ? '&h=1' : ''}&vs=${encodeURIComponent(name)}&vss=${sc.total}`;
-      GM.share(`⚽ Goal Machine – I scored ${sc.total} in ${GM.MODES[m].name}${S.hard ? ' (Hard)' : ''} (${sc.t}/${S.target} goals). Same spins, can you beat me?`, url);
+      const m = S.mode === 'daily' ? 'ultimate' : S.mode;
+      const url = `${GM.baseUrl()}#/draft?m=${m}&s=${S.stat}&seed=${encodeURIComponent(S.seed)}${S.hard ? '&h=1' : ''}&vs=${encodeURIComponent(name)}&vss=${sc.total}`;
+      GM.share(S.rules.max
+        ? `⚽ Goal Machine – my ${modeName()}${S.hard ? ' (Hard)' : ''} XI has ${fmt(sc.t)} PL ${S.st.label}. Same spins, can you beat it?`
+        : `⚽ Goal Machine – I scored ${sc.total} in ${modeName()}${S.hard ? ' (Hard)' : ''} (${fmt(sc.t)}/${fmt(S.target)}). Same spins, can you beat me?`, url);
     };
   }
 
   function resultText(sc) {
     const icons = S.log.map(l => ({ G: '🧤', D: '🛡️', M: '⚙️', F: '⚽' }[GM.GROUP[l]] || l)).join('');
-    const head = S.mode === 'daily' ? `Daily 442 · ${GM.today()}` : GM.MODES[S.mode].name + (S.hard ? ' (Hard)' : '');
-    return `⚽ Goal Machine – ${head}\n${sc.t}/${S.target} goals${sc.diff === 0 ? ' 🎯 BULLSEYE' : ''} · ${sc.total} pts\n${icons}`;
+    const head = S.mode === 'daily' ? `Daily Ultimate · ${GM.today()}` : modeName() + (S.hard ? ' (Hard)' : '');
+    const rating = GM.teamRating ? GM.teamRating(S.xi.filter(s => s.p != null).map(s => ({ ...s, player: byId(s.p) }))) : null;
+    const tier = rating ? `\n${rating.tier.icon} ${rating.tier.name}` : '';
+    if (S.rules.max) return `⚽ Goal Machine – ${head}\n👑 ${fmt(sc.t)} PL ${S.st.label}${tier}\n${icons}`;
+    return `⚽ Goal Machine – ${head}\n${fmt(sc.t)}/${fmt(S.target)} ${S.st.label}${sc.diff === 0 ? ' 🎯 BULLSEYE' : ''} · ${sc.total} pts${tier}\n${icons}`;
   }
 })();

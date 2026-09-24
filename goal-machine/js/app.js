@@ -19,16 +19,18 @@
     GM.$$('.modal-wrap').forEach(m => m.remove());
     app.className = 'page-' + (path || 'home');
     switch (path) {
-      case 'draft': return GM.draft.start(app, GM.draft.RULES[q.m] ? q.m : 'classic',
-        { seed: q.seed, vs: q.vs, vss: q.vss ? +q.vss : undefined, hard: q.seed ? q.h === '1' : GM.isHard() });
+      case 'draft': return GM.draft.start(app, q.m === 'target' ? 'target' : 'ultimate',
+        { stat: q.s, seed: q.seed, vs: q.vs, vss: q.vss ? +q.vss : undefined, hard: q.seed ? q.h === '1' : GM.isHard() });
       case 'daily': return GM.draft.start(app, 'daily');
       case 'hilo': return GM.hilo(app);
+      case 'hopper': return GM.hopper(app);
       case 'whoami': return GM.whoami(app);
       case 'grid': return GM.grid(app, false);
       case 'dailygrid': return GM.grid(app, true);
       case 'tally': return GM.tally(app);
       case 'leaderboard': return leaderboard(q.m);
       case 'players': return playerIndex();
+      case 'album': return GM.album(app, GM.STATS[q.s] ? q.s : 'goals');
       case 'about': return about();
       default: return home();
     }
@@ -36,10 +38,14 @@
 
   /* ---------------------------------------------------------------- home */
   function home() {
-    const dailyDone = GM.store.get('daily:' + GM.today());
+    const dailyDone = GM.store.get('daily2:' + GM.today());
     const gridDone = GM.store.get('hist:grid:' + GM.today(), []).length > 0;
     const hard = GM.isHard();
     const pb = k => GM.best(hard && GM.HARD_MODES.includes(k) ? k + 'h' : k);
+    const statBtn = (m, s, label) => {
+      const st = GM.STATS[s], best = pb(GM.draft.modeKey(m, s, false));
+      return `<a class="stat-btn" href="#/draft?m=${m}&s=${s}">${st.icon} ${label || st.name}${best ? `<small>PB ${best.toLocaleString()}</small>` : ''}</a>`;
+    };
     const card = (href, icon, title, sub, best, extra = '') =>
       `<a class="mode-card ${extra}" href="${href}"><span class="mode-icon">${icon}</span><span class="mode-text"><b>${title}</b><small>${sub}</small></span>${best != null ? `<span class="pb">${best ? 'PB ' + best : ''}</span>` : ''}</a>`;
     app.innerHTML = `
@@ -52,25 +58,30 @@
         <button class="${hard ? '' : 'on'}" data-hard="0">🙂 Normal<small>clubs, years &amp; apps shown</small></button>
         <button class="${hard ? 'on' : ''}" data-hard="1">🥵 Hard<small>names &amp; positions only</small></button>
       </div>
-      <section>
-        ${card('#/daily', '📅', 'Daily 442', dailyDone ? `Done today – ${dailyDone.final ? dailyDone.final.total + ' pts' : ''} · come back tomorrow` : 'Same spins for everyone today. One shot.', null, 'featured' + (dailyDone ? ' done' : ''))}
-      </section>
-      <h3 class="section-title">442 – build an XI worth 442 PL goals</h3>
+      <div class="mode-card featured ultimate big-card">
+        <span class="mode-icon">👑</span>
+        <span class="mode-text"><b>Ultimate Wildcard</b><small>Build the XI with the biggest total. Every player equally likely – find the stars among the journeymen.</small>
+          <span class="stat-pick">${statBtn('ultimate', 'goals')}${statBtn('ultimate', 'assists')}${statBtn('ultimate', 'apps')}</span></span>
+      </div>
       <section class="cards">
-        ${card('#/draft?m=wild', '🃏', 'Wildcard', 'Scout, re-roll, subs, double-ups', pb('wild'))}
-        ${card('#/draft?m=classic', '⚽', 'Classic', 'Pure knowledge, no help', pb('classic'))}
-        ${card('#/draft?m=hardcore', '💀', 'Hardcore', 'Go over 442 and you bust. ×1.5', pb('hardcore'))}
-        ${card('#/draft?m=deep', '🔦', 'Deep Cuts', 'Any 50-app journeyman. Target 200', pb('deep'))}
+        ${card('#/daily', '📅', 'Daily Ultimate', dailyDone ? `Done today – ${dailyDone.final ? dailyDone.final.t + ' goals' : ''} · back tomorrow` : 'Same spins for everyone today. One shot. Most goals wins.', null, dailyDone ? 'done' : '')}
+        <div class="mode-card">
+          <span class="mode-icon">🎯</span>
+          <span class="mode-text"><b>Target</b><small>Hit the number exactly for a bullseye.</small>
+            <span class="stat-pick">${statBtn('target', 'goals', '442 goals')}${statBtn('target', 'assists', '333 assists')}${statBtn('target', 'apps', '3,500 apps')}</span></span>
+        </div>
       </section>
       <h3 class="section-title">More games</h3>
       <section class="cards">
+        ${card('#/hopper', '🦘', 'Club Hopper', 'Hop from club to club through players. 90 seconds.', GM.best('hopper'))}
         ${card('#/hilo', '↕️', 'Higher or Lower', 'More goals? More apps? Keep the streak', pb('hilo'))}
-        ${card('#/whoami', '🕵️', 'Who Am I?', 'Guess the player from his club path', pb('whoami'))}
+        ${card('#/whoami', '🕵️', 'Who Am I?', 'Guess the player from the clues', pb('whoami'))}
         ${card('#/dailygrid', '#️⃣', gridDone ? 'Daily Club Grid ✓' : 'Daily Club Grid', 'Played for both? 3×3 grid', GM.best('grid'))}
         ${card('#/grid', '🔀', 'Random Club Grid', 'Endless grids', null)}
-        ${card('#/tally', '🎯', 'Guess the Tally', 'How many PL goals did he score?', pb('tally'))}
+        ${card('#/tally', '🔢', 'Guess the Tally', 'How many PL goals did he score?', pb('tally'))}
       </section>
       <section class="cards">
+        ${(() => { const s = GM.albumSummary(); return card('#/album', '📒', 'Album & badges', `${s.players.toLocaleString()}/${GM.players.length.toLocaleString()} players collected · ${s.badges}/${s.totalBadges} badges`, null, 'album-card'); })()}
         ${card('#/leaderboard', '🏆', 'Leaderboards', GM.lb.enabled ? 'Global + your bests' : 'Your best scores', null)}
         ${card('#/players', '📖', 'Player index', 'Search every player in the game', null)}
         ${card('#/about', 'ℹ️', 'About the data', `Updated ${GM.dataDate}`, null)}
@@ -90,11 +101,11 @@
   /* ---------------------------------------------------------------- leaderboard */
   async function leaderboard(m) {
     const hard = m ? /^[a-z]+h$/.test(m) && GM.MODES[m] != null : GM.isHard();
-    const tabs = ['daily:' + GM.today(), 'wild', 'classic', 'hardcore', 'deep', 'hilo', 'whoami', 'grid:' + GM.today(), 'grid', 'tally']
+    const tabs = ['ultimate', 'ultimateast', 'ultimateapps', 'daily:' + GM.today(), 'target', 'targetast', 'targetapps', 'hopper', 'hilo', 'whoami', 'grid:' + GM.today(), 'grid', 'tally']
       .map(k => hard && GM.HARD_MODES.includes(k) ? k + 'h' : k);
-    m = m && tabs.includes(m) ? m : tabs[1];
+    m = m && tabs.includes(m) ? m : tabs[0];
     const flip = hard ? m.replace(/h$/, '') : (GM.HARD_MODES.includes(m) ? m + 'h' : m);
-    const label = k => k.startsWith('daily:') ? '📅 Today' : k.startsWith('grid:') ? '#️⃣ Grid today' : `${GM.MODES[k].icon} ${GM.MODES[k].name}`;
+    const label = k => k.startsWith('daily:') ? '📅 Daily Ultimate' : k.startsWith('grid:') ? '#️⃣ Grid today' : `${GM.MODES[k].icon} ${GM.MODES[k].name.replace(' (Hard)', '')}`;
     const local = GM.store.get('hist:' + m, []);
     app.innerHTML = `<div class="topbar"><a href="#/" class="back">‹</a><h2>🏆 Leaderboards</h2><span></span></div>
       <div class="hard-toggle small"><a class="${hard ? '' : 'on'}" href="#/leaderboard?m=${encodeURIComponent(hard ? flip : m)}">🙂 Normal</a><a class="${hard ? 'on' : ''}" href="#/leaderboard?m=${encodeURIComponent(hard ? m : flip)}">🥵 Hard</a></div>
@@ -135,8 +146,8 @@
   function about() {
     app.innerHTML = `<div class="topbar"><a href="#/" class="back">‹</a><h2>ℹ️ About the data</h2><span></span></div>
       <div class="prose">
-      <p>Goal Machine includes <b>${GM.players.length.toLocaleString()}</b> players who have made at least <b>50 Premier League appearances</b> since 1992/93, with their PL goals, appearances, clubs, position and nationality. Data updated <b>${GM.dataDate}</b>.</p>
-      <p>Stats are stitched together from public datasets: the official premierleague.com player pages (1992–2020), Fantasy Premier League gameweek data (2016–today) and Understat season stats (2014–2016). A handful of players’ early seasons are estimated from minutes played, so the odd tally might be off by a game or a goal.</p>
+      <p>Goal Machine includes <b>${GM.players.length.toLocaleString()}</b> players who have made at least <b>50 Premier League appearances</b> since 1992/93, with their PL goals, assists, appearances, clubs, positions and nationality, plus honours for the full-time badges. Data updated <b>${GM.dataDate}</b>.</p>
+      <p>Stats are stitched together from public datasets: the official premierleague.com player pages (1992–2020), Fantasy Premier League gameweek data (2016–today) and Understat season stats (2014–2016). Which club a player was at in each season (for chemistry and title badges) comes from Transfermarkt transfer records. Assists after 2020 are FPL assists, which run slightly higher than the official count. A handful of players’ early seasons are estimated from minutes played, so the odd tally might be off by a game or a goal.</p>
       <p>Only Premier League appearances and goals count – no cups, Europe or Championship seasons.</p>
       <p>This is a fan-made game inspired by FourFourTwo’s 442GOALS and is not affiliated with the Premier League or FourFourTwo.</p>
       </div>`;

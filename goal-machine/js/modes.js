@@ -5,7 +5,8 @@
   const P = GM.players;
   const top = (label, icon) => `<div class="topbar"><a href="#/" class="back">‹</a><h2>${icon} ${label}</h2><span></span></div>`;
 
-  async function gameOver(root, mode, score, lines, again, shareText) {
+  async function gameOver(root, mode, score, lines, again, shareText, extra) {
+    if (GM.checkGame) GM.checkGame(mode, score, extra);
     const { isBest } = await GM.recordScore(mode, score);
     const box = document.createElement('div');
     box.className = 'result';
@@ -226,7 +227,7 @@
       const grid = [0, 1, 2].map(i => [0, 1, 2].map(j => filled[i * 3 + j] ? '🟩' : '⬛').join('')).join('\n');
       const txt = `⚽ Goal Machine – ${daily ? 'Daily Club Grid ' + GM.today() : 'Club Grid'}\n${grid}\n${score()} pts`;
       if (daily && score() > GM.best('grid')) GM.store.set('best:grid', score());
-      gameOver(GM.$('#gover', root), daily ? 'grid:' + GM.today() : 'grid', score(), '', () => GM.grid(root, false), txt);
+      gameOver(GM.$('#gover', root), daily ? 'grid:' + GM.today() : 'grid', score(), '', () => GM.grid(root, false), txt, { full: filled.every(Boolean) });
     }
     render();
   };
@@ -267,6 +268,73 @@
       };
       setTimeout(() => GM.$('#tg', root) && GM.$('#tg', root).focus(), 30);
     }
+    render();
+  };
+  /* =============================================================== CLUB HOPPER */
+  // Name a player who played for the club on screen, then hop to one of his other PL clubs. 90 seconds.
+  GM.hopper = function (root) {
+    const TIME = 90;
+    const r = GM.rng(GM.newSeed());
+    const big = Object.keys(clubCount).filter(c => clubCount[c] >= 40);
+    let club = r.pick(big), hops = 0, left = TIME, used = new Set(), chain = [], timer = null, over = false, choosing = null;
+    const fmtT = s => `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
+
+    function tick() {
+      left--;
+      const t = GM.$('#htime', root); if (t) { t.textContent = fmtT(Math.max(0, left)); t.classList.toggle('warn', left <= 10); }
+      if (left <= 0) end();
+    }
+    function penalty(s, msg) {
+      left = Math.max(0, left - s);
+      GM.toast(`${msg} (−${s}s)`);
+      const t = GM.$('#htime', root); if (t) t.textContent = fmtT(left);
+      if (left <= 0) end();
+    }
+
+    function render() {
+      root.innerHTML = `${top('Club Hopper', '🦘')}
+        <div class="hop-head"><span>Hops <b>${hops}</b></span><span class="timer" id="htime">${fmtT(left)}</span><span>Best ${GM.best('hopper')}</span></div>
+        <div class="hop-club">${GM.clubChip(club, true)}</div>
+        ${choosing ? `<p class="center">Where next with <b>${GM.esc(choosing.name)}</b>?</p>
+          <div class="hop-choices">${choosing.clubs.filter(c => c !== club).map(c => `<button class="btn" data-hop="${GM.esc(c)}">${GM.clubChip(c)} ${GM.esc(c)}</button>`).join('')}</div>`
+        : `<p class="center">Name a player who played for <b>${GM.esc(club)}</b> – and another PL club.</p>
+          <div class="guess-box"><input class="input" id="hg" placeholder="Type a player…" autocomplete="off"><div class="ac" id="hac" hidden></div></div>
+          <div class="actions"><button class="btn ghost small" id="hskip">🔀 New club (−10s)</button></div>`}
+        <div class="hop-chain">${chain.slice(-12).map(([p, from, to]) => `<div>${GM.clubChip(from)} → <b>${GM.esc(p.name)}</b> → ${GM.clubChip(to)}</div>`).reverse().join('')}</div>
+        <div id="hover"></div>`;
+      GM.$$('[data-hop]', root).forEach(b => b.onclick = () => hop(choosing, b.dataset.hop));
+      const inp = GM.$('#hg', root);
+      if (inp) {
+        GM.autocomplete(inp, GM.$('#hac', root), guess, { exclude: p => used.has(p.id) });
+        setTimeout(() => inp.focus(), 30);
+        GM.$('#hskip', root).onclick = () => { penalty(10, '🔀 New club'); club = r.pick(big.filter(c => c !== club)); render(); };
+      }
+      if (!timer && !over) timer = setInterval(tick, 1000);
+    }
+    function guess(p) {
+      if (over) return;
+      if (!p.clubs.includes(club)) return penalty(5, `❌ ${p.name} never played for ${GM.clubShort(club)}`);
+      const others = p.clubs.filter(c => c !== club);
+      if (!others.length) return penalty(3, `❤️ ${p.name} only ever played for ${GM.clubShort(club)}`);
+      used.add(p.id);
+      if (others.length === 1) return hop(p, others[0]);
+      choosing = p; render();
+    }
+    function hop(p, to) {
+      chain.push([p, club, to]);
+      hops++; club = to; choosing = null;
+      render();
+    }
+    async function end() {
+      if (over) return;
+      over = true; clearInterval(timer);
+      GM.$$('input, [data-hop], #hskip', root).forEach(x => { x.disabled = true; });
+      const route = chain.map(([, from]) => GM.clubShort(from)).concat(chain.length ? [GM.clubShort(club)] : []).join('→');
+      gameOver(GM.$('#hover', root), 'hopper', hops, `<div class="muted">${chain.length ? route : 'No hops this time'}</div>`, () => GM.hopper(root),
+        `⚽ Goal Machine – Club Hopper: ${hops} hops in ${TIME}s 🦘\n${route}`);
+    }
+    // stop the clock if the player leaves the page
+    window.addEventListener('hashchange', () => { over = true; clearInterval(timer); }, { once: true });
     render();
   };
 })();

@@ -9,21 +9,24 @@ Live (once merged to the Pages branch): `https://joelthornton.github.io/goal-mac
 
 | Mode | What it is |
 | --- | --- |
-| 📅 Daily 442 | The same spins for everyone today, one attempt, with a shareable emoji result |
-| 🃏 Wildcard | 13 wildcards appear on the reels (see below). You get 16 spins for 11 signings, so grabbing a wildcard costs a spare spin |
-| ⚽ Classic | No help |
-| 💀 Hardcore | Go over 442 and you bust with a score of zero; survive and your score is ×1.5 |
-| 🔦 Deep Cuts | Every 50-app player is equally likely, so expect lots of journeymen. The target is 200 |
-| ↕️ Higher or Lower | More PL goals or apps? Keep the streak going |
-| 🕵️ Who Am I? | Guess the player from his club path, with clues revealed one at a time |
-| #️⃣ Club Grid | A 3×3 grid in the Immaculate Grid style (daily or random). Obscure answers score more |
-| 🎯 Guess the Tally | How many PL goals did he score? |
+| 👑 Ultimate Wildcard | The main game. Build the XI with the biggest total of PL **goals**, **assists** or **appearances** (you choose). Every 50+ app player is equally likely, so you have to find the stars among the journeymen. Your score is the total |
+| 📅 Daily Ultimate | Ultimate Wildcard (goals) with the same spins for everyone that day and one attempt |
+| 🎯 Target | Hit the number: **442 goals**, **333 assists** or **3,500 apps**. The reels lean towards well-known players. Closeness scores up to 1,000 points, and hitting it exactly adds a +500 bullseye bonus |
+| 🦘 Club Hopper | Name a player from the club on screen, then hop to one of his other PL clubs. See how many hops you can make in 90 seconds |
+| ↕️ Higher or Lower | Who has more PL goals or apps? Keep the streak going |
+| 🕵️ Who Am I? | Guess the player from clues |
+| #️⃣ Club Grid | Immaculate-Grid style (daily or random). Obscure answers score more |
+| 🔢 Guess the Tally | How many PL goals did he score? |
 
-**🥵 Hard mode** (toggle on the home screen) strips the cards back to names and positions: no clubs, years, apps, nationality, photos or club colours. It covers the 442 games, Higher or Lower and Guess the Tally. In Who Am I?, hard mode starts with position and nationality and saves the clubs for the last clue. Hard scores have their own leaderboards. The Daily 442 always uses normal mode so everyone plays the same game.
+You keep spinning until the XI is full. Tap a player, then tap one of the highlighted slots he can play.
 
-**Signing a player:** tap a player on the reels, and the open slots he can play light up on the pitch. Tap one to sign him. Nothing is placed until you choose.
+### Full-time report
 
-**Scoring (442 modes):** 1000 − 5 × (goals off target), plus 500 for a bullseye and +50 for each unused wildcard.
+After every draft you get:
+- **A squad rating and tier,** from ☠️ Relegation certainties up to 👑 Invincibles. It's based on experience, output in each position, honours and chemistry
+- **👍 One good thing and 👎 one bad thing** about the team
+- **Badges on each player:** 🏛️ Hall of Famer, 👟 Golden Boot, 🌍 World Cup winner, ⭐ Champions League winner, 🏆 in a PL title-winning squad, 💯 100 Club, 🅰️ Playmaker, 🎖️ 400+ apps, ❤️ one-club man, 🧳 journeyman
+- **🤝 A list of who played together**
 
 ### Wildcards
 
@@ -52,6 +55,15 @@ Every player has real positions: **GK, LB, CB, RB, LM, CM, RM, ST**. The XI's sl
 - **FPL position changes and a goalscoring-midfielder rule**, which add a second role (a midfielder listed as a forward in FPL can also play ST)
 
 You always choose the slot yourself from the highlighted options. Gegenpress turns empty LM/RM slots into strikers, and Park the Bus drops two empty attacking slots to centre-back. Corrections are welcome in `positions_manual.py`.
+
+## 📒 Album & badges
+
+- **Collection:** every player you sign in a draft is added to your album (x / 2,039).
+- **Dream XI:** built automatically from your best collected player in each position, by goals, assists or apps.
+- **Sets:** Hall of Fame, Golden Boot winners, World Cup winners, Champions League winners, the 100 Club, one-club men, and one for each club.
+- **Badges:** 32 to unlock across every game, e.g. 300/400/500 Club, Bullseye, Invincibles, Band of Brothers, Globetrotter, Pantheon (collect every Hall of Famer).
+
+The album is saved on your device.
 
 ## Install it like an app (Android / iPhone)
 
@@ -94,7 +106,11 @@ Then put the project URL and the publishable key into `config.js`. There is no a
 - [mshodge/epl-stats](https://github.com/mshodge/epl-stats): premierleague.com player pages, complete up to March 2020
 - [vaastav/Fantasy-Premier-League](https://github.com/vaastav/Fantasy-Premier-League): FPL gameweek data 2016/17 → today, plus FPL season history
 - [douglasbc/scraping-understat-dataset](https://github.com/douglasbc/scraping-understat-dataset): Understat 2014/15–2021/22, used to fill 2014–16 for players missing from the first source
-- [salimt/football-datasets](https://github.com/salimt/football-datasets): Transfermarkt profiles, used for missing nationalities
+- [salimt/football-datasets](https://github.com/salimt/football-datasets): Transfermarkt profiles (nationalities, detailed positions) and teammate lists
+- [ewenme/transfers](https://github.com/ewenme/transfers): every transfer in or out of PL and Championship clubs since 1992, used to work out which club each player was at each season (for chemistry and title badges)
+- `tools/honours.py`: Hall of Fame, Golden Boot (pre-2016; later ones come from FPL), World Cup and Champions League winners, and PL champions
+
+Assists are the official PL figures up to 2020 and FPL assists after that. FPL counts a few more assists than the official figures (e.g. it can credit an assist for winning a penalty).
 
 To refresh after new gameweeks:
 
@@ -102,10 +118,11 @@ To refresh after new gameweeks:
 mkdir src && cd src
 git clone --depth 1 https://github.com/mshodge/epl-stats
 git clone --depth 1 https://github.com/douglasbc/scraping-understat-dataset us
+git clone --depth 1 https://github.com/ewenme/transfers
 git clone --depth 1 --filter=blob:none --sparse https://github.com/vaastav/Fantasy-Premier-League fpl
 (cd fpl && git sparse-checkout set --no-cone '/data/*/players_raw.csv' '/data/*/gws/merged_gw.csv' '/data/*/teams.csv' '/data/*/players/*/history.csv')
 GIT_LFS_SKIP_SMUDGE=1 git clone --depth 1 --filter=blob:none --sparse https://github.com/salimt/football-datasets
-(cd football-datasets && git sparse-checkout set datalake/transfermarkt/player_profiles)
+(cd football-datasets && git sparse-checkout set datalake/transfermarkt/player_profiles datalake/transfermarkt/player_teammates_played_with)
 pip install pandas
 SRC=$PWD OUT=../data/players.js python3 ../tools/build_players.py   # optional arg: minimum apps (default 50)
 ```

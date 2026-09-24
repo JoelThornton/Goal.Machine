@@ -11,7 +11,7 @@ Live (once merged to the Pages branch): `https://joelthornton.github.io/goal-mac
 | --- | --- |
 | 👑 Ultimate Wildcard | The main mode. There's no target: build the XI with the most PL goals you can. Every 50+ app player is equally likely, so you have to find the scorers among the journeymen. All wildcards are in play except Rotation Risk and Park the Bus. Your score is your total goals |
 | 📅 Daily 442 | The same spins for everyone today, one attempt, with a shareable emoji result |
-| 🃏 Wildcard | 13 wildcards appear on the reels (see below). You get 16 spins for 11 signings, so grabbing a wildcard costs a spare spin |
+| 🃏 Wildcard | 13 wildcards appear on the reels (see below). You keep spinning until your XI is full |
 | ⚽ Classic | No help |
 | 💀 Hardcore | Go over 442 and you bust with a score of zero; survive and your score is ×1.5 |
 | 🔦 Deep Cuts | Every 50-app player is equally likely, so expect lots of journeymen. The target is 200 |
@@ -24,7 +24,7 @@ Live (once merged to the Pages branch): `https://joelthornton.github.io/goal-mac
 
 **Signing a player:** tap a player on the reels, and the open slots he can play light up on the pitch. Tap one to sign him. Nothing is placed until you choose.
 
-**Scoring (442 modes):** 1000 − 5 × (goals off target), plus 500 for a bullseye and +50 for each unused wildcard.
+**Scoring (442 modes):** 1000 − 5 × (goals off target), plus 500 for a bullseye.
 
 ### Wildcards
 

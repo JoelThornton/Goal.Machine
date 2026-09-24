@@ -5,8 +5,6 @@
   const FORMATION = ['GK', 'LB', 'CB', 'CB', 'RB', 'LM', 'CM', 'CM', 'RM', 'ST', 'ST'];
   const SIDE = { LB: 0, LM: 0, RB: 2, RM: 2 }; // for left-to-right ordering on the pitch
   const WIDE_MIDS = [5, 8];
-  const SPIN_BUDGET = 16; // wildcard modes: 11 signings + 5 spare spins to spend on grabbing wildcards
-  const UNUSED_BONUS = 50;
 
   // kind: 'reveal' | 'respin' | 'special' (themed spin) | 'formation' | 'modifier' | 'sub'
   const WILDCARDS = {
@@ -50,7 +48,6 @@
     }
     S = {
       mode, seed, rules, target: rules.target, spin: 0, respins: 0,
-      spinsLeft: rules.wild ? SPIN_BUDGET : null,
       xi: FORMATION.map(pos => ({ pos, p: null, g: 0, mod: null, as: null })),
       reels: [], selected: -1, revealed: false, revealNext: false, special: null,
       inv: [], modifier: null, subbing: false, used: [], last: null,
@@ -66,7 +63,6 @@
   const byId = id => GM.players[id];
   const fits = (p, open) => p.poss.some(x => open.includes(x));
   const emptySlots = () => S.xi.filter(s => s.p == null).length;
-  const hasFreeSpin = () => S.inv.some(w => WILDCARDS[w].kind === 'special');
 
   /* ---------------------------------------------------------------- reel generation */
   function makeReels(special) {
@@ -108,7 +104,6 @@
   /* ---------------------------------------------------------------- actions */
   async function doSpin(special) {
     if (S.phase !== 'spin' && S.phase !== 'pick') return;
-    if (!special && S.phase === 'spin' && S.spinsLeft != null) S.spinsLeft--;
     S.special = special || null;
     S.pending = null;
     S.reels = makeReels(special);
@@ -212,7 +207,6 @@
     S.revealed = false;
     S.special = null;
     if (bust || emptySlots() === 0) return finish();
-    if (S.spinsLeft === 0 && !hasFreeSpin()) { GM.toast('⏱️ Out of spins – the window has shut!', 2600); return finish(); }
     S.phase = 'spin';
     render();
   }
@@ -263,7 +257,6 @@
     S.inv.splice(S.subbing, 1);
     S.log.push('🔄');
     S.subbing = false;
-    if (S.spinsLeft === 0) S.spinsLeft = 1; // always allow a spin to fill the gap
     render();
   }
 
@@ -277,7 +270,6 @@
     const base = Math.max(0, 1000 - 5 * diff);
     parts.push([`Closeness (${diff} off)`, base]);
     if (diff === 0) parts.push(['🎯 Bullseye!', 500]);
-    if (st.rules.wild && st.inv.length) parts.push([`Unused wildcards ×${st.inv.length}`, UNUSED_BONUS * st.inv.length]);
     let sum = parts.reduce((a, p) => a + p[1], 0);
     if (st.rules.bust) { parts.push(['💀 Hardcore ×1.5', Math.round(sum * 0.5)]); sum = Math.round(sum * 1.5); }
     return { total: sum, parts, diff, t };
@@ -354,7 +346,7 @@
       return `<div class="counter max">
       <div class="counter-num"><b>${t}</b><span>goals</span></div>
       <div class="bar"><i style="width:${pb ? Math.min(100, t / pb * 100) : 0}%"></i></div>
-      <div class="counter-sub">${pb ? (t > pb ? '🔥 Beating your best (' + pb + ')' : `Your best: ${pb}`) : 'Set your first score'} · ${left0} slot${left0 === 1 ? '' : 's'} left · <span class="${S.spinsLeft <= left0 ? 'warn' : ''}">${S.spinsLeft} spin${S.spinsLeft === 1 ? '' : 's'} left</span>${mod0}</div>
+      <div class="counter-sub">${pb ? (t > pb ? '🔥 Beating your best (' + pb + ')' : `Your best: ${pb}`) : 'Set your first score'} · ${left0} slot${left0 === 1 ? '' : 's'} left${mod0}</div>
     </div>`;
     }
     const pct = Math.min(100, t / S.target * 100);
@@ -364,7 +356,7 @@
     return `<div class="counter ${over ? 'over' : ''}">
       <div class="counter-num"><b>${t}</b><span>/ ${S.target}</span></div>
       <div class="bar"><i style="width:${pct}%"></i></div>
-      <div class="counter-sub">${over ? `${t - S.target} over` : `${S.target - t} to go`} · ${left} slot${left === 1 ? '' : 's'} left${S.spinsLeft != null ? ` · <span class="${S.spinsLeft <= left ? 'warn' : ''}">${S.spinsLeft} spin${S.spinsLeft === 1 ? '' : 's'} left</span>` : ''}${mod}</div>
+      <div class="counter-sub">${over ? `${t - S.target} over` : `${S.target - t} to go`} · ${left} slot${left === 1 ? '' : 's'} left${mod}</div>
     </div>`;
   }
 
@@ -390,14 +382,12 @@
           return `<button class="reel ${x.wild ? 'is-wild' : ''} ${S.selected === i || S.pending === i ? 'selected' : ''} ${S.phase === 'reveal' && S.selected !== i ? 'dim' : ''} ${S.hard ? 'hard' : ''}" data-reel="${i}">${reelInner(x)}</button>`;
         }).join('')}</div>
       <div class="actions">
-        ${S.phase === 'spin' && S.spinsLeft !== 0 ? `<button class="btn big spin" id="spin">🎰 SPIN</button>` : ''}
-        ${S.phase === 'spin' && S.spinsLeft === 0 ? `<div class="hint">Out of spins – use a free-spin wildcard, or</div><button class="btn ghost" id="endgame">Blow the final whistle</button>` : ''}
+        ${S.phase === 'spin' ? `<button class="btn big spin" id="spin">🎰 SPIN</button>` : ''}
         ${S.phase === 'pick' && S.pending == null ? `<div class="hint">Tap a player, then tap the slot he’ll play in${S.reels.some(r => r.wild) ? ' – or grab the wildcard (costs this spin)' : ''}</div>` : ''}
         ${S.phase === 'pick' && S.pending != null ? `<div class="hint">📍 Now tap a highlighted slot on the pitch for <b>${GM.esc(byId(S.reels[S.pending].id).name)}</b> (${byId(S.reels[S.pending].id).poss.join(' / ')})</div>` : ''}
       </div>`;
     GM.$('#help', root).onclick = help;
     const spb = GM.$('#spin', root); if (spb) spb.onclick = () => doSpin();
-    const eg = GM.$('#endgame', root); if (eg) eg.onclick = () => finish();
     GM.$$('[data-reel]', root).forEach(b => b.onclick = () => sign(+b.dataset.reel));
     GM.$$('[data-w]', root).forEach(b => b.onclick = () => useWild(+b.dataset.w));
     GM.$$('[data-slot]', root).forEach(b => b.onclick = () => {
@@ -415,7 +405,7 @@
       : `<p>Build an XI whose players have scored <b>${S.target}</b> Premier League goals between them.</p>
       <p>Each spin shows three players who fit an open position. Their goal tallies are hidden – sign the one you think gets you closest.</p>`}
       <p>Every player has real positions – <b>GK, LB, CB, RB, LM, CM, RM, ST</b> – and can only go in a slot he actually played. Utility men (Dublin up front or at centre-back, Bale at LB/LM/RM/ST, Milner…) show every position they can fill, and you choose where he goes.</p>
-      ${r.wild ? `<p><b>Wildcards</b> appear on the reels from the 2nd spin. You get <b>${SPIN_BUDGET} spins</b> for 11 signings, so grabbing a wildcard costs one of your spare spins. Hold up to 3${r.max ? '.' : `; each unused one is +${UNUSED_BONUS} at full time.`}</p>
+      ${r.wild ? `<p><b>Wildcards</b> appear on the reels from the 2nd spin. You keep spinning until your XI is full; grabbing a wildcard instead of a player just means you sign someone on a later spin. You can hold up to 3.</p>
       <ul class="wc-list">${Object.entries(WILDCARDS).filter(([k]) => !(r.noWild || []).includes(k)).map(([, w]) => `<li>${w.icon} <b>${w.name}</b> – ${w.desc}</li>`).join('')}</ul>` : ''}
       ${r.bust ? '<p>💀 <b>Hardcore:</b> go over and you bust with zero. Survive and your score is multiplied ×1.5.</p>' : ''}
       ${S.mode === 'deep' ? '<p>🔦 <b>Deep Cuts:</b> every 50+ appearance player is equally likely – cult heroes and journeymen galore. Target is 200.</p>' : ''}

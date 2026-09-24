@@ -16,8 +16,31 @@ GM.fold = function (s) {
   GM.dataDate = D.generated;
   GM.players = D.players.map((r, i) => ({
     id: i, name: r[0], poss: r[1].split('/'), nat: r[2] >= 0 ? D.nats[r[2]] : null,
-    clubs: r[3].map(c => D.clubs[c]), apps: r[4], goals: r[5], first: r[6], last: r[7], code: r[8],
+    clubs: r[3].map(c => D.clubs[c]), apps: r[4], goals: r[5], first: r[6], last: r[7], code: r[8], ast: r[9] || 0,
+    stints: parseStints(r[10] || ''), hon: parseHon(r[11] || ''),
   }));
+  // teammate pairs from Transfermarkt (index pairs, flattened)
+  GM.links = new Set();
+  for (let k = 0; k < (D.links || []).length; k += 2) GM.links.add(D.links[k] + ',' + D.links[k + 1]);
+  function parseStints(s) {
+    const out = {};
+    if (!s) return out;
+    for (const part of s.split('|')) {
+      const [ci, runs] = part.split(':');
+      const ys = new Set();
+      for (const run of runs.split('.')) {
+        const [a, b] = run.split('-').map(Number);
+        for (let y = a; y <= (isNaN(b) ? a : b); y++) ys.add(1992 + y);
+      }
+      out[D.clubs[+ci]] = ys;
+    }
+    return out;
+  }
+  function parseHon(s) {
+    const h = {};
+    for (const m of s.matchAll(/([A-Z])(\d+)/g)) h[m[1]] = +m[2];
+    return h;
+  }
   GM.clubs = D.clubs;
   GM.nats = D.nats;
   // "fame" weight – used so the reels lean towards players people have heard of
@@ -30,6 +53,25 @@ GM.POS_NAME = {
 };
 GM.POS_SHORT = { GK: 'GK', LB: 'LB', CB: 'CB', RB: 'RB', LM: 'LM', CM: 'CM', RM: 'RM', ST: 'ST', G: 'GK', D: 'DEF', M: 'MID', F: 'FWD' };
 GM.posBadges = p => p.poss.map(x => `<span class="pos pos-${GM.GROUP[x]}" title="${GM.POS_NAME[x]}">${x}</span>`).join('');
+
+// Stats a draft can be played on
+GM.STATS = {
+  goals: { key: 'goals', label: 'goals', one: 'goal', icon: '⚽', name: 'Goals' },
+  assists: { key: 'ast', label: 'assists', one: 'assist', icon: '🅰️', name: 'Assists' },
+  apps: { key: 'apps', label: 'apps', one: 'app', icon: '🏃', name: 'Appearances' },
+};
+
+/** Were a and b teammates? Known club-season overlap, or a Transfermarkt "played with" link. */
+GM.teammates = function (a, b) {
+  const key = a.id < b.id ? a.id + ',' + b.id : b.id + ',' + a.id;
+  if (GM.links.has(key)) return a.clubs.find(c => b.clubs.includes(c)) || true;
+  for (const c in a.stints) {
+    const bs = b.stints[c];
+    if (!bs) continue;
+    for (const y of a.stints[c]) if (bs.has(y)) return c;
+  }
+  return false;
+};
 
 GM.season = y => `${y}/${String((y + 1) % 100).padStart(2, '0')}`;
 GM.currentSeason = Math.max(...window.PL_DATA.players.map(r => r[7]));
@@ -236,21 +278,23 @@ GM.autocomplete = function (input, box, onPick, { exclude } = {}) {
 
 /* ------------------------------------------------------------------ scores + leaderboard */
 GM.MODES = {
-  classic: { name: '442 Classic', icon: '⚽' },
-  wild: { name: '442 Wildcard', icon: '🃏' },
   ultimate: { name: 'Ultimate Wildcard', icon: '👑' },
-  hardcore: { name: '442 Hardcore', icon: '💀' },
-  deep: { name: 'Deep Cuts', icon: '🔦' },
-  daily: { name: 'Daily 442', icon: '📅' },
+  ultimateast: { name: 'Ultimate Wildcard – Assists', icon: '👑' },
+  ultimateapps: { name: 'Ultimate Wildcard – Apps', icon: '👑' },
+  target: { name: 'Target 442', icon: '🎯' },
+  targetast: { name: 'Target 333 – Assists', icon: '🎯' },
+  targetapps: { name: 'Target 3500 – Apps', icon: '🎯' },
+  daily: { name: 'Daily Ultimate', icon: '📅' },
+  hopper: { name: 'Club Hopper', icon: '🦘' },
   hilo: { name: 'Higher or Lower', icon: '↕️' },
   whoami: { name: 'Who Am I?', icon: '🕵️' },
   grid: { name: 'Club Grid', icon: '#️⃣' },
-  tally: { name: 'Guess the Tally', icon: '🎯' },
+  tally: { name: 'Guess the Tally', icon: '🔢' },
 };
 
 // Hard mode: games show names + positions only (no clubs, years, apps, nationality); Who Am I? saves the
 // clubs for the last clue. Scores go to "<mode>h".
-GM.HARD_MODES = ['ultimate', 'classic', 'wild', 'hardcore', 'deep', 'hilo', 'whoami', 'tally'];
+GM.HARD_MODES = ['ultimate', 'ultimateast', 'ultimateapps', 'target', 'targetast', 'targetapps', 'hilo', 'whoami', 'tally'];
 GM.isHard = () => GM.store.get('hard', false);
 GM.setHard = v => GM.store.set('hard', !!v);
 Object.keys(GM.MODES).filter(k => GM.HARD_MODES.includes(k)).forEach(k => {

@@ -52,7 +52,7 @@ for r in E.itertuples():
             clubs.append(c)
     seasons = sorted(ast.literal_eval(r.seasons))
     epl[r.id] = dict(name=r.name.strip(), pos=r.position, nat=r.nationality if isinstance(r.nationality, str) else None, clubs=clubs[::-1],
-                     seasons=set(seasons), apps=int(r.apps), goals=int(r.goals))
+                     seasons=set(seasons), apps=int(r.apps), goals=int(r.goals), ast=int(r.assists))
 
 # ---------------------------------------------------------------- understat
 US = {}  # season start year -> DataFrame
@@ -69,6 +69,8 @@ fpl_pos = collections.defaultdict(collections.Counter)
 fpl_birth = {}
 fpl_seasons = collections.defaultdict(dict) # code -> {year: dict(apps, goals, mins, teams)}
 hist = collections.defaultdict(dict)        # code -> {year: (mins, goals)}
+hist_ast = collections.defaultdict(dict)    # code -> {year: assists}
+teams_by_season = collections.defaultdict(dict)  # code -> {year: [clubs]} (exact, FPL era)
 POS = {1: 'Goalkeeper', 2: 'Defender', 3: 'Midfielder', 4: 'Forward'}
 
 def fpl_display(r):
@@ -142,7 +144,9 @@ for sdir in sorted(glob.glob(f'{FPL}/20*')):
             nm = tn.get(tid)
             if nm and nm not in teams:
                 teams.append(nm)
+        teams_by_season[code][y] = teams
         fpl_seasons[code][y] = dict(apps=len(played), goals=int(played.goals_scored.sum()),
+                                    ast=int(played.assists.sum()), ast_post=int(dp.assists.sum()),
                                     mins=int(played.minutes.sum()), teams=teams,
                                     apps_post=len(dp), goals_post=int(dp.goals_scored.sum()),
                                     apps_pre=len(played) - len(dp), goals_pre=int(played.goals_scored.sum() - dp.goals_scored.sum()))
@@ -157,6 +161,7 @@ for sdir in sorted(glob.glob(f'{FPL}/20*')):
         for r in h.itertuples():
             hy = int(str(r.season_name)[:4])
             hist[r.element_code][hy] = (int(r.minutes), int(r.goals_scored))
+            hist_ast[r.element_code][hy] = int(r.assists)
 
 print('FPL codes', len(fpl_seasons), 'with history', len(hist), file=sys.stderr)
 
@@ -271,24 +276,34 @@ json.dump(unl, open(os.environ.get('UNLINKED', '/dev/null'), 'w'), ensure_ascii=
 
 # ---------------------------------------------------------------- assemble
 players = []
-def add(name, pos, nat, clubs, apps, goals, first, last, code=None, approx=False, src=''):
-    players.append(dict(name=name, pos=pos, nat=nat, clubs=clubs, apps=apps, goals=goals,
-                        first=first, last=last, code=code, approx=approx, src=src))
+def add(name, pos, nat, clubs, apps, goals, first, last, code=None, approx=False, src='', ast=0, stints=None):
+    players.append(dict(name=name, pos=pos, nat=nat, clubs=clubs, apps=apps, goals=goals, ast=ast,
+                        first=first, last=last, code=code, approx=approx, src=src, stints=stints or {}))
 
 linked_epl = {e: c for c, e in code_to_epl.items()}
 for eid, p in epl.items():
     code = linked_epl.get(eid)
-    apps, goals, clubs = p['apps'], p['goals'], list(p['clubs'])
+    apps, goals, ast, clubs = p['apps'], p['goals'], p['ast'], list(p['clubs'])
     yrs = [int(s[:4]) for s in p['seasons']]
     if not yrs:
         continue
     last = max(yrs)
+    stints = collections.defaultdict(set)
+    if len(p['clubs']) == 1:  # one-club career: every season was at that club
+        stints[p['clubs'][0]] |= set(yrs)
+    if code in code_to_us:
+        for y in (2014, 2015):
+            row = US[y][US[y].id == code_to_us[code]]
+            for t in (row.iloc[0].team_title.split(',') if len(row) else []):
+                stints[canon(t)].add(y)
     if code:
         for y, s in sorted(fpl_seasons[code].items()):
+            for t in s['teams']:
+                stints[t].add(y)
             if y < 2019:
                 continue
-            a, g = (s['apps_post'], s['goals_post']) if y == 2019 else (s['apps'], s['goals'])
-            apps += a; goals += g
+            a, g, x = (s['apps_post'], s['goals_post'], s['ast_post']) if y == 2019 else (s['apps'], s['goals'], s['ast'])
+            apps += a; goals += g; ast += x
             if s['apps']:
                 last = max(last, y)
             for t in s['teams']:
@@ -297,7 +312,7 @@ for eid, p in epl.items():
     pos = p['pos'] if p['pos'] in ('Goalkeeper', 'Defender', 'Midfielder', 'Forward') else (
         fpl_pos[code].most_common(1)[0][0] if code else 'Midfielder')
     first_played = min(yrs)
-    add(p['name'], pos, p['nat'], clubs, apps, goals, first_played, last, code, src='epl')
+    add(p['name'], pos, p['nat'], clubs, apps, goals, first_played, last, code, src='epl', ast=ast, stints=stints)
 
 for code, ss in fpl_seasons.items():
     if code in code_to_epl:
@@ -305,10 +320,10 @@ for code, ss in fpl_seasons.items():
     usid = code_to_us.get(code)
     apps = goals = 0
     clubs = []
-    per = {}   # year -> (apps, goals, approx)
+    per = {}   # year -> (apps, goals, approx, teams, assists)
     for y, s in ss.items():
         if s['apps']:
-            per[y] = (s['apps'], s['goals'], False, s['teams'])
+            per[y] = (s['apps'], s['goals'], False, s['teams'], s['ast'])
     # understat 2014-15 / 2015-16
     if usid is not None:
         for y in (2014, 2015):
@@ -316,7 +331,7 @@ for code, ss in fpl_seasons.items():
             row = u[u.id == usid]
             if len(row):
                 r = row.iloc[0]
-                per[y] = (int(r.games), int(r.goals), False, [canon(t) for t in r.team_title.split(',')])
+                per[y] = (int(r.games), int(r.goals), False, [canon(t) for t in r.team_title.split(',')], int(r.assists))
     # minutes-per-app ratio for estimating history-only seasons
     known_m = sum(s['mins'] for s in ss.values())
     known_a = sum(s['apps'] for s in ss.values())
@@ -324,21 +339,25 @@ for code, ss in fpl_seasons.items():
     for y, (m, g) in hist[code].items():
         if y in per or m <= 0 or y >= 2016:
             continue
-        per[y] = (max(1, round(m / ratio)), g, True, [])
+        per[y] = (max(1, round(m / ratio)), g, True, [], hist_ast[code].get(y, 0))
     if not per:
         continue
+    ast = 0
+    stints = collections.defaultdict(set)
     for y in sorted(per):
-        a, g, ap, teams = per[y]
-        apps += a; goals += g
+        a, g, ap, teams, x = per[y]
+        apps += a; goals += g; ast += x
         for t in teams:
+            stints[t].add(y)
             if t not in clubs:
                 clubs.append(t)
     approx = any(v[2] for v in per.values())
-    add(fpl_disp[code], fpl_pos[code].most_common(1)[0][0], None, clubs, apps, goals, min(per), max(per), code, approx, src='fpl')
+    add(fpl_disp[code], fpl_pos[code].most_common(1)[0][0], None, clubs, apps, goals, min(per), max(per), code, approx,
+        src='fpl', ast=ast, stints=stints)
 
 # understat-only players (left PL before 2016-17 and missing from epl-stats)
 epl_names = {norm(p['name']) for p in epl.values()}
-us_only = collections.defaultdict(lambda: dict(apps=0, goals=0, clubs=[], years=[], name=None, pos=None))
+us_only = collections.defaultdict(lambda: dict(apps=0, goals=0, ast=0, clubs=[], years=[], name=None, pos=None, stints=collections.defaultdict(set)))
 for y, u in US.items():
     for r in u.itertuples():
         if r.id in us_to_code or norm(r.player_name) in epl_names:
@@ -346,7 +365,9 @@ for y, u in US.items():
         d = us_only[r.id]
         if y >= 2016:
             d['skip'] = True
-        d['apps'] += int(r.games); d['goals'] += int(r.goals); d['years'].append(y)
+        d['apps'] += int(r.games); d['goals'] += int(r.goals); d['ast'] += int(r.assists); d['years'].append(y)
+        for t in r.team_title.split(','):
+            d['stints'][canon(t)].add(y)
         d['name'] = r.player_name; d['pos'] = r.position
         for t in r.team_title.split(','):
             if canon(t) not in d['clubs']:
@@ -356,7 +377,7 @@ for uid, d in us_only.items():
     if d.get('skip') or d['apps'] < MIN_APPS:
         continue
     add(d['name'], UPOS.get(d['pos'][0], 'Midfielder'), None, d['clubs'], d['apps'], d['goals'],
-        min(d['years']), max(d['years']), approx=True, src='understat')
+        min(d['years']), max(d['years']), approx=True, src='understat', ast=d['ast'], stints=d['stints'])
 
 # ---------------------------------------------------------------- nationality via transfermarkt
 TM = pd.read_csv(f'{S}/football-datasets/datalake/transfermarkt/player_profiles/player_profiles.csv', low_memory=False,
@@ -536,17 +557,201 @@ out = [p for p in players if p['apps'] >= MIN_APPS]
 out.sort(key=lambda p: (-p['apps'], p['name']))
 print('players >=', MIN_APPS, 'apps:', len(out), 'by src', collections.Counter(p['src'] for p in out),
       'approx', sum(p['approx'] for p in out), file=sys.stderr)
-json.dump(out, open(os.environ.get('FULL', f'{S}/players_full.json'), 'w'), ensure_ascii=False, indent=0)
+json.dump(out, open(os.environ.get('FULL', f'{S}/players_full.json'), 'w'), ensure_ascii=False, indent=0, default=sorted)
+
+# ---------------------------------------------------------------- club stints from transfers (ewenme/transfers)
+# Every move in/out of Premier League and Championship clubs since 1992 lets us work out which club a player was
+# at in each season - needed for "played together" chemistry and PL title badges.
+club_norm = {}
+for c in {c for p in out for c in p['clubs']}:
+    club_norm[norm(c)] = c
+def canon_tm_club(n):
+    n0 = norm(re.sub(r'\b(FC|AFC)\b', '', n))
+    for k, v in club_norm.items():
+        if n0 == k or n0 == norm(re.sub(r'\b(FC|AFC)\b', '', v)):
+            return v
+    return {'brighton hove albion': 'Brighton and Hove Albion', 'wolverhampton wanderers': 'Wolverhampton Wanderers',
+            'afc bournemouth': 'AFC Bournemouth', 'bournemouth': 'AFC Bournemouth'}.get(n0)
+tr = pd.concat([pd.read_csv(f'{S}/transfers/data/{f}.csv') for f in ('premier-league', 'championship')])
+tr['club'] = tr.club_name.map(canon_tm_club)
+tr = tr[tr.club.notna()]
+tr['y'] = tr.season.str[:4].astype(int)
+tr['k'] = tr.player_name.map(norm)
+events = collections.defaultdict(list)
+by_surname = collections.defaultdict(list)   # (surname, first initial) -> events, for Andy/Andrew-style name mismatches
+for r in tr.itertuples():
+    e = (r.y, 0 if r.transfer_period == 'Summer' else 1, r.transfer_movement, r.club)
+    events[r.k].append(e)
+    parts = r.k.split()
+    if len(parts) >= 2:
+        by_surname[(parts[-1], parts[0][0])].append(e)
+added = 0
+for i, p in enumerate(out):
+    keys = {norm(p['name'])} | ({norm(n) for n in fpl_names[p['code']]} if p['code'] else set())
+    ok = lambda e: e[3] in p['clubs'] and p['first'] - 3 <= e[0] <= p['last'] + 1
+    ev = sorted({e for k in keys for e in events.get(k, []) if ok(e)})
+    if not ev:
+        parts = norm(p['name']).split()
+        if len(parts) >= 2:
+            ev = sorted({e for e in by_surname.get((parts[-1], parts[0][0]), []) if ok(e)})
+    if not ev:
+        continue
+    for club in {e[3] for e in ev}:
+        ce = [e for e in ev if e[3] == club]
+        start = None
+        # an 'out' with no earlier 'in' means he was already there (youth product / pre-1992 signing) -
+        # unless he'd been at other clubs before, in which case we only trust that one season
+        if ce[0][2] == 'out':
+            earlier_elsewhere = any(e[3] != club and e[2] == 'in' and e[:2] < ce[0][:2] for e in ev)
+            start = ce[0][0] if earlier_elsewhere else p['first']
+        prev = None
+        for y, half, mv, _ in ce:
+            if mv == 'in':
+                if start is None:
+                    start = y
+            else:
+                if start is None and prev is not None and prev[2] == 'out':
+                    start = prev[0]  # two 'outs' in a row: the loan return wasn't recorded, so he came back
+                if start is not None:
+                    end = y - 1 if half == 0 else y
+                    for yy in range(start, end + 1):
+                        p['stints'].setdefault(club, set()).add(yy); added += 1
+                    start = None
+            prev = (y, half, mv)
+        if start is not None:
+            # no recorded exit: he stayed until he next joined another club (or the end of his PL career)
+            last_in = max(e for e in ce if e[2] == 'in') if any(e[2] == 'in' for e in ce) else ce[0]
+            later = [e for e in ev if e[3] != club and e[2] == 'in' and e[:2] > last_in[:2]]
+            end = (later[0][0] - (1 if later[0][1] == 0 else 0)) if later else p['last']
+            for yy in range(start, end + 1):
+                p['stints'].setdefault(club, set()).add(yy); added += 1
+    # never claim seasons outside his PL career
+    for club in list(p['stints']):
+        p['stints'][club] = {y for y in p['stints'][club] if p['first'] <= y <= p['last']}
+        if not p['stints'][club]:
+            del p['stints'][club]
+print('stint seasons added from transfers', added, file=sys.stderr)
+
+# ---------------------------------------------------------------- honours, titles, teammates
+from honours import HALL_OF_FAME, GOLDEN_BOOT, WORLD_CUP, CHAMPIONS_LEAGUE, CHAMPIONS, names as hnames
+by_norm = collections.defaultdict(list)
+for i, p in enumerate(out):
+    by_norm[norm(p['name'])].append(i)
+    if p['code']:
+        for n in fpl_names[p['code']]:
+            by_norm[norm(n)].append(i)
+def find(n):
+    c = list(dict.fromkeys(by_norm.get(norm(n), [])))
+    return c
+missing = []
+hon = collections.defaultdict(collections.Counter)
+def award(n, key):
+    c = find(n)
+    if len(c) == 1:
+        hon[c[0]][key] += 1
+    elif not c:
+        missing.append(n)
+    else:
+        # ambiguous (e.g. two players share a name): give it to the more decorated/famous one
+        hon[max(c, key=lambda i: out[i]['apps'] + out[i]['goals'] * 3)][key] += 1
+for n in hnames(HALL_OF_FAME):
+    award(n, 'H')
+for y, ns in GOLDEN_BOOT.items():
+    for n in hnames(ns):
+        award(n, 'B')
+# Golden Boots from 2016/17 on, straight from the FPL goal data
+code_idx = {p['code']: i for i, p in enumerate(out) if p['code']}
+for y in sorted({y for ss in fpl_seasons.values() for y in ss}):
+    if y < 2016:
+        continue
+    tot = {c: ss[y]['goals'] for c, ss in fpl_seasons.items() if y in ss}
+    top = max(tot.values())
+    if y == max(team_names):  # current season still in progress
+        continue
+    for c, g in tot.items():
+        if g == top and c in code_idx:
+            hon[code_idx[c]]['B'] += 1
+            print('Golden Boot', y, out[code_idx[c]]['name'], g, file=sys.stderr)
+for y, ns in WORLD_CUP.items():
+    for n in hnames(ns):
+        award(n, 'W')
+for y, ns in CHAMPIONS_LEAGUE.items():
+    for n in hnames(ns):
+        award(n, 'C')
+print('honour names not found (fine if they had < 50 PL apps):', missing, file=sys.stderr)
+
+# PL champions from 2025/26 on: work out the table from FPL results
+champs = dict(CHAMPIONS)
+for sdir in sorted(glob.glob(f'{FPL}/20*')):
+    y = int(os.path.basename(sdir)[:4])
+    if y in champs:
+        continue
+    g = pd.read_csv(f'{sdir}/gws/merged_gw.csv', encoding='latin1', low_memory=False)
+    fx = g.drop_duplicates(['fixture', 'was_home'])
+    if fx.fixture.nunique() < 380:
+        continue  # season not finished
+    pts = collections.Counter()
+    for r in fx.itertuples():
+        us_, them = (r.team_h_score, r.team_a_score) if r.was_home else (r.team_a_score, r.team_h_score)
+        opp = r.opponent_team
+        pts[('opp', opp)] += 3 if them > us_ else 1 if them == us_ else 0
+    tn = team_names[y]
+    best = max(pts, key=pts.get)
+    champs[y] = tn[best[1]]
+    print('Champions', y, champs[y], pts[best], file=sys.stderr)
+# title winners: player had a known stint at the champion club that season
+for i, p in enumerate(out):
+    for c, ys in p['stints'].items():
+        for y in ys:
+            if champs.get(y) == c:
+                hon[i]['P'] += 1
+
+# teammates from Transfermarkt "played with" lists (only counted where both share a PL club)
+tm_id = {}
+TMP = pd.read_csv(f'{S}/football-datasets/datalake/transfermarkt/player_profiles/player_profiles.csv', low_memory=False,
+                  usecols=['player_id', 'player_name', 'date_of_birth', 'citizenship', 'position', 'main_position'])
+for i, p in enumerate(out):
+    m = tm_match(p)
+    if m is not None:
+        tm_id[int(TMP.player_id[m.Index])] = i
+TMT = pd.read_csv(f'{S}/football-datasets/datalake/transfermarkt/player_teammates_played_with/player_teammates_played_with.csv',
+                  usecols=['player_id', 'teammate_player_id'])
+links = set()
+for a_, b_ in zip(TMT.player_id, TMT.teammate_player_id):
+    if a_ in tm_id and b_ in tm_id:
+        i, j = sorted((tm_id[a_], tm_id[b_]))
+        if i != j and set(out[i]['clubs']) & set(out[j]['clubs']):
+            links.add((i, j))
+print('TM teammate links', len(links), 'TM ids', len(tm_id), file=sys.stderr)
+
+def stint_str(st):
+    parts = []
+    for c, ys in st.items():
+        ys = sorted(ys)
+        runs, start, prev = [], ys[0], ys[0]
+        for y in ys[1:] + [None]:
+            if y is not None and y == prev + 1:
+                prev = y
+                continue
+            runs.append(f'{start - 1992}' if start == prev else f'{start - 1992}-{prev - 1992}')
+            if y is not None:
+                start = prev = y
+        parts.append(f'{c}:' + '.'.join(runs))
+    return '|'.join(parts)
 
 clubs = sorted({c for p in out for c in p['clubs']})
 nats = sorted({p['nat'] for p in out if p['nat']})
 compact = dict(
     generated=pd.Timestamp.now().strftime('%Y-%m-%d'),
     clubs=clubs, nats=nats,
-    # [name, positions (primary first, e.g. 'MF'), natIdx(-1 unknown), [clubIdx...], apps, goals, firstSeason, lastSeason, fplCode(0 none)]
+    # [name, positions 'CM/ST', natIdx(-1 unknown), [clubIdx...], apps, goals, firstSeason, lastSeason, fplCode(0 none),
+    #  assists, known club stints 'clubIdx:yy-yy.yy|...' (yy = season - 1992), honours e.g. 'H1B2W1C1P3']
+    links=[x for l in sorted(links) for x in l],
     players=[[p['name'], p['poss'],
               nats.index(p['nat']) if p['nat'] else -1, [clubs.index(c) for c in p['clubs']],
-              p['apps'], p['goals'], p['first'], p['last'], int(p['code'] or 0)] for p in out])
+              p['apps'], p['goals'], p['first'], p['last'], int(p['code'] or 0), p['ast'],
+              stint_str({clubs.index(c): ys for c, ys in p['stints'].items() if c in clubs}),
+              ''.join(f'{k}{v}' for k, v in sorted(hon[i].items()))] for i, p in enumerate(out)])
 OUT = os.environ.get('OUT', f'{S}/players.js')
 with open(OUT, 'w') as f:
     f.write('// Generated by tools/build_players.py - do not edit by hand\n')

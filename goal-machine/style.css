@@ -243,3 +243,41 @@ footer { margin-top: 24px; }
 .mode-card.featured.ultimate { background: linear-gradient(135deg, #5b2bd6, #2a1466); border-color: rgba(255,210,63,.6); }
 .mode-card.featured.ultimate .pb { color: #ffd23f; font-size: .95rem; }
 .counter.max .counter-num span { font-size: 1rem; }
+
+/* v4: stat picker, full-time report, club hopper */
+.big-card { flex-wrap: wrap; }
+.stat-pick { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
+.stat-btn { flex: 1 1 90px; display: flex; flex-direction: column; align-items: center; padding: 9px 6px; border-radius: 10px; background: rgba(255,255,255,.12); color: var(--text); text-decoration: none; font-weight: 800; font-size: .88rem; border: 1px solid rgba(255,255,255,.2); text-align: center; }
+.stat-btn:hover { background: rgba(255,255,255,.2); }
+.stat-btn small { color: var(--accent2); font-weight: 700; font-size: .7rem; }
+.mode-card .mode-text small { display: block; }
+.report { background: var(--panel); border: 1px solid var(--line); border-radius: var(--r); padding: 14px; margin: 10px 0; display: grid; gap: 8px; }
+.tier { display: flex; align-items: center; gap: 12px; }
+.tier-icon { font-size: 2.4rem; }
+.tier small { display: block; color: var(--muted); font-size: .75rem; text-transform: uppercase; letter-spacing: 1px; }
+.tier b { font: 700 1.5rem Oswald, sans-serif; color: var(--accent2); }
+.verdict { padding: 8px 10px; border-radius: 10px; font-size: .92rem; }
+.verdict.good { background: rgba(61,220,132,.12); border: 1px solid rgba(61,220,132,.35); }
+.verdict.bad { background: rgba(255,90,95,.1); border: 1px solid rgba(255,90,95,.35); }
+.team-badges { display: flex; flex-wrap: wrap; gap: 6px; }
+.team-badges span { background: rgba(0,0,0,.25); border-radius: 999px; padding: 4px 10px; font-size: .8rem; font-weight: 700; }
+.report .xi-row { grid-template-columns: 34px 1fr auto; }
+.xi-name { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; }
+.badges { display: inline-flex; gap: 2px; }
+.badge { font-size: .9rem; cursor: help; }
+.badge sub { font-size: .6rem; font-weight: 800; color: var(--accent2); }
+.oop-note { color: var(--accent2); }
+.report b small { font-size: .7rem; color: var(--muted); margin-left: 2px; }
+.chem, .legend { font-size: .85rem; }
+.chem summary, .legend summary { cursor: pointer; font-weight: 700; color: var(--muted); padding: 4px 0; }
+.chem div, .legend div { padding: 2px 0; }
+.hop-head { display: flex; justify-content: space-between; align-items: center; color: var(--muted); }
+.hop-head b { color: var(--text); }
+.timer { font: 700 1.8rem Oswald, sans-serif; color: var(--accent); }
+.timer.warn { color: var(--bad); }
+.hop-club { text-align: center; margin: 16px 0 6px; }
+.hop-club .chip { font-size: 1.4rem; padding: 10px 18px; border-radius: 12px; }
+.hop-choices { display: grid; gap: 8px; }
+.hop-choices .btn { background: var(--panel2); color: var(--text); justify-content: flex-start; }
+.hop-chain { margin-top: 14px; display: grid; gap: 4px; font-size: .85rem; }
+.hop-chain div { background: rgba(0,0,0,.2); padding: 6px 8px; border-radius: 8px; }

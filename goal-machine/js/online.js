@@ -17,7 +17,8 @@
   const PICK_SECONDS = 15;
   const other = s => (s === 'host' ? 'guest' : 'host');
   const esc = GM.esc, fmt = n => Math.round(n).toLocaleString();
-  const KIND = { duel: { icon: '🤝', name: 'Draft Duel' }, race: { icon: '🏁', name: 'Live Race' } };
+  const KIND = { duel: { icon: '🤝', name: 'Draft Duel' }, scout: { icon: '🕵️', name: 'Scout Duel' }, race: { icon: '🏁', name: 'Live Race' } };
+  const gk = g => (g.variant === 'scout' ? 'scout' : g.kind);  // a Scout Duel is a Draft Duel with hidden names
   const rpc = (f, a) => GM.lb.rpc(f, a);
   const auth = () => { const a = GM.account(); return a ? { p_user: a.name, p_key: a.key } : null; };
   const me = () => (GM.account() || {}).name || '';
@@ -85,7 +86,7 @@
       const rows = (games || []).map(g => ({ g, seat: seatOf(g) })).filter(x => x.seat);
       const yours = rows.filter(x => myMove(x.g, x.seat)), theirs = rows.filter(x => x.g.status !== 'done' && !myMove(x.g, x.seat)), done = rows.filter(x => x.g.status === 'done');
       const line = ({ g, seat }) => {
-        const opp = oppOf(g), k = KIND[g.kind], st = GM.STATS[g.stat] || GM.STATS.goals, s = g.sums || {}, o = outcome(g, seat);
+        const opp = oppOf(g), k = KIND[gk(g)], st = GM.STATS[g.stat] || GM.STATS.goals, s = g.sums || {}, o = outcome(g, seat);
         const sub = o ? `${o.icon} ${o.text} ${o.score}${o.resigned ? ` (${o.resigned === seat ? 'you' : 'they'} resigned)` : ''}`
           : !opp ? `Waiting for someone to join · code <b>${g.code}</b>`
           : g.kind === 'duel' ? (g.turn === seat ? '👉 Your pick' : `⏳ ${esc(opp)}’s pick`)
@@ -119,6 +120,7 @@
         <div class="row"><button class="btn ghost" data-close>Cancel</button><button class="btn" id="ngo">Start ⚽</button></div>`);
       const desc = () => { GM.$('#nkdesc', m.el).textContent = kind === 'duel'
         ? 'Take turns picking from the same five players each spin. The better XI wins 60 points, the better squad rating 40.'
+        : kind === 'scout' ? 'A Draft Duel on scouting reports: no names, just a few clues on each player. Scout, blindfold and swap cards to play once each.'
         : 'You both build an Ultimate XI on the same spins, whenever you like. 50 points for the bigger total, 30 for the better squad rating, 20 for the quicker XI.'; };
       desc();
       const seg = (id, set) => GM.$$(`#${id} button`, m.el).forEach(b => b.onclick = () => { set(b.dataset.v); GM.$$(`#${id} button`, m.el).forEach(x => x.classList.toggle('on', x === b)); desc(); });
@@ -137,7 +139,7 @@
 
   async function create(kind, stat, opp) {
     try {
-      const r = await rpc('online_create', { ...auth(), p_kind: kind, p_stat: stat, p_opp: opp || null });
+      const r = await rpc('online_create', { ...auth(), p_kind: kind === 'scout' ? 'duel' : kind, p_stat: stat, p_opp: opp || null, p_variant: kind === 'scout' ? 'scout' : null });
       if (r && r.code) { if (opp) GM.toast(`⚔️ Challenge sent to ${esc(opp)}`); return r.code; }
       GM.toast(r && r.error === 'no_user' ? `Nobody's called “${esc(opp)}” yet` : r && r.error === 'self' ? 'You can’t play yourself!' : r && r.error === 'auth' ? 'Your name isn’t set up on this phone' : 'Couldn’t start the game');
     } catch (e) { GM.toast('Couldn’t reach the server – try again'); }
@@ -182,7 +184,7 @@
       <button class="btn small" id="oshare">📤 Send invite</button></div>`);
   function wireInvite(root, r) {
     const b = GM.$('#oshare', root);
-    if (b) b.onclick = () => GM.share(`⚽ Goal Machine – ${KIND[r.kind].name} me! Code ${r.code}`, GM.baseUrl() + '#/online?join=' + r.code);
+    if (b) b.onclick = () => GM.share(`⚽ Goal Machine – ${KIND[gk(r)].name} me! Code ${r.code}`, GM.baseUrl() + '#/online?join=' + r.code);
   }
   function resignButton(root, r, seat) {
     const b = GM.$('#oresign', root);
@@ -267,7 +269,7 @@
     const pts = r.result ? [r.result[seat], r.result[them]] : null;
     const side = (t, cls) => `<div class="cmp-xi ${cls}">${t.map(x => `<div class="cx ${x.p ? '' : 'empty'}"><span class="pos pos-${GM.GROUP[x.pos]}">${x.pos}</span>
         <b>${x.p ? esc(x.p.name.split(' ').slice(-1)[0]) : '–'}</b><i>${x.p ? fmt(x.v) : ''}</i></div>`).join('')}</div>`;
-    root.innerHTML = `${top(KIND[r.kind].name, '#/online')}
+    root.innerHTML = `${top(KIND[gk(r)].name, '#/online')}
       <div class="h2h-board duel-board">
         <div class="h2h-team p1"><b>You</b><strong>${pts ? fmt(pts[0]) : fmt(A.t)}</strong><small>${pts ? 'points' : `${A.n}/11`}</small></div>
         <div class="h2h-mid"><small>${st.icon} ${st.name}</small><span>VS</span><small id="orec"></small></div>
@@ -285,9 +287,9 @@
     wireInvite(root, r);
     resignButton(root, r, seat);
     const rm = GM.$('#orematch', root);
-    if (rm) rm.onclick = async () => { const c = await create(r.kind, r.stat, opp); if (c) location.hash = '#/online?room=' + c; };
+    if (rm) rm.onclick = async () => { const c = await create(gk(r), r.stat, opp); if (c) location.hash = '#/online?room=' + c; };
     const sh = GM.$('#oshareres', root);
-    if (sh) sh.onclick = () => GM.share(`⚽ Goal Machine ${KIND[r.kind].name} v ${opp}\n${resultLine(r, seat).replace(/<[^>]+>/g, '')}\n${st.icon} ${fmt(A.t)} – ${fmt(B.t)} ${st.label}`, GM.baseUrl());
+    if (sh) sh.onclick = () => GM.share(`⚽ Goal Machine ${KIND[gk(r)].name} v ${opp}\n${resultLine(r, seat).replace(/<[^>]+>/g, '')}\n${st.icon} ${fmt(A.t)} – ${fmt(B.t)} ${st.label}`, GM.baseUrl());
     if (r.result && !root.dataset.played) { root.dataset.played = r.code; GM.sound.play(r.result.winner === seat ? 'fanfare' : 'fulltime'); }
     if (r.guest) rpc('online_friends', auth()).then(fr => {
       const f = (fr || []).find(x => x.name === opp), el = GM.$('#orec', root);
@@ -313,9 +315,47 @@
     for (let i = out.length - 1; i > 0; i--) { const j = Math.floor(rng() * (i + 1)); [out[i], out[j]] = [out[j], out[i]]; }
     return out.map(p => p.pk);
   }
+  // Scout Duel cards: one use each per game
+  const SCOUT_CARDS = {
+    scout: { icon: '🔍', name: 'Scout', desc: 'See the full report on one player (just for you)' },
+    blind: { icon: '🙈', name: 'Blindfold', desc: 'Your opponent sees positions only on their next pick' },
+    swap: { icon: '🔄', name: 'Swap', desc: 'Swap one of your signings with one of theirs in the same position' },
+  };
+  // Each player's scouting report shows the same few clues to both players (seeded by the game and the player)
+  const CLUES = ['flag', 'clubs', 'years', 'first', 'apps', 'initials'];
+  function cluesFor(seed, k) {
+    const rng = GM.rng(`${seed}|clue|${k}`), pool = CLUES.slice();
+    for (let i = pool.length - 1; i > 0; i--) { const j = Math.floor(rng() * (i + 1)); [pool[i], pool[j]] = [pool[j], pool[i]]; }
+    return rng() < 0.08 ? ['name', pool[0]] : pool.slice(0, rng() < 0.5 ? 2 : 3);  // now and then, the name itself
+  }
+  const appsBand = a => (a < 100 ? '50–99' : a < 200 ? '100–199' : a < 300 ? '200–299' : a < 400 ? '300–399' : '400+');
+  function clueHtml(c, p) {
+    switch (c) {
+      case 'flag': return `<span class="clue">${GM.flag(p.nat)} ${esc(p.nat)}</span>`;
+      case 'clubs': return `<span class="clue chips">${p.clubs.map(x => GM.clubChip(x)).join('')}</span>`;
+      case 'years': return `<span class="clue">📅 ${GM.era(p)}</span>`;
+      case 'first': return `<span class="clue">🌱 Started at ${GM.clubChip(p.clubs[0])}</span>`;
+      case 'apps': return `<span class="clue">🏃 ${appsBand(p.apps)} apps</span>`;
+      case 'initials': return `<span class="clue">🔤 ${esc(GM.initials(p.name).split('').join('. '))}.</span>`;
+      default: return '';
+    }
+  }
+
   function duelState(r) {
-    const st = { xi: { host: FORMATION.map(pos => ({ pos, k: null })), guest: FORMATION.map(pos => ({ pos, k: null })) }, used: new Set(), done: false };
+    const st = { xi: { host: FORMATION.map(pos => ({ pos, k: null })), guest: FORMATION.map(pos => ({ pos, k: null })) }, used: new Set(), done: false,
+      // Scout Duel: who has used which card, which players each has scouted, and who is blindfolded for their next pick
+      wild: { host: {}, guest: {} }, scouted: { host: new Set(), guest: new Set() }, blind: {} };
     const open = seat => st.xi[seat].filter(s => !s.k).map(s => s.pos);
+    const wildcard = (m, seat) => {
+      if (st.wild[seat][m.w] || !SCOUT_CARDS[m.w]) return;
+      st.wild[seat][m.w] = true;
+      if (m.w === 'scout') st.scouted[seat].add(m.k);
+      if (m.w === 'blind') st.blind[other(seat)] = true;
+      if (m.w === 'swap') {
+        const a = st.xi[seat][m.a], b = st.xi[other(seat)][m.b];
+        if (a && b && a.k && b.k && a.pos === b.pos) [a.k, b.k] = [b.k, a.k];
+      }
+    };
     let i = 0;
     for (let spin = 0; spin < 80; spin++) {
       const order = spin % 2 === 0 ? ['guest', 'host'] : SEATS;  // the challenged player picks first
@@ -323,8 +363,10 @@
       if (!active.length) break;
       const reels = duelReels(r.seed, spin, active, open, st.used), takenNow = {};
       for (const seat of active) {
+        while (i < r.moves.length && r.moves[i].w) wildcard(r.moves[i++], seat);  // cards don't use up your turn
         if (i >= r.moves.length) return Object.assign(st, { spin, reels, turn: seat, first: active[0], takenNow, open });
         const m = r.moves[i++], slot = m.k != null && st.xi[seat][m.slot];
+        st.blind[seat] = false;  // a blindfold lasts one pick
         // a recorded pick stands even if a weekly data update has changed the reels since
         if (slot && !slot.k && GM.byPk.get(m.k) && !st.used.has(m.k)) { slot.k = m.k; st.used.add(m.k); takenNow[m.k] = seat; }
       }
@@ -346,8 +388,20 @@
     const live = opp && r.seen && r.now - (r.seen[them] || 0) < 10;
     GM.app('keepAwake', !!live);  // don't let the screen sleep mid-duel
     const fits = p => p.poss.some(x => myOpen.includes(x));
+    const scoutGame = r.variant === 'scout', blindNow = scoutGame && mineNow && st.blind[you];
+    const scoutCard = (k, p, by, ok, can) => {
+      const clues = cluesFor(r.seed, k), known = by || st.scouted[you].has(k) || clues.includes('name');
+      return `<button class="duel-card scout ${by ? 'taken' : ''} ${!by && !ok ? 'nofit' : ''} ${st.scouted[you].has(k) ? 'scouted' : ''}" data-pick="${esc(k)}" ${can ? '' : 'disabled'}>
+        ${by ? `<span class="dc-tag">✍️ ${by === you ? 'You' : esc(opp)}</span>` : !ok ? '<span class="dc-tag">No space</span>' : ''}
+        ${known ? GM.avatar(p) : '<span class="avatar mystery"><b>?</b></span>'}<b>${known ? esc(p.name) : 'Unknown player'}</b>
+        <span class="dc-meta">${GM.posBadges(p)}</span>
+        ${blindNow && !known ? '<small class="clue">🙈 Blindfolded</small>' : known && (by || st.scouted[you].has(k))
+          ? `<small>${GM.flag(p.nat)} ${GM.era(p)}</small><span class="chips">${p.clubs.map(c => GM.clubChip(c)).join('')}</span>`
+          : clues.filter(c => c !== 'name').map(c => clueHtml(c, p)).join('')}</button>`;
+    };
     const card = k => {
       const p = GM.byPk.get(k), by = st.takenNow[k], ok = fits(p), can = mineNow && !by && ok;
+      if (scoutGame) return scoutCard(k, p, by, ok, can);
       const clubs = p.clubs.slice(0, 3).map(c => GM.clubChip(c)).join('') + (p.clubs.length > 3 ? `<small>+${p.clubs.length - 3}</small>` : '');
       return `<button class="duel-card ${by ? 'taken' : ''} ${!by && !ok ? 'nofit' : ''}" data-pick="${esc(k)}" ${can ? '' : 'disabled'}>
         ${by ? `<span class="dc-tag">✍️ ${by === you ? 'You' : esc(opp)}</span>` : !ok ? '<span class="dc-tag">No space</span>' : ''}
@@ -355,26 +409,50 @@
     };
     const pitch = xi => `<div class="duel-xi">${xi.map(s => {
       const p = s.k ? GM.byPk.get(s.k) : null;
-      return `<div class="dx ${p ? 'on' : ''}"><span class="pos pos-${GM.GROUP[s.pos]}">${s.pos}</span>${p ? `<b>${esc(p.name.split(' ').slice(-1)[0])}</b><i>${p[stat.key]}</i>` : '<b class="muted">–</b>'}</div>`;
+      return `<div class="dx ${p ? 'on' : ''}"><span class="pos pos-${GM.GROUP[s.pos]}">${s.pos}</span>${p ? `<b>${esc(p.name.split(' ').slice(-1)[0])}</b><i>${scoutGame ? '?' : p[stat.key]}</i>` : '<b class="muted">–</b>'}</div>`;
     }).join('')}</div>`;
     const tMe = duelTotal(my, r.stat), tThem = duelTotal(st.xi[them], r.stat);
     const noFit = mineNow && !st.reels.some(k => !st.takenNow[k] && fits(GM.byPk.get(k)));
-    root.innerHTML = `${top('Draft Duel', '#/online')}
+    const cardsLeft = Object.keys(SCOUT_CARDS).filter(w => !st.wild[you][w]);
+    root.innerHTML = `${top(KIND[gk(r)].name, '#/online')}
       <div class="h2h-board duel-board">
-        <div class="h2h-team p1"><b>You</b><strong>${tMe}</strong><small>${11 - myOpen.length}/11</small></div>
+        <div class="h2h-team p1"><b>You</b><strong>${scoutGame ? '?' : tMe}</strong><small>${11 - myOpen.length}/11</small></div>
         <div class="h2h-mid"><small>${stat.icon} ${stat.name}</small><span>VS</span><small>${live ? '🟢 Both here' : 'Take your time'}</small></div>
-        <div class="h2h-team p2"><b>${esc(opp || '…')}</b><strong>${tThem}</strong><small>${11 - st.open(them).length}/11</small></div></div>
+        <div class="h2h-team p2"><b>${esc(opp || '…')}</b><strong>${scoutGame ? '?' : tThem}</strong><small>${11 - st.open(them).length}/11</small></div></div>
       ${inviteBar(r)}
       <div class="duel-turn ${mineNow ? 'mine' : ''}">${mineNow ? (st.first === you ? '👉 Your pick – first choice this spin' : '👉 Your pick – from what’s left') : `⏳ ${esc(opp || 'Your opponent')} is picking…${live ? '' : ' They’ll see it’s their turn next time they open the game.'}`}
         <small>Spin ${st.spin + 1}</small>${mineNow && live ? `<span class="clock" id="dclock">${PICK_SECONDS}</span>` : ''}</div>
+      ${blindNow ? `<div class="banner">🙈 ${esc(opp)} blindfolded you: positions only this pick</div>` : ''}
       <div class="duel-cards">${st.reels.map(card).join('')}</div>
+      ${scoutGame ? `<div class="scout-wild">${Object.entries(SCOUT_CARDS).map(([w, c]) => `<button class="wild-btn" data-wild="${w}" ${mineNow && !st.wild[you][w] ? '' : 'disabled'} title="${c.desc}">${c.icon}<small>${c.name}</small></button>`).join('')}
+        <span class="muted">${cardsLeft.length ? `${cardsLeft.length} card${cardsLeft.length > 1 ? 's' : ''} left · use them on your turn` : 'All cards played'}</span></div>` : ''}
       ${noFit ? '<div class="actions"><button class="btn ghost" id="dpass">None of these fit – pass</button></div>' : ''}
       <h3 class="section-title">Your XI</h3>${pitch(my)}
-      <details class="set" open><summary><span>${esc(opp || 'Their')}'s XI</span><span>${tThem} ${stat.label}</span></summary>${pitch(st.xi[them])}</details>
+      <details class="set" open><summary><span>${esc(opp || 'Their')}'s XI</span><span>${scoutGame ? 'totals at full time' : `${tThem} ${stat.label}`}</span></summary>${pitch(st.xi[them])}</details>
       <div class="actions"><button class="btn ghost small" id="oresign">🏳️ ${r.guest ? 'Resign' : 'Cancel invite'}</button></div>`;
     wireInvite(root, r);
     resignButton(root, r, you);
-    GM.$$('[data-pick]:not([disabled])', root).forEach(b => b.onclick = () => pick(b.dataset.pick));
+    GM.$$('[data-pick]:not([disabled])', root).forEach(b => b.onclick = () => (scouting ? scoutOne(b.dataset.pick) : pick(b.dataset.pick)));
+    let scouting = false;
+    const scoutOne = k => { scouting = false; send({ w: 'scout', k }); };
+    GM.$$('[data-wild]:not([disabled])', root).forEach(b => b.onclick = () => {
+      const w = b.dataset.wild;
+      if (w === 'scout') {
+        scouting = true; GM.toast('🔍 Tap a player to see their full report');
+        GM.$$('.duel-card.scout', root).forEach(c => { if (!st.takenNow[c.dataset.pick]) { c.disabled = false; c.classList.add('pick-me'); } });
+        return;
+      }
+      if (w === 'blind') return GM.confirm(`🙈 Blindfold ${esc(opp)}? They’ll see positions only on their next pick.`).then(ok => ok && send({ w: 'blind' }));
+      // swap: one of yours for one of theirs in the same position
+      const pairs = [];
+      my.forEach((a, ai) => a.k && st.xi[them].forEach((b, bi) => { if (b.k && b.pos === a.pos) pairs.push([ai, bi]); }));
+      if (!pairs.length) return GM.toast('Nothing to swap yet – you both need a player in the same position');
+      const nm = k => esc(GM.byPk.get(k).name);
+      const m = GM.modal(`<h3>🔄 Swap a player</h3><p class="muted">Give ${esc(opp)} one of yours and take theirs in the same position.</p>
+        <div class="swap-list">${pairs.map(([ai, bi]) => `<button class="btn ghost" data-swap="${ai},${bi}"><span class="pos pos-${GM.GROUP[my[ai].pos]}">${my[ai].pos}</span> ${nm(my[ai].k)} ⇄ <b>${nm(st.xi[them][bi].k)}</b></button>`).join('')}</div>
+        <div class="row"><button class="btn ghost" data-close>Cancel</button></div>`);
+      GM.$$('[data-swap]', m.el).forEach(x => x.onclick = () => { const [a, bb] = x.dataset.swap.split(',').map(Number); m.close(); send({ w: 'swap', a, b: bb }); });
+    });
     const ps = GM.$('#dpass', root); if (ps) ps.onclick = () => send({ k: null, slot: null });
     if (mineNow && root.dataset.lastTurn !== `${r.code}:${r.moves.length}`) { root.dataset.lastTurn = `${r.code}:${r.moves.length}`; GM.sound.play('sting'); GM.buzz(30); }
     // the pick clock: only when you're both in the game; run out and the game picks for you
@@ -403,19 +481,20 @@
       const p = GM.byPk.get(k), slots = my.map((s, i) => i).filter(i => !my[i].k && p.poss.includes(my[i].pos));
       const byPos = [...new Map(slots.map(i => [my[i].pos, i])).values()];
       if (byPos.length === 1) return send({ k, slot: byPos[0] });
-      const m = GM.modal(`<h3>Where does ${esc(p.name)} play?</h3><div class="pos-choice">${byPos.map(i => `<button class="btn" data-slot="${i}"><span class="pos pos-${GM.GROUP[my[i].pos]}">${my[i].pos}</span> ${GM.POS_NAME[my[i].pos]}</button>`).join('')}</div>`);
+      const known = r.variant !== 'scout' || st.scouted[you].has(k) || cluesFor(r.seed, k).includes('name');
+      const m = GM.modal(`<h3>Where does ${known ? esc(p.name) : 'he'} play?</h3><div class="pos-choice">${byPos.map(i => `<button class="btn" data-slot="${i}"><span class="pos pos-${GM.GROUP[my[i].pos]}">${my[i].pos}</span> ${GM.POS_NAME[my[i].pos]}</button>`).join('')}</div>`);
       GM.$$('[data-slot]', m.el).forEach(b => b.onclick = () => { m.close(); send({ k, slot: +b.dataset.slot }); });
     }
     async function send(move) {
       clearInterval(timer); timer = null;
-      GM.$$('[data-pick], #dpass', root).forEach(b => { b.disabled = true; });
+      GM.$$('[data-pick], #dpass, [data-wild]', root).forEach(b => { b.disabled = true; });
       // work out what happens next on this phone, so the server knows whose turn it is and both summaries stay current
       const next = duelState({ ...r, moves: [...r.moves, { ...move, s: you }] });
       try {
         const res = await rpc('online_move', { ...auth(), p_code: r.code, p_seq: r.moves.length, p_move: move,
           p_sum: duelSum(next, you, r.stat), p_turn: next.done ? 'none' : next.turn });
         if (res !== 'ok' && res !== 'conflict') GM.toast('That pick didn’t go through');
-        if (move.k) { GM.sound.play('place'); GM.buzz(); }
+        if (move.w) GM.sound.play('wild'); else if (move.k) { GM.sound.play('place'); GM.buzz(); }
       } catch (e) { GM.toast('Couldn’t reach the server – try again'); }
       GM.online.refresh && GM.online.refresh();
     }
@@ -443,7 +522,7 @@
     const seen = GM.store.get('onlineSeen', []), fresh = list.filter(g => !seen.includes(g.code));
     if (fresh.length) {
       const g = fresh[0];
-      GM.toast(fresh.length > 1 ? `🌐 ${fresh.length} online games are waiting for you` : `🌐 ${esc(g.opp || 'Someone')} – it’s your move in a ${KIND[g.kind].name}`, 3500);
+      GM.toast(fresh.length > 1 ? `🌐 ${fresh.length} online games are waiting for you` : `🌐 ${esc(g.opp || 'Someone')} – it’s your move in a ${KIND[gk(g)].name}`, 3500);
       GM.store.set('onlineSeen', [...seen, ...fresh.map(x => x.code)].slice(-100));
     }
   };

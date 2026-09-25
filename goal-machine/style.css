@@ -793,3 +793,15 @@ h2, h3 { letter-spacing: .3px; }
 .cx.empty { opacity: .5; background: var(--inset); }
 .page-online #challenge, .page-online a[href^="#/leaderboard"] { display: none; }
 .prow.credit > div { min-width: 0; } .prow.credit small { overflow-wrap: anywhere; }
+/* Scout Duel */
+.avatar.mystery { background: repeating-linear-gradient(45deg, var(--inset) 0 6px, transparent 6px 12px), var(--panel2); color: var(--muted); }
+.avatar.mystery b { font-size: 1.3rem; }
+.duel-card.scout .clue { display: flex; flex-wrap: wrap; justify-content: center; align-items: center; gap: 2px; font-size: .68rem; color: var(--text); line-height: 1.25; }
+.duel-card.scout.scouted { box-shadow: 0 3px 0 var(--edge), 0 0 0 2px var(--accent2); }
+.duel-card.pick-me { animation: pop .5s; outline: 2px dashed var(--accent2); }
+.scout-wild { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; margin: 4px 0 8px; }
+.scout-wild .wild-btn:disabled { opacity: .35; }
+.swap-list { display: grid; gap: 6px; max-height: 50vh; overflow: auto; margin: 8px 0; }
+.swap-list .btn { justify-content: flex-start; font-weight: 600; }
+.duel-card.scout .clue { background: none; box-shadow: none; border: 0; padding: 0; margin: 1px 0; min-height: 0; border-radius: 0; }
+.duel-card.scout > b { font-size: .72rem; color: var(--muted); }

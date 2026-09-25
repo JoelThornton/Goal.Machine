@@ -13,7 +13,8 @@
         '📰 An Updates page (tap 📰 on the home screen) listing what every version brings',
         '⚽ A loading screen and a little buzz on taps (you can switch it off in Settings)',
         '🔊 Sound effects: the referee\'s whistle, spinning reels, the crowd and a goal horn for a bullseye',
-        '🏟️ Optional background: a stadium crowd or a music track (⚙️ Settings)',
+        '🎵 Optional background music, a two-minute track (switch it on in ⚙️ Settings)',
+        '📸 Far more player faces: older players now get photos from the Premier League archive, Transfermarkt or Wikipedia',
       ],
     },
     {

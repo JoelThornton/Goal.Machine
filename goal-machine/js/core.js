@@ -17,8 +17,11 @@ GM.fold = function (s) {
   GM.players = D.players.map((r, i) => ({
     id: i, name: r[0], poss: r[1].split('/'), nat: r[2] >= 0 ? D.nats[r[2]] : null,
     clubs: r[3].map(c => D.clubs[c]), apps: r[4], goals: r[5], first: r[6], last: r[7], code: r[8], ast: r[9] || 0,
-    stints: parseStints(r[10] || ''), hon: parseHon(r[11] || ''),
+    stints: parseStints(r[10] || ''), hon: parseHon(r[11] || ''), tm: r[12] || '',
   }));
+  // extra faces found by tools/fetch_photos.py, keyed "name|first season"
+  const PH = window.GM_PHOTOS || {};
+  GM.players.forEach(p => { p.photo = PH[p.name + '|' + p.first] || null; });
   // teammate pairs from Transfermarkt (index pairs, flattened)
   GM.links = new Set();
   for (let k = 0; k < (D.links || []).length; k += 2) GM.links.add(D.links[k] + ',' + D.links[k + 1]);
@@ -144,10 +147,28 @@ GM.initials = name => name.split(/\s+/).filter(Boolean).map(w => w[0]).join('').
 GM.today = () => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; };
 GM.sleep = ms => new Promise(r => setTimeout(r, ms));
 
+// Where a face can come from, best first: the Premier League (FPL code, or one found in its archive), Transfermarkt,
+// then a freely licensed Wikipedia photo. If one fails to load the next is tried, and the initials stay underneath.
+GM.photoUrls = function (p) {
+  const pl = c => `https://resources.premierleague.com/premierleague/photos/players/110x140/p${c}.png`;
+  const urls = [];
+  if (p.code) urls.push(pl(p.code));
+  if (p.photo && p.photo.pl) urls.push(pl(p.photo.pl));
+  if (p.tm) urls.push(`https://img.a.transfermarkt.technology/portrait/header/${p.tm}.jpg`);
+  if (p.photo && p.photo.w) urls.push(p.photo.w);
+  return urls;
+};
+GM.nextPhoto = function (img) {
+  const rest = (img.dataset.alt || '').split(' ').filter(Boolean);
+  if (!rest.length) { img.remove(); return; }
+  img.src = rest.shift();
+  img.dataset.alt = rest.join(' ');
+};
 GM.avatar = function (p, cls = '', plain = false) {
   // plain = hard mode: no photo, no club colours
   const [, bg, fg] = plain ? [0, '#23483b', '#e8f5ee'] : GM.CLUB[p.clubs[p.clubs.length - 1]] || [0, '#334', '#fff'];
-  const img = p.code && !plain ? `<img loading="lazy" alt="" src="https://resources.premierleague.com/premierleague/photos/players/110x140/p${p.code}.png" onerror="this.remove()">` : '';
+  const urls = plain ? [] : GM.photoUrls(p);
+  const img = urls.length ? `<img loading="lazy" alt="" referrerpolicy="no-referrer" src="${GM.esc(urls[0])}" data-alt="${GM.esc(urls.slice(1).join(' '))}" onerror="GM.nextPhoto(this)">` : '';
   return `<span class="avatar ${cls}" style="--cb:${bg};--cf:${fg}"><b>${GM.initials(p.name)}</b>${img}</span>`;
 };
 

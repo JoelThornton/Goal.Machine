@@ -21,7 +21,7 @@ Live: `https://opportunisticgames.github.io/goal-machine/` (a free site by Oppor
 | 🔢 Guess the Tally | How many PL goals did he score? |
 | ⚔️ Head to Head | Two players, one phone. A best-of-3, 5 or 7 series of random quick games (Higher or Lower, a 3-player Who Am I?, a 5-player Guess the Tally, a 60-second Club Hopper). Each player gets their own questions, the higher score takes the round, and draws mean an extra round |
 
-**Sound:** everything is synthesised with Web Audio in `js/audio.js`, so there are no audio files. Sound effects include the referee's whistle, spinning and landing reels, signings, wildcards, right and wrong answers, the Club Hopper clock, a goal horn with crowd roar for a bullseye, and a trophy fanfare. For background you can pick a stadium crowd (murmur, "ooh"s and clapping) or a 122 bpm music loop. Effects are on and background is off by default, with volumes in ⚙️ Settings. Audio starts on the first tap (a browser rule) and pauses when the app is in the background. `GM.sound.renderDemo()` renders everything to a buffer for checking without speakers.
+**Sound:** everything is synthesised with Web Audio in `js/audio.js`, so there are no audio files. Sound effects include the referee's whistle, spinning and landing reels, signings, wildcards, right and wrong answers, the Club Hopper clock, a goal horn with crowd roar for a bullseye, and a trophy fanfare. Optional background music is a 56-bar song at 122 bpm, about 1 min 50 s: intro, groove, lift, breakdown, chorus, a groove with a new bassline, chorus and a turnaround, with a written chorus tune and arpeggios that vary on each pass. Effects are on and music is off by default, with volumes in ⚙️ Settings. Audio starts on the first tap (a browser rule) and pauses when the app is in the background. `GM.sound.renderDemo()` renders everything to a buffer for checking without speakers.
 
 **Look and settings:** light theme by default, with Dark or Auto (follows the phone) in ⚙️ Settings, alongside difficulty, vibration and your leaderboard name. **📰 Updates** lists every version and Android app build. When you release, add an entry to the top of `js/updates.js` (`v` = the new `?v=` number), and returning players get a one-off "What's new" pop-up.
 
@@ -87,6 +87,16 @@ It is a PWA, so it works offline and can be installed:
   - Goal Machine links (such as a friend's challenge) open straight in the app. `/.well-known/assetlinks.json` at the site root verifies this, and it must match the signing key's SHA-256 fingerprint.
   - The app tells the site its build number (`AndroidApp.version()`). Raise `GM.APP_MIN_BUILD` in `js/core.js` after an app change and older apps will show an update link.
 - **Logo:** `tools/make_icons.js` draws it and writes every site and Android icon (`node goal-machine/tools/make_icons.js` from the repo root; needs Playwright).
+
+## Player photos
+
+Faces are tried in this order, and if one won't load the next is used, falling back to initials in club colours:
+1. The Premier League photo from the player's FPL code
+2. A Premier League archive photo found by `tools/fetch_photos.py`
+3. A Transfermarkt portrait (the id is stored in the player data)
+4. A freely licensed Wikimedia Commons photo, credited on the in-game **Photo credits** page (reached from About)
+
+The **Find player photos** workflow runs `fetch_photos.py` weekly. It only looks up players without an FPL photo and retries misses every 60 days.
 
 ## Global leaderboard
 

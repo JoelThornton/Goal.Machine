@@ -1,0 +1,48 @@
+name: Find player photos
+
+# Looks up faces for players without a Premier League (FPL) photo: premierleague.com's archive first, then freely
+# licensed Wikipedia images. Runs weekly after the data update, by hand from the Actions tab, and when the finder
+# changes on a feature branch (committing the result back to that branch).
+on:
+  schedule:
+    - cron: '0 7 * * 3'
+  workflow_dispatch:
+  push:
+    branches: ['claude/**']
+    paths: ['goal-machine/tools/fetch_photos.py', '.github/workflows/photos.yml']
+
+permissions:
+  contents: write
+  pages: write
+
+concurrency: update-data
+
+jobs:
+  photos:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.11'
+
+      - name: Fetch the premierleague.com player list
+        run: git clone -q --depth 1 https://github.com/mshodge/epl-stats "$RUNNER_TEMP/src/epl-stats"
+
+      - name: Look up photos
+        run: SRC="$RUNNER_TEMP/src" python goal-machine/tools/fetch_photos.py
+
+      - name: Publish if changed
+        run: |
+          git add goal-machine/data/photos.js goal-machine/data/photos_checked.json
+          if git diff --cached --quiet -- goal-machine/data/photos.js; then echo "No new photos"; exit 0; fi
+          if [ "${{ github.ref }}" = "refs/heads/master" ]; then (cd goal-machine && python tools/bump_version.py && git add -A .); fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit -m "Update player photos"
+          git push
+          if [ "${{ github.ref }}" = "refs/heads/master" ]; then
+            curl -sS -X POST -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" -H "Accept: application/vnd.github+json" \
+              "https://api.github.com/repos/${{ github.repository }}/pages/builds" || true
+          fi

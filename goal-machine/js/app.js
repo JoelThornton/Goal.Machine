@@ -60,6 +60,7 @@
       case 'players': return playerIndex();
       case 'album': return GM.album(app, GM.STATS[q.s] ? q.s : 'goals');
       case 'about': return about();
+      case 'credits': return credits();
       case 'h2h': return GM.h2h(app);
       case 'h2hplay': return GM.h2hPlay(app);
       case 'updates': return GM.updatesPage(app);
@@ -162,7 +163,7 @@
         <div class="setting"><b>Appearance</b><small>Auto follows your phone's light or dark setting</small>${seg('s-theme', GM.THEMES, GM.getTheme())}</div>
         <div class="setting"><b>Sound effects</b><small>Whistles, reels, the crowd and the goal horn</small>${seg('s-sfx', { true: '🔊 On', false: '🔇 Off' }, snd.sfx)}
           <label class="vol">🔈<input type="range" id="s-sfxvol" min="0" max="1" step="0.05" value="${snd.sfxVol}">🔊</label></div>
-        <div class="setting"><b>Background</b><small>A stadium crowd or a music track while you play</small>${seg('s-bg', { off: '🔇 Off', crowd: '🏟️ Crowd', music: '🎵 Music' }, snd.bg)}
+        <div class="setting"><b>Music</b><small>A background track while you play</small>${seg('s-bg', { off: '🔇 Off', music: '🎵 On' }, snd.bg)}
           <label class="vol">🔈<input type="range" id="s-bgvol" min="0" max="1" step="0.05" value="${snd.bgVol}">🔊</label></div>
         <div class="setting"><b>Difficulty</b><small>Hard shows names and positions only, with fewer stars on the reels</small>${seg('s-hard', { false: '🙂 Normal', true: '🥵 Hard' }, GM.isHard())}</div>
         <div class="setting"><b>Vibration</b><small>A little buzz on taps, hops and wins (phones only)</small>${seg('s-buzz', { true: '📳 On', false: '🔕 Off' }, GM.store.get('buzz', true))}</div>
@@ -241,9 +242,19 @@
       <p>Goal Machine includes <b>${GM.players.length.toLocaleString()}</b> players who have made at least <b>50 Premier League appearances</b> since 1992/93, with their PL goals, assists, appearances, clubs, positions and nationality, plus honours for the full-time badges. Stats include matches up to <b>${GM.dataDate}</b> and refresh automatically every week.</p>
       <p>Stats are stitched together from public datasets: the official premierleague.com player pages (1992–2020), Fantasy Premier League gameweek data (2016–today) and Understat season stats (2014–2016). Which club a player was at in each season (for chemistry and title badges) comes from Transfermarkt transfer records. Assists after 2020 are FPL assists, which run slightly higher than the official count. A handful of players’ early seasons are estimated from minutes played, so the odd tally might be off by a game or a goal.</p>
       <p>Only Premier League appearances and goals count – no cups, Europe or Championship seasons.</p>
+      <p>📸 Player photos come from the Premier League, Transfermarkt and Wikimedia Commons (<a href="#/credits">photo credits</a>). Players without a photo show their initials in their club colours.</p>
       <p>📲 Android app: <a href="${GM.APK_URL}">download the latest APK</a>. Game updates arrive automatically in the app.</p>
       <p>This is a fan-made game inspired by FourFourTwo’s 442GOALS and is not affiliated with the Premier League or FourFourTwo.</p>
       </div>`;
+  }
+
+  // Wikimedia Commons photos are freely licensed but need crediting
+  function credits() {
+    const list = GM.players.filter(p => p.photo && p.photo.w).sort((a, b) => a.name.localeCompare(b.name));
+    app.innerHTML = `<div class="topbar"><a href="#/about" class="back">‹</a><h2>📸 Photo credits</h2><span></span></div>
+      <p class="muted">These photos come from Wikimedia Commons under the licences shown. Tap one to see the original file and its full licence. Other photos are from premierleague.com and Transfermarkt.</p>
+      <div class="plist">${list.length ? list.map(p => `<a class="prow credit" href="${GM.esc(p.photo.u)}" target="_blank" rel="noopener">${GM.avatar(p)}<div><b>${GM.esc(p.name)}</b>
+        <small>📷 ${GM.esc(p.photo.a)} · ${GM.esc(p.photo.l)}</small></div></a>`).join('') : '<div class="muted">No Wikimedia photos in use yet.</div>'}</div>`;
   }
 
   window.addEventListener('hashchange', route);

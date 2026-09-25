@@ -35,6 +35,10 @@ android {
         }
     }
 
+    buildFeatures {
+        buildConfig true   // BuildConfig.VERSION_CODE, reported to the site
+    }
+
     compileOptions {
         sourceCompatibility JavaVersion.VERSION_1_8
         targetCompatibility JavaVersion.VERSION_1_8

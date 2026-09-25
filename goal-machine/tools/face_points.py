@@ -14,7 +14,7 @@ import cv2
 import numpy as np
 
 ROOT = Path(__file__).resolve().parent.parent
-DATA, PHOTOS, OUT = ROOT / 'data/players.js', ROOT / 'data/photos.js', ROOT / 'data/faces.js'
+DATA, ALL, PHOTOS, OUT = ROOT / 'data/players.js', ROOT / 'data/players_all.js', ROOT / 'data/photos.js', ROOT / 'data/faces.js'
 UA = 'GoalMachinePhotos/1.0 (https://opportunisticgames.github.io/goal-machine/; fan-made quiz game)'
 TM = 'https://img.a.transfermarkt.technology/portrait/header/{}.jpg'
 CASCADE = cv2.CascadeClassifier(cv2.data.haarcascades + 'haarcascade_frontalface_default.xml')
@@ -63,8 +63,10 @@ def main():
     photos = load_js(PHOTOS) if PHOTOS.exists() else {}
     faces = load_js(OUT) if OUT.exists() else {}
     jobs = []
-    for r in d['players']:
-        if len(r) > 12 and r[12]:
+    # every-player file too (Extreme / Purist), for its Transfermarkt portraits
+    rows = d['players'] + (load_js(ALL)['players'] if ALL.exists() else [])
+    for r in rows:
+        if len(r) > 12 and r[12] and ('tm:' + r[12], TM.format(r[12])) not in jobs:
             jobs.append(('tm:' + r[12], TM.format(r[12])))
         ph = photos.get(f'{r[0]}|{r[6]}')
         if ph and ph.get('w'):

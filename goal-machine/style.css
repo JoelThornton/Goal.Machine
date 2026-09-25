@@ -309,3 +309,21 @@ footer { margin-top: 24px; }
 .install-bar { display: inline-flex; align-items: center; gap: 6px; }
 .install-bar[hidden] { display: none; }
 .install-x { background: none; border: 0; color: var(--muted); font-size: 1rem; cursor: pointer; padding: 4px 6px; }
+
+/* v8: The Treble + Mystery Target */
+.counter.treble { display: grid; gap: 6px; }
+.trow { display: grid; gap: 2px; font-size: .9rem; }
+.trow b { color: var(--accent); font: 700 1.2rem Oswald, sans-serif; }
+.trow .bar { margin: 0; }
+.trow .bar i.over { background: var(--bad); }
+.treble-num { flex-direction: row !important; justify-content: space-around; gap: 2px; }
+.treble-num span { display: flex; flex-direction: column; align-items: center; font-size: .7rem; }
+.treble-num b { font-size: 1rem !important; }
+.thermo { height: 12px; border-radius: 6px; margin: 6px 0; background: linear-gradient(90deg, #6cc3ff, #ffd23f 60%, #ff7a00 80%, var(--bad)); position: relative; overflow: hidden; }
+.thermo i { display: block; height: 100%; background: transparent !important; border-right: 3px solid #fff; box-shadow: 0 0 10px #fff; transition: width .6s; }
+.counter.mystery .counter-sub b { color: var(--accent2); }
+.mystery-intro { text-align: center; padding: 30px 10px; display: grid; gap: 14px; }
+.mystery-roll { font: 700 2.6rem Oswald, sans-serif; color: var(--accent); }
+.mystery-roll.landed { animation: pop .5s; color: var(--accent2); }
+.mystery-reveal { background: rgba(255,210,63,.12); border: 1px solid rgba(255,210,63,.4); border-radius: 12px; padding: 10px; margin-bottom: 10px; font-size: 1.1rem; animation: pop .6s; }
+.mystery-reveal b { color: var(--accent2); font: 700 1.6rem Oswald, sans-serif; }

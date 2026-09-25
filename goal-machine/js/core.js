@@ -258,11 +258,12 @@ GM.search = function (q, limit = 8, pool = GM.players) {
   return res.slice(0, limit).map(r => r[1]);
 };
 
-GM.autocomplete = function (input, box, onPick, { exclude } = {}) {
+// plain: names only (no flag, positions or years) so the suggestions don't give clues away
+GM.autocomplete = function (input, box, onPick, { exclude, plain } = {}) {
   let items = [], active = 0;
   const render = () => {
     box.innerHTML = items.map((p, i) => `<button type="button" class="ac-item ${i === active ? 'active' : ''}" data-i="${i}">
-      <span>${GM.flag(p.nat)} ${GM.esc(p.name)}</span><small>${p.poss.join('/')} · ${GM.era(p)}</small></button>`).join('');
+      ${plain ? `<span>${GM.esc(p.name)}</span>` : `<span>${GM.flag(p.nat)} ${GM.esc(p.name)}</span><small>${p.poss.join('/')} · ${GM.era(p)}</small>`}</button>`).join('');
     box.hidden = !items.length;
   };
   input.addEventListener('input', () => {
@@ -283,9 +284,11 @@ GM.MODES = {
   ultimate: { name: 'Ultimate Wildcard', icon: '👑' },
   ultimateast: { name: 'Ultimate Wildcard – Assists', icon: '👑' },
   ultimateapps: { name: 'Ultimate Wildcard – Apps', icon: '👑' },
-  target: { name: 'Target 442', icon: '🎯' },
-  targetast: { name: 'Target 333 – Assists', icon: '🎯' },
-  targetapps: { name: 'Target 3500 – Apps', icon: '🎯' },
+  target: { name: 'Target 500 – Goals', icon: '🎯' },
+  targetast: { name: 'Target 350 – Assists', icon: '🎯' },
+  targetapps: { name: 'Target 3,750 – Apps', icon: '🎯' },
+  treble: { name: 'The Treble', icon: '🏆' },
+  mystery: { name: 'Mystery Target', icon: '🎲' },
   daily: { name: 'Daily Ultimate', icon: '📅' },
   hopper: { name: 'Club Hopper', icon: '🦘' },
   hilo: { name: 'Higher or Lower', icon: '↕️' },
@@ -296,7 +299,7 @@ GM.MODES = {
 
 // Hard mode: games show names + positions only (no clubs, years, apps, nationality); Who Am I? saves the
 // clubs for the last clue. Scores go to "<mode>h".
-GM.HARD_MODES = ['ultimate', 'ultimateast', 'ultimateapps', 'target', 'targetast', 'targetapps', 'hilo', 'whoami', 'tally'];
+GM.HARD_MODES = ['ultimate', 'ultimateast', 'ultimateapps', 'target', 'targetast', 'targetapps', 'treble', 'mystery', 'hopper', 'grid', 'hilo', 'whoami', 'tally'];
 GM.isHard = () => GM.store.get('hard', false);
 GM.setHard = v => GM.store.set('hard', !!v);
 Object.keys(GM.MODES).filter(k => GM.HARD_MODES.includes(k)).forEach(k => {

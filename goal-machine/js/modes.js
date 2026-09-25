@@ -94,7 +94,7 @@
       // hard: start vague, clubs only as the last clue and no initials
       return hard ? [pos, nat, era, rec, clubs] : [clubs, pos, nat, rec, ini];
     };
-    const isMatch = p => p.id === target.id ||
+    const isMatch = p => p.id === target.id || (hard && p.name === target.name) ||
       (p.clubs.join() === target.clubs.join() && p.first === target.first && p.last === target.last && p.poss.join() === target.poss.join());
 
     function render() {
@@ -105,7 +105,7 @@
         <div class="guess-box"><input class="input" id="wg" placeholder="Type a player…" autocomplete="off"><div class="ac" id="wac" hidden></div></div>
         <div class="actions row2"><button class="btn ghost" id="wclue">${clue < 4 ? '💡 Another clue' : '🏳️ Give up'}</button></div>
         <div id="wover"></div>`;
-      GM.autocomplete(GM.$('#wg', root), GM.$('#wac', root), guess, { exclude: p => wrong.includes(p) });
+      GM.autocomplete(GM.$('#wg', root), GM.$('#wac', root), guess, { exclude: p => wrong.includes(p), plain: hard });
       GM.$('#wclue', root).onclick = () => (clue < 4 ? (clue++, render()) : endRound(false));
       setTimeout(() => GM.$('#wg', root) && GM.$('#wg', root).focus(), 30);
     }
@@ -170,6 +170,7 @@
 
   GM.grid = function (root, daily) {
     const seed = daily ? 'grid:' + GM.today() : GM.newSeed();
+    const hard = GM.isHard();
     const g = makeGrid(seed);
     let guesses = 12;
     const filled = Array(9).fill(null);
@@ -185,7 +186,7 @@
     const finished = () => guesses <= 0 || filled.every(Boolean);
 
     function render() {
-      root.innerHTML = `${top(daily ? 'Daily Club Grid' : 'Club Grid', '#️⃣')}
+      root.innerHTML = `${top((daily ? 'Daily Club Grid' : 'Club Grid') + (hard ? ' · Hard' : ''), '#️⃣')}
         <div class="hl-head">Guesses left <b>${guesses}</b> · Score <b>${score()}</b></div>
         <p class="muted center">Name a player (50+ PL apps) who fits both the row and the column. Obscure picks score more.</p>
         <div class="grid">
@@ -218,7 +219,7 @@
           GM.toast(`✅ ${GM.esc(p.name)} +${filled[k].pts}`);
         } else GM.toast(`❌ ${GM.esc(p.name)} doesn't fit`);
         render();
-      });
+      }, { plain: hard });
       setTimeout(() => inp.focus(), 50);
     }
     let ended = false;
@@ -227,7 +228,7 @@
       const grid = [0, 1, 2].map(i => [0, 1, 2].map(j => filled[i * 3 + j] ? '🟩' : '⬛').join('')).join('\n');
       const txt = `⚽ Goal Machine – ${daily ? 'Daily Club Grid ' + GM.today() : 'Club Grid'}\n${grid}\n${score()} pts`;
       if (daily && score() > GM.best('grid')) GM.store.set('best:grid', score());
-      gameOver(GM.$('#gover', root), daily ? 'grid:' + GM.today() : 'grid', score(), '', () => GM.grid(root, false), txt, { full: filled.every(Boolean) });
+      gameOver(GM.$('#gover', root), daily ? 'grid:' + GM.today() : hard ? 'gridh' : 'grid', score(), '', () => GM.grid(root, false), txt, { full: filled.every(Boolean) });
     }
     render();
   };
@@ -276,6 +277,7 @@
     const TIME = 90;
     const r = GM.rng(GM.newSeed());
     const big = Object.keys(clubCount).filter(c => clubCount[c] >= 40);
+    const hard = GM.isHard(), key = hard ? 'hopperh' : 'hopper';
     let club = r.pick(big), hops = 0, left = TIME, used = new Set(), chain = [], timer = null, over = false, choosing = null;
     const fmtT = s => `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
 
@@ -292,8 +294,8 @@
     }
 
     function render() {
-      root.innerHTML = `${top('Club Hopper', '🦘')}
-        <div class="hop-head"><span>Hops <b>${hops}</b></span><span class="timer" id="htime">${fmtT(left)}</span><span>Best ${GM.best('hopper')}</span></div>
+      root.innerHTML = `${top('Club Hopper' + (hard ? ' · Hard' : ''), '🦘')}
+        <div class="hop-head"><span>Hops <b>${hops}</b></span><span class="timer" id="htime">${fmtT(left)}</span><span>Best ${GM.best(key)}</span></div>
         <div class="hop-club">${GM.clubChip(club, true)}</div>
         ${choosing ? `<p class="center">Where next with <b>${GM.esc(choosing.name)}</b>?</p>
           <div class="hop-choices">${choosing.clubs.filter(c => c !== club).map(c => `<button class="btn" data-hop="${GM.esc(c)}">${GM.clubChip(c)} ${GM.esc(c)}</button>`).join('')}</div>`
@@ -305,7 +307,7 @@
       GM.$$('[data-hop]', root).forEach(b => b.onclick = () => hop(choosing, b.dataset.hop));
       const inp = GM.$('#hg', root);
       if (inp) {
-        GM.autocomplete(inp, GM.$('#hac', root), guess, { exclude: p => used.has(p.id) });
+        GM.autocomplete(inp, GM.$('#hac', root), guess, { exclude: p => used.has(p.id), plain: hard });
         setTimeout(() => inp.focus(), 30);
         GM.$('#hskip', root).onclick = () => { penalty(10, '🔀 New club'); club = r.pick(big.filter(c => c !== club)); render(); };
       }
@@ -330,7 +332,7 @@
       over = true; clearInterval(timer);
       GM.$$('input, [data-hop], #hskip', root).forEach(x => { x.disabled = true; });
       const route = chain.map(([, from]) => GM.clubShort(from)).concat(chain.length ? [GM.clubShort(club)] : []).join('→');
-      gameOver(GM.$('#hover', root), 'hopper', hops, `<div class="muted">${chain.length ? route : 'No hops this time'}</div>`, () => GM.hopper(root),
+      gameOver(GM.$('#hover', root), key, hops, `<div class="muted">${chain.length ? route : 'No hops this time'}</div>`, () => GM.hopper(root),
         `⚽ Goal Machine – Club Hopper: ${hops} hops in ${TIME}s 🦘\n${route}`);
     }
     // stop the clock if the player leaves the page

@@ -34,7 +34,7 @@
     GM.$$('.modal-wrap').forEach(m => m.remove());
     app.className = 'page-' + (path || 'home');
     switch (path) {
-      case 'draft': return GM.draft.start(app, q.m === 'target' ? 'target' : 'ultimate',
+      case 'draft': return GM.draft.start(app, ['target', 'treble', 'mystery'].includes(q.m) ? q.m : 'ultimate',
         { stat: q.s, seed: q.seed, vs: q.vs, vss: q.vss ? +q.vss : undefined, hard: q.seed ? q.h === '1' : GM.isHard() });
       case 'daily': return GM.draft.start(app, 'daily');
       case 'hilo': return GM.hilo(app);
@@ -85,16 +85,18 @@
         <div class="mode-card">
           <span class="mode-icon">🎯</span>
           <span class="mode-text"><b>Target</b><small>Hit the number exactly for a bullseye.</small>
-            <span class="stat-pick">${statBtn('target', 'goals', '442 goals')}${statBtn('target', 'assists', '333 assists')}${statBtn('target', 'apps', '3,500 apps')}</span></span>
+            <span class="stat-pick">${statBtn('target', 'goals', '500 goals')}${statBtn('target', 'assists', '350 assists')}${statBtn('target', 'apps', '3,750 apps')}</span></span>
         </div>
+        ${card('#/draft?m=treble', '🏆', 'The Treble', 'Hit 400 goals, 300 assists AND 3,300 apps with one XI.', pb('treble'))}
+        ${card('#/draft?m=mystery', '🎲', 'Mystery Target', 'Random stat, secret number. Follow the thermometer.', pb('mystery'))}
       </section>
       <h3 class="section-title">More games</h3>
       <section class="cards">
-        ${card('#/hopper', '🦘', 'Club Hopper', 'Hop from club to club through players. 90 seconds.', GM.best('hopper'))}
+        ${card('#/hopper', '🦘', 'Club Hopper', 'Hop from club to club through players. 90 seconds.', pb('hopper'))}
         ${card('#/hilo', '↕️', 'Higher or Lower', 'More goals? More apps? Keep the streak', pb('hilo'))}
         ${card('#/whoami', '🕵️', 'Who Am I?', 'Guess the player from the clues', pb('whoami'))}
         ${card('#/dailygrid', '#️⃣', gridDone ? 'Daily Club Grid ✓' : 'Daily Club Grid', 'Played for both? 3×3 grid', GM.best('grid'))}
-        ${card('#/grid', '🔀', 'Random Club Grid', 'Endless grids', null)}
+        ${card('#/grid', '🔀', 'Random Club Grid', 'Endless grids', pb('grid'))}
         ${card('#/tally', '🔢', 'Guess the Tally', 'How many PL goals did he score?', pb('tally'))}
       </section>
       <section class="cards">
@@ -132,7 +134,7 @@
   /* ---------------------------------------------------------------- leaderboard */
   async function leaderboard(m) {
     const hard = m ? /^[a-z]+h$/.test(m) && GM.MODES[m] != null : GM.isHard();
-    const tabs = ['ultimate', 'ultimateast', 'ultimateapps', 'daily:' + GM.today(), 'target', 'targetast', 'targetapps', 'hopper', 'hilo', 'whoami', 'grid:' + GM.today(), 'grid', 'tally']
+    const tabs = ['ultimate', 'ultimateast', 'ultimateapps', 'daily:' + GM.today(), 'target', 'targetast', 'targetapps', 'treble', 'mystery', 'hopper', 'hilo', 'whoami', 'grid:' + GM.today(), 'grid', 'tally']
       .map(k => hard && GM.HARD_MODES.includes(k) ? k + 'h' : k);
     m = m && tabs.includes(m) ? m : tabs[0];
     const flip = hard ? m.replace(/h$/, '') : (GM.HARD_MODES.includes(m) ? m + 'h' : m);

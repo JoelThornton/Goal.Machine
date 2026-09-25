@@ -108,7 +108,7 @@
     };
   }
 
-  GM.report = function (xi, st) {
+  GM.report = function (xi, st, treble) {
     if (!xi.length) return '';
     const { score, tier, pairs } = GM.teamRating(xi);
     const v = verdict(xi, pairs);
@@ -135,7 +135,7 @@
       const tag = { captain: ' ×2', rotation: ' ÷2', zero: ' ×0' }[s.mod] || '';
       return `<div class="xi-row"><span class="pos pos-${GM.GROUP[s.pos]}">${s.pos}</span>
         <span class="xi-name">${GM.esc(p.name)}<span class="badges">${badges}</span></span>
-        <b>${fmt(s.g)}${tag ? `<small>${tag}</small>` : ''}</b></div>`;
+        <b>${treble && s.v ? `${s.v.goals}·${s.v.assists}·${fmt(s.v.apps)}` : fmt(s.g)}${tag ? `<small>${tag}</small>` : ''}</b></div>`;
     }).join('');
 
     return `<div class="report">

@@ -1,211 +1,450 @@
-/* Goal Machine – online head-to-head. Two phones share a room code (Supabase functions create_room / join_room /
-   get_room / room_move). Each phone polls the room every ~1.5 s.
-   - Live Race: both play Ultimate on the same fair spins at the same time and watch each other's total.
-   - Draft Duel: one set of reels, taking turns to pick from it. First pick alternates every spin, and a player your
-     rival signs is gone for you. Both phones work out the reels from the room seed and the moves, so only the picks
-     travel over the network. */
+/* Goal Machine – online games with friends, Words-with-Friends style. Games belong to your 🔒 account name, not a phone,
+   so you can leave and come back any time (Supabase functions online_create / online_join / online_get / online_move /
+   online_resign / online_games / online_friends / online_add_friend / online_waiting).
+   - Live Race: both build an Ultimate XI on the same fair spins, whenever suits you. Once you've finished you can watch
+     their XI being built. Match points: 50 for the bigger total, 30 for the better squad rating, 20 for the quicker XI.
+   - Draft Duel: take turns picking from the same five players each spin (the player challenged gets the first pick,
+     then it swaps every spin). Every spin
+     has at least two players who fit each of you, so there's always a choice. When you're both in the game there's a
+     15-second pick clock. Match points: 60 for the bigger total, 40 for the better squad rating.
+   The server works out the match points once both XIs are done, and keeps every finished game for your history and
+   head-to-head records. */
 'use strict';
 
 (function () {
   const FORMATION = ['GK', 'LB', 'CB', 'CB', 'RB', 'LM', 'CM', 'CM', 'RM', 'ST', 'ST'];
   const SEATS = ['host', 'guest'];
+  const PICK_SECONDS = 15;
   const other = s => (s === 'host' ? 'guest' : 'host');
-  const esc = GM.esc;
+  const esc = GM.esc, fmt = n => Math.round(n).toLocaleString();
+  const KIND = { duel: { icon: '🤝', name: 'Draft Duel' }, race: { icon: '🏁', name: 'Live Race' } };
   const rpc = (f, a) => GM.lb.rpc(f, a);
-  const mySeat = code => GM.store.get('online:' + code, null);  // { token, seat }
-  let poll = null;
-  const stopPoll = () => { clearInterval(poll); poll = null; };
+  const auth = () => { const a = GM.account(); return a ? { p_user: a.name, p_key: a.key } : null; };
+  const me = () => (GM.account() || {}).name || '';
+  let poll = null, timer = null;
+  const stopPoll = () => { clearInterval(poll); poll = null; clearInterval(timer); timer = null; };
   window.addEventListener('hashchange', () => { if (!location.hash.startsWith('#/online')) stopPoll(); });
-
-  /* ================================================================ lobby */
-  GM.onlinePage = function (root, q) {
-    stopPoll();
-    if (!GM.lb.enabled) { root.innerHTML = top('Play online') + '<p class="muted center">Online games need the leaderboard server, which is switched off.</p>'; return; }
-    if (q.room) return room(root, q.room);
-    let kind = GM.store.get('onlineKind', 'duel'), stat = GM.store.get('onlineStat', 'goals');
-    root.innerHTML = `${top('Play online')}
-      <div class="h2h-hero"><div class="h2h-trophy">🌐</div><h3>Play a friend anywhere</h3>
-        <p>Start a game and send them the code, or type in the code they sent you.</p></div>
-      <div class="setting"><b>Your name</b><input class="input" id="oname" maxlength="20" value="${esc(GM.getName())}" placeholder="e.g. Joel"></div>
-      <div class="setting"><b>Game</b>
-        <div class="seg" id="okind"><button data-v="duel" class="${kind === 'duel' ? 'on' : ''}">🤝 Draft Duel</button><button data-v="race" class="${kind === 'race' ? 'on' : ''}">🏁 Live Race</button></div>
-        <small id="okdesc"></small>
-        <div class="seg" id="ostat">${Object.entries(GM.STATS).map(([k, s]) => `<button data-v="${k}" class="${k === stat ? 'on' : ''}">${s.icon} ${s.name}</button>`).join('')}</div>
-        <button class="btn big" id="ocreate">➕ Start a game</button></div>
-      <div class="setting"><b>Got a code?</b><div class="join-row"><input class="input" id="ocode" maxlength="5" placeholder="ABCDE" value="${esc(q.join || '')}" autocapitalize="characters">
-        <button class="btn" id="ojoin">Join</button></div></div>
-      <p class="muted center"><a href="#/h2h">📱 Or play on one phone (pass it round)</a></p>`;
-    const desc = () => { GM.$('#okdesc').textContent = kind === 'duel'
-      ? 'Take turns picking from the same reels. First pick swaps every spin, and whoever you don’t pick is up for grabs.'
-      : 'Both build an Ultimate XI on the same spins at the same time. Watch their total climb as you go.'; };
-    desc();
-    const seg = (id, set) => GM.$$(`#${id} button`).forEach(b => b.onclick = () => { set(b.dataset.v); GM.$$(`#${id} button`).forEach(x => x.classList.toggle('on', x === b)); desc(); });
-    seg('okind', v => { kind = v; GM.store.set('onlineKind', v); });
-    seg('ostat', v => { stat = v; GM.store.set('onlineStat', v); });
-    const name = () => { const n = GM.$('#oname').value.trim().slice(0, 20); if (!n) { GM.toast('Pop your name in first'); return null; } GM.store.set('name', GM.account() ? GM.getName() : n); return n; };
-    GM.$('#ocreate').onclick = async () => {
-      const n = name(); if (!n) return;
-      try {
-        const r = await rpc('create_room', { p_kind: kind, p_stat: stat, p_name: n });
-        GM.store.set('online:' + r.code, { token: r.token, seat: 'host' });
-        location.hash = '#/online?room=' + r.code;
-      } catch (e) { GM.toast('Couldn’t reach the server – try again'); }
-    };
-    GM.$('#ojoin').onclick = async () => {
-      const n = name(), code = GM.$('#ocode').value.trim().toUpperCase(); if (!n || !code) return;
-      try {
-        const r = await rpc('join_room', { p_code: code, p_name: n });
-        if (r.error) { GM.toast(r.error === 'full' ? 'That game already has two players' : 'No game with that code'); return; }
-        GM.store.set('online:' + r.code, { token: r.token, seat: 'guest' });
-        location.hash = '#/online?room=' + r.code;
-      } catch (e) { GM.toast('Couldn’t reach the server – try again'); }
-    };
-    if (q.join) GM.$('#ojoin').focus();
+  const top = (t, back = '#/') => `<div class="topbar"><a href="${back}" class="back">‹</a><h2>🌐 ${t}</h2><span></span></div>`;
+  const seatOf = g => (g.host === me() ? 'host' : g.guest === me() ? 'guest' : null);
+  const oppOf = g => (g.host === me() ? g.guest : g.host);
+  const when = t => { const d = new Date(t), days = Math.floor((Date.now() - d) / 864e5);
+    return days < 1 ? d.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' }) : days < 7 ? d.toLocaleDateString(undefined, { weekday: 'short' }) : d.toLocaleDateString(undefined, { day: 'numeric', month: 'short' }); };
+  const record = f => (f ? `<span class="rec"><b class="w">W${f.w}</b> <b class="d">D${f.d}</b> <b class="l">L${f.l}</b></span>` : '');
+  const outcome = (g, seat) => {
+    if (!g.result) return null;
+    const w = g.result.winner, mine = g.result[seat], theirs = g.result[other(seat)];
+    return { icon: w === 'draw' ? '🤝' : w === seat ? '🏆' : '😬', text: w === 'draw' ? 'Drew' : w === seat ? 'Won' : 'Lost', score: `${fmt(mine)}–${fmt(theirs)}`, resigned: g.result.resigned };
   };
-  const top = t => `<div class="topbar"><a href="#/" class="back">‹</a><h2>🌐 ${t}</h2><span></span></div>`;
+  const myMove = (g, seat) => g.status !== 'done' && (g.kind === 'duel' ? g.turn === seat : !((g.sums || g.race || {})[seat] || {}).done);
 
-  /* ================================================================ a room */
-  async function room(root, code) {
-    const me = mySeat(code);
-    if (!me) { location.hash = '#/online?join=' + code; return; }
+  // Everything online needs a claimed name: that's what lets you pick up your games on any phone
+  async function needAccount(root, why, q) {
+    root.innerHTML = `${top('Online')}
+      <div class="h2h-hero"><div class="h2h-trophy">🌐</div><h3>Play your mates online</h3>
+        <p>Challenge friends to a Draft Duel or a Live Race, take your turn whenever suits you, and keep a head-to-head record.</p></div>
+      <button class="btn big" id="oclaim">🔒 Claim your name to play</button>
+      <p class="muted center">${why || 'Your name is how friends find you. It’s yours alone, and you can move it to a new phone with a transfer code.'}</p>
+      <p class="muted center"><a href="#/h2h">📱 Or play on one phone (pass it round)</a></p>`;
+    GM.$('#oclaim').onclick = async () => { const n = await GM.accountModal('Pick the name your friends will know you by.'); if (n) GM.onlinePage(root, q); };
+  }
+
+  /* ================================================================ the hub: your games and friends */
+  GM.onlinePage = async function (root, q = {}) {
+    stopPoll();
+    if (!GM.lb.enabled) { root.innerHTML = top('Online') + '<p class="muted center">Online games need the leaderboard server, which is switched off.</p>'; return; }
+    if (!GM.account()) return needAccount(root, q.join ? `You've been invited to game <b>${esc(q.join)}</b>. Claim a name and you're in.` : '', q);
+    if (q.join) return join(root, q.join);
+    if (q.room) return room(root, q.room, q);
+    root.innerHTML = `${top('Online')}
+      <div class="online-me"><span>Playing as <b>🔒 ${esc(me())}</b></span><button class="btn small" id="onew">⚔️ New game</button></div>
+      <div id="olists"><p class="muted center">Loading your games…</p></div>
+      <h3 class="section-title">Friends</h3>
+      <div id="ofriends" class="friends"></div>
+      <div class="join-row"><input class="input" id="ofriend" maxlength="20" placeholder="Add a friend by name" autocomplete="off"><button class="btn" id="oadd">➕ Add</button></div>
+      <h3 class="section-title">Got a code?</h3>
+      <div class="join-row"><input class="input" id="ocode" maxlength="5" placeholder="ABCDE" autocapitalize="characters"><button class="btn" id="ojoin">Join</button></div>
+      <p class="muted center"><a href="#/h2h">📱 Play on one phone instead (pass it round)</a></p>`;
+    GM.$('#onew').onclick = () => newGame();
+    GM.$('#ojoin').onclick = () => { const c = GM.$('#ocode').value.trim().toUpperCase(); if (c) join(root, c); };
+    GM.$('#oadd').onclick = async () => {
+      const n = GM.$('#ofriend').value.trim(); if (!n) return;
+      try {
+        const r = await rpc('online_add_friend', { ...auth(), p_friend: n });
+        if (r === 'ok') { GM.toast(`🤝 ${esc(n)} added`); GM.$('#ofriend').value = ''; load(); }
+        else GM.toast(r === 'no_user' ? `Nobody's called “${esc(n)}” yet – they need to claim that name first` : r === 'self' ? 'That’s you!' : 'Couldn’t add them');
+      } catch (e) { GM.toast('Couldn’t reach the server – try again'); }
+    };
+    let friends = [];
+    const load = async () => {
+      let games, fr;
+      try { [games, fr] = await Promise.all([rpc('online_games', auth()), rpc('online_friends', auth())]); } catch (e) {
+        const el = GM.$('#olists'); if (el) el.innerHTML = '<p class="muted center">Couldn’t reach the server. Check your connection.</p>'; return;
+      }
+      if (!GM.$('#olists')) return;
+      friends = fr || [];
+      const rows = (games || []).map(g => ({ g, seat: seatOf(g) })).filter(x => x.seat);
+      const yours = rows.filter(x => myMove(x.g, x.seat)), theirs = rows.filter(x => x.g.status !== 'done' && !myMove(x.g, x.seat)), done = rows.filter(x => x.g.status === 'done');
+      const line = ({ g, seat }) => {
+        const opp = oppOf(g), k = KIND[g.kind], st = GM.STATS[g.stat] || GM.STATS.goals, s = g.sums || {}, o = outcome(g, seat);
+        const sub = o ? `${o.icon} ${o.text} ${o.score}${o.resigned ? ` (${o.resigned === seat ? 'you' : 'they'} resigned)` : ''}`
+          : !opp ? `Waiting for someone to join · code <b>${g.code}</b>`
+          : g.kind === 'duel' ? (g.turn === seat ? '👉 Your pick' : `⏳ ${esc(opp)}’s pick`)
+          : `You ${(s[seat] || {}).done ? '✓ done' : `${(s[seat] || {}).n || 0}/11`} · ${esc(opp)} ${(s[other(seat)] || {}).done ? '✓ done' : `${(s[other(seat)] || {}).n || 0}/11`}`;
+        return `<a class="og-row ${o ? 'res-' + o.text.toLowerCase() : ''}" href="#/online?room=${g.code}"><span class="og-icon">${k.icon}</span>
+          <span class="og-main"><b>${opp ? esc(opp) : 'Open invite'}</b><small>${k.name} · ${st.icon} ${st.name}</small><small class="og-sub">${sub}</small></span>
+          <span class="og-when">${when(g.updated)}</span></a>`;
+      };
+      const block = (title, list, empty) => `<h3 class="section-title">${title}${list.length ? ` <span class="count">${list.length}</span>` : ''}</h3>
+        ${list.length ? `<div class="og-list">${list.map(line).join('')}</div>` : `<p class="muted center">${empty}</p>`}`;
+      GM.$('#olists').innerHTML = block('Your move', yours, 'Nothing waiting on you. Start a game!')
+        + (theirs.length ? block('Their move', theirs, '') : '')
+        + (done.length ? block('Finished', done.slice(0, 20), '') : '');
+      GM.$('#ofriends').innerHTML = friends.length ? friends.map(f => `<div class="friend"><span class="f-av">${esc(GM.initials(f.name))}</span>
+          <span class="f-main"><b>${esc(f.name)}</b>${f.w + f.d + f.l ? record(f) : '<small class="muted">No games yet</small>'}</span>
+          <button class="btn small" data-challenge="${esc(f.name)}">⚔️ Play</button></div>`).join('')
+        : '<p class="muted center">Add friends by their Goal Machine name, or send an invite code. Anyone you play is added automatically.</p>';
+      GM.$$('[data-challenge]').forEach(b => b.onclick = () => newGame(b.dataset.challenge));
+      GM.online.setWaiting(yours.length);
+    };
+    function newGame(opp = '') {
+      let kind = GM.store.get('onlineKind', 'duel'), stat = GM.store.get('onlineStat', 'goals');
+      const m = GM.modal(`<h3>⚔️ New online game</h3>
+        <div class="setting"><b>Who against?</b>
+          <div class="seg wrap" id="nopp">${friends.map(f => `<button data-v="${esc(f.name)}" class="${f.name === opp ? 'on' : ''}">${esc(f.name)}</button>`).join('')}
+          <button data-v="" class="${!opp ? 'on' : ''}">🔗 Anyone (send a code)</button></div>
+          <input class="input" id="nname" maxlength="20" placeholder="…or type their name" value="" autocomplete="off"></div>
+        <div class="setting"><b>Game</b><div class="seg" id="nkind">${Object.entries(KIND).map(([k, v]) => `<button data-v="${k}" class="${k === kind ? 'on' : ''}">${v.icon} ${v.name}</button>`).join('')}</div>
+          <small id="nkdesc"></small></div>
+        <div class="setting"><b>Stat</b><div class="seg" id="nstat">${Object.entries(GM.STATS).map(([k, s]) => `<button data-v="${k}" class="${k === stat ? 'on' : ''}">${s.icon} ${s.name}</button>`).join('')}</div></div>
+        <div class="row"><button class="btn ghost" data-close>Cancel</button><button class="btn" id="ngo">Start ⚽</button></div>`);
+      const desc = () => { GM.$('#nkdesc', m.el).textContent = kind === 'duel'
+        ? 'Take turns picking from the same five players each spin. The better XI wins 60 points, the better squad rating 40.'
+        : 'You both build an Ultimate XI on the same spins, whenever you like. 50 points for the bigger total, 30 for the better squad rating, 20 for the quicker XI.'; };
+      desc();
+      const seg = (id, set) => GM.$$(`#${id} button`, m.el).forEach(b => b.onclick = () => { set(b.dataset.v); GM.$$(`#${id} button`, m.el).forEach(x => x.classList.toggle('on', x === b)); desc(); });
+      seg('nopp', v => { opp = v; GM.$('#nname', m.el).value = ''; });
+      seg('nkind', v => { kind = v; GM.store.set('onlineKind', v); });
+      seg('nstat', v => { stat = v; GM.store.set('onlineStat', v); });
+      GM.$('#ngo', m.el).onclick = async () => {
+        const typed = GM.$('#nname', m.el).value.trim(), who = typed || opp;
+        const code = await create(kind, stat, who);
+        if (code) { m.close(); location.hash = '#/online?room=' + code; }
+      };
+    }
+    load();
+    poll = setInterval(load, 20000);
+  };
+
+  async function create(kind, stat, opp) {
+    try {
+      const r = await rpc('online_create', { ...auth(), p_kind: kind, p_stat: stat, p_opp: opp || null });
+      if (r && r.code) { if (opp) GM.toast(`⚔️ Challenge sent to ${esc(opp)}`); return r.code; }
+      GM.toast(r && r.error === 'no_user' ? `Nobody's called “${esc(opp)}” yet` : r && r.error === 'self' ? 'You can’t play yourself!' : r && r.error === 'auth' ? 'Your name isn’t set up on this phone' : 'Couldn’t start the game');
+    } catch (e) { GM.toast('Couldn’t reach the server – try again'); }
+    return null;
+  }
+
+  async function join(root, code) {
+    root.innerHTML = top('Online', '#/online') + '<p class="muted center">Joining…</p>';
+    try {
+      const r = await rpc('online_join', { ...auth(), p_code: code.toUpperCase() });
+      if (r && r.code) { location.replace('#/online?room=' + r.code); return; }
+      GM.toast(r && r.error === 'full' ? 'That game already has two players' : r && r.error === 'no_room' ? 'No game with that code' : 'Couldn’t join');
+    } catch (e) { GM.toast('Couldn’t reach the server – try again'); }
+    location.replace('#/online');
+  }
+
+  /* ================================================================ a game */
+  async function room(root, code, q) {
     let last = '';
     const tick = async () => {
       let r;
-      try { r = await rpc('get_room', { p_code: code }); } catch (e) { return; }
-      if (!r) { stopPoll(); root.innerHTML = top('Play online') + '<p class="muted center">This game has expired.</p>'; return; }
-      const sig = JSON.stringify([r.guest, r.moves.length, r.race]);
+      try { r = await rpc('online_get', { p_code: code, p_user: me() }); } catch (e) { return; }
+      if (!r) { stopPoll(); root.innerHTML = top('Online', '#/online') + '<p class="muted center">This game has gone. Unanswered invites are cleared after two weeks.</p>'; return; }
+      const seat = seatOf(r);
+      if (!seat) { root.innerHTML = top('Online', '#/online') + `<p class="muted center">This game is between ${esc(r.host)} and ${esc(r.guest || '…')}.</p>`; stopPoll(); return; }
+      const sig = JSON.stringify([r.guest, r.moves.length, r.race, r.status, r.turn, r.kind === 'duel' ? Math.floor(r.now - ((r.seen || {})[other(seat)] || 0)) > 10 : 0]);
       if (sig === last) return;
       last = sig;
-      if (!r.guest) return waiting(root, r);
-      if (r.kind === 'race') return race(root, r, me);
-      duel(root, r, me);
+      if (r.kind === 'race') race(root, r, seat, q);
+      else duel(root, r, seat);
+      if (r.status === 'done' || r.status === 'declined') { over = true; clearInterval(poll); poll = null; }
     };
-    root.innerHTML = top('Play online') + '<p class="muted center">Connecting…</p>';
+    let over = false;
+    root.innerHTML = top('Online', '#/online') + '<p class="muted center">Connecting…</p>';
     await tick();
-    stopPoll(); poll = setInterval(tick, 1500);
-    GM.online.refresh = tick;
+    clearInterval(poll); poll = over ? null : setInterval(tick, 2000);
+    GM.online.refresh = () => { last = ''; return tick(); };
   }
   GM.online = { refresh: null };
 
-  function waiting(root, r) {
-    const link = GM.baseUrl() + '#/online?join=' + r.code;
-    root.innerHTML = `${top(r.kind === 'duel' ? 'Draft Duel' : 'Live Race')}
-      <div class="room-code"><small>Game code</small><b>${r.code}</b><span class="muted">Waiting for your friend to join…</span></div>
-      <div class="actions col"><button class="btn big" id="oshare">📤 Send them the code</button></div>
-      <p class="muted center">They can tap the link, or open 🌐 Play online and type <b>${r.code}</b>. This screen starts the game as soon as they're in.</p>`;
-    GM.$('#oshare').onclick = () => GM.share(`⚽ Goal Machine – ${r.kind === 'duel' ? 'Draft Duel' : 'Live Race'} me! Code ${r.code}`, link);
+  const inviteBar = r => (r.guest ? '' : `<div class="banner invite">🔗 Nobody has joined yet. Send them code <b>${r.code}</b>
+      <button class="btn small" id="oshare">📤 Send invite</button></div>`);
+  function wireInvite(root, r) {
+    const b = GM.$('#oshare', root);
+    if (b) b.onclick = () => GM.share(`⚽ Goal Machine – ${KIND[r.kind].name} me! Code ${r.code}`, GM.baseUrl() + '#/online?join=' + r.code);
+  }
+  function resignButton(root, r, seat) {
+    const b = GM.$('#oresign', root);
+    if (!b) return;
+    b.onclick = async () => {
+      const started = r.race[seat] || r.moves.some(m => m.s === seat);
+      const ok = await GM.confirm(!r.guest ? 'Cancel this invite?' : started ? `Resign? ${esc(oppOf(r))} will win this one.` : `Decline ${esc(oppOf(r))}’s challenge?`);
+      if (!ok) return;
+      try { await rpc('online_resign', { ...auth(), p_code: r.code }); } catch (e) { }
+      GM.store.set('racep:' + r.code, null);
+      location.hash = '#/online';
+    };
   }
 
-  /* ================================================================ Live Race */
-  function race(root, r, me) {
-    const opp = r[other(me.seat)], S = GM.draft.state();
-    if (!S || !S.online || S.online.code !== r.code) {
-      GM.draft.start(root, 'ultimate', { seed: r.seed, stat: r.stat, online: { code: r.code, token: me.token, seat: me.seat, opp } });
+  /* ---------------------------------------------------------------- Live Race */
+  function race(root, r, seat, q) {
+    const them = other(seat), opp = r[them], mine = r.race[seat] || {}, theirs = r.race[them] || {};
+    const S = GM.draft.state(), inDraft = !!(S && S.online && S.online.code === r.code && GM.$('#oppbar, #race-result', root));
+    if (!mine.done && r.status !== 'done') {
+      if (!inDraft) GM.draft.start(root, 'ultimate', { seed: r.seed, stat: r.stat, online: { code: r.code, seat, opp: opp || 'someone' } });
+      const bar = GM.$('#oppbar', root);
+      if (bar) bar.innerHTML = opp ? `<span>🏁 <b>${esc(opp)}</b>: ${fmt(theirs.t || 0)} ${GM.STATS[r.stat].label} · ${theirs.n || 0}/11${theirs.done ? ' ✓ done' : ''}</span>`
+        : `<span>🔗 Waiting for someone to join (code <b>${r.code}</b>) – play your XI now</span> <button class="btn small" id="oshare">📤</button>`;
+      wireInvite(root, r);
+      return;
     }
-    const theirs = r.race[other(me.seat)] || { t: 0, n: 0 }, mine = r.race[me.seat] || { t: 0, n: 0 };
-    const bar = GM.$('#oppbar', root);
-    if (bar) bar.innerHTML = `<span>🌐 <b>${esc(opp)}</b>: ${theirs.t.toLocaleString()} ${GM.STATS[r.stat].label} · ${theirs.n}/11${theirs.done ? ' ✓' : ''}</span>`;
-    const res = GM.$('#race-result', root);
-    if (res && mine.done) {
-      res.innerHTML = !theirs.done ? `<div class="banner">⏳ Waiting for ${esc(opp)} to finish (${theirs.n}/11)…</div>`
-        : `<div class="banner race-final">${mine.t > theirs.t ? '🏆 You win' : mine.t < theirs.t ? `😬 ${esc(opp)} wins` : '🤝 A draw'} · ${mine.t.toLocaleString()} – ${theirs.t.toLocaleString()}</div>`;
-      if (theirs.done && !res.dataset.played) { res.dataset.played = 1; GM.sound.play(mine.t >= theirs.t ? 'fanfare' : 'fulltime'); stopPoll(); }
+    // you've finished: stay on your full-time report until you ask for the comparison
+    const onReport = inDraft && S.phase === 'done' && !q.v;
+    if (onReport) {
+      const res = GM.$('#race-result', root);
+      if (res) res.innerHTML = r.result ? `<div class="banner race-final">${resultLine(r, seat)}</div>`
+        : `<div class="banner">⏳ ${opp ? `${esc(opp)} is on ${theirs.n || 0}/11 – tap below to watch their XI` : 'Waiting for someone to join'}</div>`;
+      if (r.result && !root.dataset.played) { root.dataset.played = 1; GM.sound.play(r.result.winner === seat ? 'fanfare' : 'fulltime'); }
+      return;
     }
+    summary(root, r, seat);
   }
-  // called by the draft engine after every signing and at full time
+  // called by the draft engine after every signing and at full time: your running total, XI, rating and time taken
   GM.online.pushRace = function (S) {
-    if (!S.online) return;
-    const t = S.xi.reduce((a, s) => a + (s.v ? s.v[S.stat] : 0), 0), n = S.xi.filter(s => s.p != null).length;
-    rpc('room_move', { p_code: S.online.code, p_token: S.online.token, p_seq: 0, p_move: { t, n, done: S.phase === 'done' } })
+    const o = S.online;
+    if (!o || !GM.account()) return;
+    const now = Date.now();
+    o.ms = (o.ms || 0) + Math.min(90000, Math.max(0, now - (o.lastT || now)));  // time spent playing, not time away
+    o.lastT = now;
+    const xi = S.xi.filter(s => s.p != null).map(s => ({ pos: s.pos, player: GM.players[s.p] }));
+    const sum = { t: GM.draft.total(S), n: xi.length, done: S.phase === 'done', r: xi.length ? GM.teamRating(xi).score : 0, ms: o.ms,
+      x: S.xi.map(s => (s.p != null ? [s.pos, GM.players[s.p].pk, s.g] : [s.pos])) };
+    GM.store.set('racep:' + o.code, { ...S, rules: undefined });
+    rpc('online_move', { ...auth(), p_code: o.code, p_seq: 0, p_move: null, p_sum: sum, p_turn: null })
       .then(() => GM.online.refresh && GM.online.refresh()).catch(() => { });
   };
 
-  /* ================================================================ Draft Duel */
-  const samplers = {};
+  const resultLine = (r, seat) => {
+    const o = outcome(r, seat), opp = r[other(seat)];
+    return o.resigned ? (o.resigned === seat ? `🏳️ You resigned – ${esc(opp)} wins` : `🏆 ${esc(opp)} resigned – you win`)
+      : `${o.icon} ${o.text === 'Won' ? 'You win' : o.text === 'Lost' ? `${esc(opp)} wins` : 'A draw'} · ${o.score} match points`;
+  };
+
+  /* ---------------------------------------------------------------- the comparison (both games) */
+  function summary(root, r, seat) {
+    const them = other(seat), opp = r[them] || 'Waiting…', st = GM.STATS[r.stat];
+    const duelXi = r.kind === 'duel' ? duelState(r).xi : null;
+    const team = s => {
+      if (duelXi) return duelXi[s].map(x => { const p = x.k && GM.byPk.get(x.k); return { pos: x.pos, p, v: p ? p[st.key] : null }; });
+      const sum = r.race[s] || {};
+      return (sum.x || FORMATION.map(pos => [pos])).map(([pos, pk, v]) => ({ pos, p: pk ? GM.byPk.get(pk) : null, v: pk ? v : null }));
+    };
+    const sums = s => {
+      const t = team(s), xi = t.filter(x => x.p).map(x => ({ pos: x.pos, player: x.p }));
+      const base = r.race[s] || {};
+      return { t: duelXi ? t.reduce((a, x) => a + (x.v || 0), 0) : base.t || 0, r: xi.length ? GM.teamRating(xi).score : 0, ms: base.ms, n: xi.length, done: !!base.done };
+    };
+    const A = sums(seat), B = sums(them);
+    const weights = r.kind === 'race' ? [50, 30, 20] : [60, 40, 0];
+    const mmss = ms => (ms == null ? '–' : `${Math.floor(ms / 60000)}m ${String(Math.round(ms / 1000) % 60).padStart(2, '0')}s`);
+    const rows = [
+      [`${st.icon} Bigger total`, weights[0], fmt(A.t), fmt(B.t), Math.sign(A.t - B.t)],
+      ['⭐ Better squad rating', weights[1], A.r, B.r, Math.sign(A.r - B.r)],
+    ];
+    if (weights[2]) rows.push(['⚡ Quicker XI', weights[2], mmss(A.ms), mmss(B.ms), Math.sign((B.ms || 1e12) - (A.ms || 1e12))]);
+    const bothDone = A.done && B.done;
+    const pts = r.result ? [r.result[seat], r.result[them]] : null;
+    const side = (t, cls) => `<div class="cmp-xi ${cls}">${t.map(x => `<div class="cx ${x.p ? '' : 'empty'}"><span class="pos pos-${GM.GROUP[x.pos]}">${x.pos}</span>
+        <b>${x.p ? esc(x.p.name.split(' ').slice(-1)[0]) : '–'}</b><i>${x.p ? fmt(x.v) : ''}</i></div>`).join('')}</div>`;
+    root.innerHTML = `${top(KIND[r.kind].name, '#/online')}
+      <div class="h2h-board duel-board">
+        <div class="h2h-team p1"><b>You</b><strong>${pts ? fmt(pts[0]) : fmt(A.t)}</strong><small>${pts ? 'points' : `${A.n}/11`}</small></div>
+        <div class="h2h-mid"><small>${st.icon} ${st.name}</small><span>VS</span><small id="orec"></small></div>
+        <div class="h2h-team p2"><b>${esc(opp)}</b><strong>${pts ? fmt(pts[1]) : fmt(B.t)}</strong><small>${pts ? 'points' : `${B.n}/11${B.done ? ' ✓' : ''}`}</small></div></div>
+      ${r.result ? `<div class="banner race-final">${resultLine(r, seat)}</div>`
+        : `<div class="banner">⏳ ${r.guest ? `${esc(opp)} is still building their XI (${B.n}/11). You can watch it fill up here.` : 'Nobody has joined yet.'}</div>`}
+      ${inviteBar(r)}
+      <table class="cmp-points"><tr><th></th><th>You</th><th>${esc(opp)}</th><th>Pts</th></tr>
+        ${rows.map(([label, w, a, b, s]) => `<tr><td>${label}</td><td class="${bothDone && s > 0 ? 'won' : ''}">${a}</td><td class="${bothDone && s < 0 ? 'won' : ''}">${b}</td><td>${w}</td></tr>`).join('')}</table>
+      <div class="cmp"><div><h4>You</h4>${side(team(seat), 'p1')}</div><div><h4>${esc(opp)}</h4>${side(team(them), 'p2')}</div></div>
+      <div class="actions col">
+        ${r.result && r.guest ? `<button class="btn big" id="orematch">🔁 Rematch ${esc(opp)}</button><button class="btn ghost" id="oshareres">📤 Share the result</button>` : ''}
+        ${!r.result && r.status !== 'declined' ? `<button class="btn ghost small" id="oresign">🏳️ ${r.guest ? 'Resign' : 'Cancel invite'}</button>` : ''}
+        <a class="btn ghost" href="#/online">🌐 All your games</a></div>`;
+    wireInvite(root, r);
+    resignButton(root, r, seat);
+    const rm = GM.$('#orematch', root);
+    if (rm) rm.onclick = async () => { const c = await create(r.kind, r.stat, opp); if (c) location.hash = '#/online?room=' + c; };
+    const sh = GM.$('#oshareres', root);
+    if (sh) sh.onclick = () => GM.share(`⚽ Goal Machine ${KIND[r.kind].name} v ${opp}\n${resultLine(r, seat).replace(/<[^>]+>/g, '')}\n${st.icon} ${fmt(A.t)} – ${fmt(B.t)} ${st.label}`, GM.baseUrl());
+    if (r.result && !root.dataset.played) { root.dataset.played = r.code; GM.sound.play(r.result.winner === seat ? 'fanfare' : 'fulltime'); }
+    if (r.guest) rpc('online_friends', auth()).then(fr => {
+      const f = (fr || []).find(x => x.name === opp), el = GM.$('#orec', root);
+      if (el && f) el.innerHTML = `Record W${f.w} D${f.d} L${f.l}`;
+    }).catch(() => { });
+  }
+
+  /* ---------------------------------------------------------------- Draft Duel */
+  // Five players a spin, seeded by the game and spin number: two who fit each player's open positions and one more,
+  // shuffled. Whoever picks first, the other always has at least one player who fits.
+  function duelReels(seed, spin, active, open, used) {
+    const rng = GM.rng(`${seed}|duel5|${spin}`), P = GM.players, out = [];
+    const draw = poss => {
+      for (let t = 0; t < 6000; t++) {
+        const p = P[Math.floor(rng() * P.length)];
+        if (!used.has(p.pk) && !out.includes(p) && p.poss.some(x => poss.includes(x))) return p;
+      }
+      return null;
+    };
+    const need = active.length === 1 ? [[active[0], 3]] : active.map(s => [s, 2]);
+    need.forEach(([seat, n]) => { for (let k = 0; k < n; k++) { const p = draw(open(seat)); if (p) out.push(p); } });
+    if (active.length > 1) { const p = draw([...new Set(active.flatMap(open))]); if (p) out.push(p); }
+    for (let i = out.length - 1; i > 0; i--) { const j = Math.floor(rng() * (i + 1)); [out[i], out[j]] = [out[j], out[i]]; }
+    return out.map(p => p.pk);
+  }
   function duelState(r) {
-    const st = { xi: { host: FORMATION.map(pos => ({ pos, p: null })), guest: FORMATION.map(pos => ({ pos, p: null })) }, used: new Set(), taken: {}, done: false };
-    const open = seat => st.xi[seat].filter(s => s.p == null).map(s => s.pos);
-    const fits = (p, poss) => p.poss.some(x => poss.includes(x));
+    const st = { xi: { host: FORMATION.map(pos => ({ pos, k: null })), guest: FORMATION.map(pos => ({ pos, k: null })) }, used: new Set(), done: false };
+    const open = seat => st.xi[seat].filter(s => !s.k).map(s => s.pos);
     let i = 0;
     for (let spin = 0; spin < 80; spin++) {
-      const order = spin % 2 === 0 ? SEATS : SEATS.slice().reverse();
+      const order = spin % 2 === 0 ? ['guest', 'host'] : SEATS;  // the challenged player picks first
       const active = order.filter(s => open(s).length);
       if (!active.length) break;
-      // the reels: seeded by the room and spin number, first three players who fit anyone's open positions
-      const union = [...new Set(active.flatMap(open))], rng = GM.rng(`${r.seed}|duel|${spin}`), reels = [];
-      for (let tries = 0; reels.length < 3 && tries < 3000; tries++) {
-        const p = GM.players[Math.floor(rng() * GM.players.length)];
-        if (!st.used.has(p.id) && !reels.includes(p.id) && fits(p, union)) reels.push(p.id);
-      }
-      const takenNow = {};
+      const reels = duelReels(r.seed, spin, active, open, st.used), takenNow = {};
       for (const seat of active) {
         if (i >= r.moves.length) return Object.assign(st, { spin, reels, turn: seat, first: active[0], takenNow, open });
-        const m = r.moves[i++];
-        if (m.id != null && reels.includes(m.id) && !takenNow[m.id] && st.xi[seat][m.slot] && st.xi[seat][m.slot].p == null) {
-          st.xi[seat][m.slot].p = m.id; st.used.add(m.id); takenNow[m.id] = seat; st.taken[m.id] = seat;
-        }
+        const m = r.moves[i++], slot = m.k != null && st.xi[seat][m.slot];
+        // a recorded pick stands even if a weekly data update has changed the reels since
+        if (slot && !slot.k && GM.byPk.get(m.k) && !st.used.has(m.k)) { slot.k = m.k; st.used.add(m.k); takenNow[m.k] = seat; }
       }
     }
-    return Object.assign(st, { done: true, open });
+    return Object.assign(st, { done: true, open, turn: null });
   }
-  const total = (xi, stat) => xi.reduce((a, s) => a + (s.p != null ? GM.players[s.p][GM.STATS[stat].key] : 0), 0);
+  const duelTotal = (xi, stat) => xi.reduce((a, s) => a + (s.k ? GM.byPk.get(s.k)[GM.STATS[stat].key] : 0), 0);
+  const duelSum = (st, seat, stat) => {
+    const xi = st.xi[seat].filter(s => s.k).map(s => ({ pos: s.pos, player: GM.byPk.get(s.k) }));
+    return { t: duelTotal(st.xi[seat], stat), n: xi.length, done: xi.length === 11, r: xi.length ? GM.teamRating(xi).score : 0 };
+  };
 
-  function duel(root, r, me) {
-    const st = duelState(r), you = me.seat, them = other(you), names = { [you]: 'You', [them]: r[them] };
-    const stat = GM.STATS[r.stat], my = st.xi[you];
-    const myOpen = st.open(you);
-    const card = id => {
-      const p = GM.players[id], by = st.takenNow && st.takenNow[id];
-      const fitsMe = p.poss.some(x => myOpen.includes(x));
-      const can = !st.done && st.turn === you && !by && fitsMe;
-      return `<button class="reel duel-reel ${by ? 'dim taken' : ''} ${!by && !fitsMe ? 'dim' : ''}" data-pick="${id}" ${can ? '' : 'disabled'}>
-        ${by ? `<div class="mate">✍️ Signed by ${esc(names[by])}</div>` : !fitsMe ? '<div class="mate nofit">No space in your XI</div>' : ''}
-        ${GM.avatar(p, 'lg')}<div class="reel-name">${esc(p.name)}</div>
-        <div class="reel-meta">${GM.posBadges(p)} ${GM.flag(p.nat)} ${GM.era(p)}</div>
-        <div class="chips">${p.clubs.map(c => GM.clubChip(c)).join('')}</div>
-        <div class="reel-goals"><b>?</b> ${stat.label}<small>${p.apps} apps</small></div></button>`;
+  function duel(root, r, you) {
+    const st = duelState(r), them = other(you), opp = r[them];
+    if (st.done || r.status === 'done' || r.status === 'declined') return summary(root, r, you);
+    clearInterval(timer); timer = null;
+    const stat = GM.STATS[r.stat], my = st.xi[you], myOpen = st.open(you);
+    const mineNow = st.turn === you;
+    const live = opp && r.seen && r.now - (r.seen[them] || 0) < 10;
+    const fits = p => p.poss.some(x => myOpen.includes(x));
+    const card = k => {
+      const p = GM.byPk.get(k), by = st.takenNow[k], ok = fits(p), can = mineNow && !by && ok;
+      const clubs = p.clubs.slice(0, 3).map(c => GM.clubChip(c)).join('') + (p.clubs.length > 3 ? `<small>+${p.clubs.length - 3}</small>` : '');
+      return `<button class="duel-card ${by ? 'taken' : ''} ${!by && !ok ? 'nofit' : ''}" data-pick="${esc(k)}" ${can ? '' : 'disabled'}>
+        ${by ? `<span class="dc-tag">✍️ ${by === you ? 'You' : esc(opp)}</span>` : !ok ? '<span class="dc-tag">No space</span>' : ''}
+        ${GM.avatar(p)}<b>${esc(p.name)}</b><span class="dc-meta">${GM.posBadges(p)}</span><small>${GM.flag(p.nat)} ${GM.era(p)}</small><span class="chips">${clubs}</span></button>`;
     };
-    const pitch = (xi, mine) => `<div class="duel-xi">${xi.map(s => {
-      const p = s.p != null ? GM.players[s.p] : null;
+    const pitch = xi => `<div class="duel-xi">${xi.map(s => {
+      const p = s.k ? GM.byPk.get(s.k) : null;
       return `<div class="dx ${p ? 'on' : ''}"><span class="pos pos-${GM.GROUP[s.pos]}">${s.pos}</span>${p ? `<b>${esc(p.name.split(' ').slice(-1)[0])}</b><i>${p[stat.key]}</i>` : '<b class="muted">–</b>'}</div>`;
     }).join('')}</div>`;
-    const tMe = total(my, r.stat), tThem = total(st.xi[them], r.stat), nMe = 11 - myOpen.length, nThem = 11 - st.open(them).length;
-    const noFit = !st.done && st.turn === you && !st.reels.some(id => !(st.takenNow || {})[id] && GM.players[id].poss.some(x => myOpen.includes(x)));
-    root.innerHTML = `${top('Draft Duel')}
+    const tMe = duelTotal(my, r.stat), tThem = duelTotal(st.xi[them], r.stat);
+    const noFit = mineNow && !st.reels.some(k => !st.takenNow[k] && fits(GM.byPk.get(k)));
+    root.innerHTML = `${top('Draft Duel', '#/online')}
       <div class="h2h-board duel-board">
-        <div class="h2h-team p1"><b>You</b><strong>${tMe}</strong><small>${nMe}/11</small></div>
-        <div class="h2h-mid"><small>${stat.icon} ${stat.name}</small><span>VS</span><small>Code ${r.code}</small></div>
-        <div class="h2h-team p2"><b>${esc(r[them])}</b><strong>${tThem}</strong><small>${nThem}/11</small></div></div>
-      ${st.done ? `<div class="banner race-final">${tMe > tThem ? '🏆 You win the duel' : tMe < tThem ? `😬 ${esc(r[them])} wins the duel` : '🤝 A draw'} · ${tMe} – ${tThem}</div>
-          <div class="actions col"><button class="btn big" id="dshare">📤 Share the result</button><a class="btn ghost" href="#/online">🌐 New game</a></div>`
-        : `<div class="duel-turn ${st.turn === you ? 'mine' : ''}">${st.turn === you ? (st.first === you ? '👉 Your pick – first choice this spin' : '👉 Your pick – from what’s left') : `⏳ ${esc(r[them])} is picking…`}<small>Spin ${st.spin + 1}</small></div>
-          <div class="reels">${st.reels.map(card).join('')}</div>
-          ${noFit ? '<div class="actions"><button class="btn ghost" id="dpass">None of these fit – pass</button></div>' : ''}`}
-      <h3 class="section-title">Your XI</h3>${pitch(my, true)}
-      <details class="set"><summary><span>${esc(r[them])}'s XI</span><span>${tThem} ${stat.label}</span></summary>${pitch(st.xi[them], false)}</details>`;
-    GM.$$('[data-pick]:not([disabled])', root).forEach(b => b.onclick = () => pick(+b.dataset.pick));
-    const ps = GM.$('#dpass', root); if (ps) ps.onclick = () => send({ id: null, slot: null });
-    const sh = GM.$('#dshare', root);
-    if (sh) sh.onclick = () => GM.share(`⚽ Goal Machine Draft Duel\n${tMe > tThem ? '🏆' : tMe < tThem ? '😬' : '🤝'} Me ${tMe} – ${tThem} ${r[them]} (${stat.label})`, GM.baseUrl() + '#/online');
-    if (st.done && !root.dataset.duelDone) { root.dataset.duelDone = r.code; GM.sound.play(tMe >= tThem ? 'fanfare' : 'fulltime'); stopPoll(); }
-    if (!st.done && st.turn === you && root.dataset.lastTurn !== `${r.code}:${r.moves.length}`) { root.dataset.lastTurn = `${r.code}:${r.moves.length}`; GM.sound.play('sting'); GM.buzz(30); }
+        <div class="h2h-team p1"><b>You</b><strong>${tMe}</strong><small>${11 - myOpen.length}/11</small></div>
+        <div class="h2h-mid"><small>${stat.icon} ${stat.name}</small><span>VS</span><small>${live ? '🟢 Both here' : 'Take your time'}</small></div>
+        <div class="h2h-team p2"><b>${esc(opp || '…')}</b><strong>${tThem}</strong><small>${11 - st.open(them).length}/11</small></div></div>
+      ${inviteBar(r)}
+      <div class="duel-turn ${mineNow ? 'mine' : ''}">${mineNow ? (st.first === you ? '👉 Your pick – first choice this spin' : '👉 Your pick – from what’s left') : `⏳ ${esc(opp || 'Your opponent')} is picking…${live ? '' : ' They’ll see it’s their turn next time they open the game.'}`}
+        <small>Spin ${st.spin + 1}</small>${mineNow && live ? `<span class="clock" id="dclock">${PICK_SECONDS}</span>` : ''}</div>
+      <div class="duel-cards">${st.reels.map(card).join('')}</div>
+      ${noFit ? '<div class="actions"><button class="btn ghost" id="dpass">None of these fit – pass</button></div>' : ''}
+      <h3 class="section-title">Your XI</h3>${pitch(my)}
+      <details class="set" open><summary><span>${esc(opp || 'Their')}'s XI</span><span>${tThem} ${stat.label}</span></summary>${pitch(st.xi[them])}</details>
+      <div class="actions"><button class="btn ghost small" id="oresign">🏳️ ${r.guest ? 'Resign' : 'Cancel invite'}</button></div>`;
+    wireInvite(root, r);
+    resignButton(root, r, you);
+    GM.$$('[data-pick]:not([disabled])', root).forEach(b => b.onclick = () => pick(b.dataset.pick));
+    const ps = GM.$('#dpass', root); if (ps) ps.onclick = () => send({ k: null, slot: null });
+    if (mineNow && root.dataset.lastTurn !== `${r.code}:${r.moves.length}`) { root.dataset.lastTurn = `${r.code}:${r.moves.length}`; GM.sound.play('sting'); GM.buzz(30); }
+    // the pick clock: only when you're both in the game; run out and the game picks for you
+    if (mineNow && live) {
+      const key = `${r.code}:${r.moves.length}`, started = GM.online._clock && GM.online._clock.key === key ? GM.online._clock.t : Date.now();
+      GM.online._clock = { key, t: started };
+      const tickClock = () => {
+        const left = Math.max(0, PICK_SECONDS - Math.floor((Date.now() - started) / 1000)), el = GM.$('#dclock', root);
+        if (el) { el.textContent = left; el.classList.toggle('hurry', left <= 5); }
+        if (left <= 5 && left > 0) GM.sound.play('tick');
+        if (left === 0) {
+          clearInterval(timer); timer = null;
+          GM.$$('.modal-wrap').forEach(m => m.remove());
+          const options = st.reels.filter(k => !st.takenNow[k] && fits(GM.byPk.get(k)));
+          if (!options.length) return send({ k: null, slot: null });
+          const k = options[Math.floor(Math.random() * options.length)];
+          GM.toast(`⏰ Time’s up – you got ${esc(GM.byPk.get(k).name)}`);
+          send({ k, slot: my.findIndex(s => !s.k && GM.byPk.get(k).poss.includes(s.pos)) });
+        }
+      };
+      tickClock();
+      timer = setInterval(tickClock, 1000);
+    }
 
-    function pick(id) {
-      const p = GM.players[id], slots = my.map((s, k) => k).filter(k => my[k].p == null && p.poss.includes(my[k].pos));
-      const slotsByPos = [...new Map(slots.map(k => [my[k].pos, k])).values()];
-      if (slotsByPos.length === 1) return send({ id, slot: slotsByPos[0] });
-      const m = GM.modal(`<h3>Where does ${esc(p.name)} play?</h3><div class="pos-choice">${slotsByPos.map(k => `<button class="btn" data-slot="${k}"><span class="pos pos-${GM.GROUP[my[k].pos]}">${my[k].pos}</span> ${GM.POS_NAME[my[k].pos]}</button>`).join('')}</div>`);
-      GM.$$('[data-slot]', m.el).forEach(b => b.onclick = () => { m.close(); send({ id, slot: +b.dataset.slot }); });
+    function pick(k) {
+      const p = GM.byPk.get(k), slots = my.map((s, i) => i).filter(i => !my[i].k && p.poss.includes(my[i].pos));
+      const byPos = [...new Map(slots.map(i => [my[i].pos, i])).values()];
+      if (byPos.length === 1) return send({ k, slot: byPos[0] });
+      const m = GM.modal(`<h3>Where does ${esc(p.name)} play?</h3><div class="pos-choice">${byPos.map(i => `<button class="btn" data-slot="${i}"><span class="pos pos-${GM.GROUP[my[i].pos]}">${my[i].pos}</span> ${GM.POS_NAME[my[i].pos]}</button>`).join('')}</div>`);
+      GM.$$('[data-slot]', m.el).forEach(b => b.onclick = () => { m.close(); send({ k, slot: +b.dataset.slot }); });
     }
     async function send(move) {
+      clearInterval(timer); timer = null;
       GM.$$('[data-pick], #dpass', root).forEach(b => { b.disabled = true; });
+      // work out what happens next on this phone, so the server knows whose turn it is and both summaries stay current
+      const next = duelState({ ...r, moves: [...r.moves, { ...move, s: you }] });
       try {
-        const res = await rpc('room_move', { p_code: r.code, p_token: me.token, p_seq: r.moves.length, p_move: move });
-        if (res !== 'ok' && res !== 'conflict') GM.toast('That move didn’t go through');
-        if (move.id != null) { GM.sound.play('place'); GM.buzz(); }
+        const res = await rpc('online_move', { ...auth(), p_code: r.code, p_seq: r.moves.length, p_move: move,
+          p_sum: duelSum(next, you, r.stat), p_turn: next.done ? 'none' : next.turn });
+        if (res !== 'ok' && res !== 'conflict') GM.toast('That pick didn’t go through');
+        if (move.k) { GM.sound.play('place'); GM.buzz(); }
       } catch (e) { GM.toast('Couldn’t reach the server – try again'); }
       GM.online.refresh && GM.online.refresh();
     }
   }
   GM.online.duelState = duelState;  // for tests
+
+  /* ================================================================ "your move" badge + notifications */
+  GM.online.setWaiting = n => {
+    GM.store.set('onlineWaiting', n);
+    GM.$$('.online-badge').forEach(b => { b.textContent = n; b.hidden = !n; });
+  };
+  // Checks for games waiting on you (a challenge, or your pick). Called from the home screen; toasts new challenges.
+  GM.online.check = async function () {
+    const a = GM.account();
+    if (!a || !GM.lb.enabled) return;
+    if (window.AndroidApp && typeof AndroidApp.watchGames === 'function') {  // the app checks every 15 minutes and notifies
+      try { AndroidApp.watchGames(a.name, GM.lb.cfg.supabaseUrl, GM.lb.cfg.supabaseAnonKey); } catch (e) { }
+    }
+    const lastCheck = GM.online._checked || 0;
+    if (Date.now() - lastCheck < 30000) return;
+    GM.online._checked = Date.now();
+    let list;
+    try { list = await rpc('online_waiting', { p_user: a.name }); } catch (e) { return; }
+    list = list || [];
+    GM.online.setWaiting(list.length);
+    const seen = GM.store.get('onlineSeen', []), fresh = list.filter(g => !seen.includes(g.code));
+    if (fresh.length) {
+      const g = fresh[0];
+      GM.toast(fresh.length > 1 ? `🌐 ${fresh.length} online games are waiting for you` : `🌐 ${esc(g.opp || 'Someone')} – it’s your move in a ${KIND[g.kind].name}`, 3500);
+      GM.store.set('onlineSeen', [...seen, ...fresh.map(x => x.code)].slice(-100));
+    }
+  };
 })();

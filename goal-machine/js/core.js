@@ -407,6 +407,12 @@ GM.modal = function (html, { onClose } = {}) {
   document.body.appendChild(wrap);
   return { el: wrap.firstChild, close };
 };
+GM.confirm = function (question, yes = 'Yes', no = 'No') {
+  return new Promise(res => {
+    const m = GM.modal(`<h3>${question}</h3><div class="row"><button class="btn ghost" data-close>${no}</button><button class="btn" data-yes>${yes}</button></div>`, { onClose: () => res(false) });
+    GM.$('[data-yes]', m.el).onclick = () => { res(true); m.close(); };
+  });
+};
 GM.prompt = function (title, value = '', placeholder = '', max = 20) {
   return new Promise(res => {
     const m = GM.modal(`<h3>${GM.esc(title)}</h3><form><input class="input" maxlength="${max}" value="${GM.esc(value)}" placeholder="${GM.esc(placeholder)}" autofocus>

@@ -427,6 +427,9 @@ GM.share = async function (text, url) {
   try { await navigator.clipboard.writeText(full); GM.toast('Copied to clipboard 📋'); }
   catch (e) { GM.modal(`<h3>Copy this</h3><textarea class="input" rows="5">${GM.esc(full)}</textarea><div class="row"><button class="btn" data-close>Done</button></div>`); }
 };
+// Invite a friend to the game itself (the home screen and Settings have a button for it)
+GM.SITE_URL = 'https://opportunisticgames.github.io/goal-machine/';
+GM.shareGame = () => GM.share('⚽ Goal Machine: spin the reels and build the biggest-scoring Premier League XI from 5,000+ real players. Daily games, online duels and more. Come and play me!', GM.SITE_URL);
 GM.APK_URL = 'https://github.com/OpportunisticGames/opportunisticgames.github.io/releases/latest/download/goal-machine.apk';
 // Oldest Android app build that doesn't need replacing. Raise it after an app change players should pick up; older
 // apps then show an update link. Builds before AndroidApp.version() existed always count as out of date.

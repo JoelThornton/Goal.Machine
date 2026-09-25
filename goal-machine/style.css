@@ -740,3 +740,4 @@ h2, h3 { letter-spacing: .3px; }
   --btn-edge: color-mix(in srgb, var(--club-light) 55%, #000);
 }
 :root.club-theme .btn.spin { background: linear-gradient(180deg, color-mix(in srgb, var(--club-light) 60%, #fff), var(--club-light)); box-shadow: 0 6px 0 var(--btn-edge); }
+.share-game { width: 100%; margin: 18px 0 4px; }

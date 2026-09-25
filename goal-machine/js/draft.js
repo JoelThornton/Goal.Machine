@@ -60,7 +60,7 @@
   let S = null; // game state
   let root = null;
 
-  GM.draft = { start, RULES, WILDCARDS, TARGETS, state: () => S, render: () => render(), modeKey: (m, s, h, c) => keyFor(m, s, h, c) };
+  GM.draft = { start, RULES, WILDCARDS, TARGETS, state: () => S, total: st => scoreFor(st).t, render: () => render(), modeKey: (m, s, h, c) => keyFor(m, s, h, c) };
 
   const statSuffix = s => ({ goals: '', assists: 'ast', apps: 'apps' }[s] || '');
   function keyFor(mode, stat, hard, club) {
@@ -103,6 +103,17 @@
         render(); return;
       }
     }
+    if (opts.online) {
+      // an online race carries on where you left it (saved after every signing), so leaving never costs you the game
+      const saved = GM.store.get('racep:' + opts.online.code);
+      if (saved && saved.xi && saved.seed === seed) {
+        S = saved; S.rules = RULES[S.mode]; S.pending = null; S.subbing = false;
+        S.online = { ...opts.online, ms: (saved.online || {}).ms || 0, lastT: Date.now() };
+        if (S.phase === 'spinning') S.phase = 'pick';
+        if (S.phase === 'reveal') { completePick(); return; }
+        render(); return;
+      }
+    }
     const club = mode === 'club' ? (opts.club && GM.clubs.includes(opts.club) ? opts.club : GM.favClub()) : null;
     if (mode === 'club' && !club) { location.hash = '#/settings'; GM.toast('Pick your favourite club first'); return; }
     S = {
@@ -113,7 +124,7 @@
       inv: [], modifier: null, subbing: false, used: [], last: null,
       phase: 'spin', vs: opts.vs, vss: opts.vss, log: [], pending: null, wildUsed: 0, coinWin: false,
       hard: mode !== 'daily' && !!opts.hard, club,
-      online: opts.online || null,  // Live Race: { code, token, seat, opp }
+      online: opts.online ? { ...opts.online, ms: 0, lastT: Date.now() } : null,  // Live Race: { code, seat, opp } + time taken
     };
     if (S.online) root.className = 'page-draft page-online';
     render();
@@ -643,13 +654,20 @@
       ${GM.report ? GM.report(xi, S.st, S.rules.treble) : ''}
       ${pitchHtml()}
       <div class="actions col">
-        ${S.online ? '<div id="race-result"></div><a class="btn big" href="#/online">🌐 New online game</a>' : S.mode !== 'daily' ? `<button class="btn big" id="again">🔁 Play again</button>` : `<div class="muted">New Daily Ultimate tomorrow</div>`}
+        ${S.online ? `<div id="race-result"></div><a class="btn big" href="#/online?room=${S.online.code}&v=1">🆚 Compare teams & match points</a>` : S.mode !== 'daily' ? `<button class="btn big" id="again">🔁 Play again</button>` : `<div class="muted">New Daily Ultimate tomorrow</div>`}
         <button class="btn" id="challenge">⚔️ Challenge a friend (same spins)</button>
         <button class="btn ghost" id="share">📤 Share result</button>
+        <button class="btn ghost" id="sharepic">🖼️ Share a picture of your XI</button>
         <a class="btn ghost" href="#/leaderboard?m=${encodeURIComponent(modeKey())}">🏆 Leaderboard</a>
       </div>`;
     const again = GM.$('#again', root); if (again) again.onclick = () => start(root, S.mode, { hard: S.hard, stat: S.rules.mystery ? undefined : S.stat, club: S.club });
     GM.$('#share', root).onclick = () => GM.share(resultText(sc));
+    GM.$('#sharepic', root).onclick = () => {
+      const png = GM.teamPicture(S.xi.map(s => ({ pos: s.pos, p: s.p != null ? PL()[s.p] : null, v: s.p != null ? s.g : null })), {
+        title: `${modeName()}${S.hard ? ' · Hard' : ''}`, sub: S.rules.max ? `My XI's Premier League ${S.st.label}` : `${sc.total} points · ${fmt(sc.t)} / ${fmt(S.target || 0)} ${S.st.label}`,
+        total: sc.t, totalLabel: S.st.label });
+      GM.shareImage(png, resultText(sc));
+    };
     GM.$('#challenge', root).onclick = async () => {
       const name = await GM.askName() || 'A friend';
       const m = S.mode === 'daily' ? 'ultimate' : S.mode;

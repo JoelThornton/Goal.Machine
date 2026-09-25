@@ -168,8 +168,12 @@ GM.today = () => { const d = new Date(); return `${d.getFullYear()}-${String(d.g
 GM.sleep = ms => new Promise(r => setTimeout(r, ms));
 // A little tear-off calendar showing today's real date (instead of the emoji's fixed "July 17"); sized in em like an emoji
 GM.calIcon = function () {
-  const d = new Date();
-  return `<span class="cal-ico" aria-label="${d.toDateString()}"><span class="cal-m">${d.toLocaleDateString('en-GB', { month: 'short' }).toUpperCase()}</span><span class="cal-d">${d.getDate()}</span></span>`;
+  // drawn as SVG so the month and day always fit, whatever font the phone has; textLength squeezes wide months
+  const d = new Date(), m = d.toLocaleDateString('en-GB', { month: 'short' }).slice(0, 3).toUpperCase(), n = d.getDate();
+  return `<svg class="cal-ico" viewBox="0 0 40 42" role="img" aria-label="${d.toDateString()}"><rect x="1" y="2" width="38" height="39" rx="7" fill="#fff" stroke="rgba(0,0,0,.18)" stroke-width="1.5"/>`
+    + `<path d="M1 9a7 7 0 0 1 7-7h24a7 7 0 0 1 7 7v5H1z" fill="#e5484d"/>`
+    + `<text x="20" y="11.6" text-anchor="middle" font-family="Inter,Arial,sans-serif" font-weight="800" font-size="9" fill="#fff" textLength="22" lengthAdjust="spacingAndGlyphs">${m}</text>`
+    + `<text x="20" y="35" text-anchor="middle" font-family="Inter,Arial,sans-serif" font-weight="800" font-size="20" fill="#10261d"${n > 9 ? ' textLength="24" lengthAdjust="spacingAndGlyphs"' : ''}>${n}</text></svg>`;
 };
 
 // Wordle-style results spread for the "biggest total" drafts: eight bands per stat, e.g. under 200 … 800+ goals
@@ -403,6 +407,12 @@ GM.modal = function (html, { onClose } = {}) {
   document.body.appendChild(wrap);
   return { el: wrap.firstChild, close };
 };
+GM.confirm = function (question, yes = 'Yes', no = 'No') {
+  return new Promise(res => {
+    const m = GM.modal(`<h3>${question}</h3><div class="row"><button class="btn ghost" data-close>${no}</button><button class="btn" data-yes>${yes}</button></div>`, { onClose: () => res(false) });
+    GM.$('[data-yes]', m.el).onclick = () => { res(true); m.close(); };
+  });
+};
 GM.prompt = function (title, value = '', placeholder = '', max = 20) {
   return new Promise(res => {
     const m = GM.modal(`<h3>${GM.esc(title)}</h3><form><input class="input" maxlength="${max}" value="${GM.esc(value)}" placeholder="${GM.esc(placeholder)}" autofocus>
@@ -423,10 +433,13 @@ GM.share = async function (text, url) {
   try { await navigator.clipboard.writeText(full); GM.toast('Copied to clipboard 📋'); }
   catch (e) { GM.modal(`<h3>Copy this</h3><textarea class="input" rows="5">${GM.esc(full)}</textarea><div class="row"><button class="btn" data-close>Done</button></div>`); }
 };
+// Invite a friend to the game itself (the home screen and Settings have a button for it)
+GM.SITE_URL = 'https://opportunisticgames.github.io/goal-machine/';
+GM.shareGame = () => GM.share('⚽ Goal Machine: spin the reels and build the biggest-scoring Premier League XI from 5,000+ real players. Daily games, online duels and more. Come and play me!', GM.SITE_URL);
 GM.APK_URL = 'https://github.com/OpportunisticGames/opportunisticgames.github.io/releases/latest/download/goal-machine.apk';
 // Oldest Android app build that doesn't need replacing. Raise it after an app change players should pick up; older
 // apps then show an update link. Builds before AndroidApp.version() existed always count as out of date.
-GM.APP_MIN_BUILD = 1;
+GM.APP_MIN_BUILD = 13;  // build 13: notifications (with a whistle) and the phone's dark mode
 // Which app we're in: 'play' (Google Play), 'sideload' (the GitHub APK) or 'web'. The Play version never offers APK
 // downloads (Play doesn't allow apps to update themselves) and skips photos we don't have the rights to.
 GM.channel = (() => { try { return window.AndroidApp && typeof window.AndroidApp.channel === 'function' ? window.AndroidApp.channel() : window.AndroidApp ? 'sideload' : 'web'; } catch (e) { return 'web'; } })();
@@ -505,6 +518,8 @@ GM.MODES = {
   whoami: { name: 'Who Am I?', icon: '🕵️' },
   grid: { name: 'Club Grid', icon: '#️⃣' },
   tally: { name: 'Guess the Tally', icon: '🔢' },
+  moneyball: { name: 'Moneyball', icon: '💰' }, moneyballast: { name: 'Moneyball – Assists', icon: '💰' }, moneyballapps: { name: 'Moneyball – Apps', icon: '💰' },
+  window: { name: 'Transfer Window', icon: '🔄' }, windowast: { name: 'Transfer Window – Assists', icon: '🔄' }, windowapps: { name: 'Transfer Window – Apps', icon: '🔄' },
 };
 
 // Hard mode: games show names + positions only (no clubs, years, apps, nationality); Who Am I? saves the
@@ -515,18 +530,42 @@ GM.HARD_MODES = ['ultimate', 'ultimateast', 'ultimateapps', 'target', 'targetast
 GM.isHard = () => GM.store.get('hard', false);
 GM.setHard = v => GM.store.set('hard', !!v);
 
-// Look: 'light' (default), 'dark', or 'auto' to follow the phone. index.html applies it before first paint too.
-GM.THEMES = { light: '☀️ Light', dark: '🌙 Dark', auto: '📱 Auto' };
+// Look: 'light' (default), 'dark', 'auto' to follow the phone, or 'club' (dark, in your favourite club's colours).
+// index.html applies it before first paint too.
+GM.THEMES = { light: '☀️ Light', dark: '🌙 Dark', auto: '📱 Auto', club: '🏟️ Club' };
 GM.getTheme = () => GM.store.get('theme', 'light');
+// Inside the Android app the page always hears "dark" from prefers-color-scheme, so ask the app (build 12+) instead
+GM.phoneDark = () => {
+  try { if (window.AndroidApp && typeof AndroidApp.nightMode === 'function') return !!AndroidApp.nightMode(); } catch (e) { }
+  return !!(window.matchMedia && matchMedia('(prefers-color-scheme: dark)').matches);
+};
 GM.applyTheme = function () {
-  const t = GM.getTheme();
-  const dark = t === 'dark' || (t === 'auto' && window.matchMedia('(prefers-color-scheme: dark)').matches);
-  document.documentElement.dataset.theme = dark ? 'dark' : 'light';
+  const t = GM.getTheme(), root = document.documentElement;
+  const dark = t === 'dark' || t === 'club' || (t === 'auto' && GM.phoneDark());
+  root.dataset.theme = dark ? 'dark' : 'light';
+  root.classList.toggle('club-theme', t === 'club');
   const meta = document.querySelector('meta[name="theme-color"]');
-  if (meta) meta.content = dark ? '#0b3d2e' : '#eef2ee';
+  if (meta) meta.content = t === 'club' ? getComputedStyle(root).getPropertyValue('--bg2').trim() || '#0b3d2e' : dark ? '#0b3d2e' : '#eef2ee';
+  GM.app('setBars', GM.barColour(), !dark);  // the app's status/navigation bar strips match (build 13+)
+};
+// Calls an Android app feature if this app build has it (older builds just skip it), so the site never breaks
+GM.app = function (fn, ...args) {
+  try { if (window.AndroidApp && typeof AndroidApp[fn] === 'function') return AndroidApp[fn](...args); } catch (e) { }
+  return undefined;
+};
+// the page background as a plain #rrggbb (the Club look mixes it with color-mix, so read the painted colour)
+GM.barColour = function () {
+  const probe = document.createElement('i');
+  probe.style.cssText = 'position:absolute;visibility:hidden;background:var(--bg)';
+  (document.body || document.documentElement).appendChild(probe);
+  const c = getComputedStyle(probe).backgroundColor, m = c.match(/[\d.]+/g) || [7, 38, 29];
+  probe.remove();
+  const scale = c.startsWith('color(') ? 255 : 1;  // color-mix results come back as color(srgb r g b) with 0-1 values
+  return '#' + m.slice(0, 3).map(x => Math.min(255, Math.round(+x * scale)).toString(16).padStart(2, '0')).join('');
 };
 GM.setTheme = t => { GM.store.set('theme', t); GM.applyTheme(); };
 if (window.matchMedia) window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => GM.getTheme() === 'auto' && GM.applyTheme());
+document.addEventListener('visibilitychange', () => { if (!document.hidden && GM.getTheme() === 'auto') GM.applyTheme(); });
 GM.applyTheme();
 
 // Little buzz on phones that support it (the Android app included)

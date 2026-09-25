@@ -4,6 +4,8 @@
     <uses-permission android:name="android.permission.INTERNET" />
     <!-- lets the site buzz the phone (navigator.vibrate) without needing a new APK -->
     <uses-permission android:name="android.permission.VIBRATE" />
+    <!-- "your move" notifications for online games (Android 13+ asks the player first) -->
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
 
     <application
         android:allowBackup="true"
@@ -29,5 +31,14 @@
                 <data android:scheme="https" android:host="opportunisticgames.github.io" android:pathPrefix="/goal-machine" />
             </intent-filter>
         </activity>
+        <service
+            android:name=".GameCheckService"
+            android:exported="false"
+            android:permission="android.permission.BIND_JOB_SERVICE" />
+        <provider
+            android:name=".ShareProvider"
+            android:authorities="${applicationId}.share"
+            android:exported="false"
+            android:grantUriPermissions="true" />
     </application>
 </manifest>

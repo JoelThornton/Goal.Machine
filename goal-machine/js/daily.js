@@ -34,7 +34,12 @@
     root.style.setProperty('--club-main', main);
     root.style.setProperty('--club-trim', trim);
     root.style.setProperty('--club-ink', lum(main) > 0.6 ? '#10261d' : '#ffffff');
+    // the Club look's accent (buttons, highlights) needs to be bright on a dark background: the lighter club colour,
+    // lifted towards white if it's still dark (e.g. navy and white -> white; gold and black -> gold)
+    const light = lum(bg) > lum(fg) ? bg : fg;
+    root.style.setProperty('--club-light', lum(light) < 0.5 ? `color-mix(in srgb, ${light} 45%, #fff)` : light);
     root.classList.add('has-club');
+    if (GM.applyTheme) GM.applyTheme();  // the Club look's bar colour
   };
   GM.setFavClub = c => { store.set('club', c); GM.applyClub(); };
   GM.applyClub();
@@ -50,6 +55,7 @@
     footle: { name: 'Footle', icon: '🟩', href: '#/footle', won: v => v > 0 },
     grid: { name: 'Daily Club Grid', icon: '#️⃣', href: '#/dailygrid', won: v => v != null },
     club: { name: 'Club Footle', icon: '🏟️', href: '#/clubfootle', won: v => v > 0 },
+    moneyball: { name: 'Daily Moneyball', icon: '💰', href: '#/moneyball?daily=1', won: v => v != null },
   };
   GM.DAILY_GAMES = GAMES;
   const log = () => store.get('dlog', {});
@@ -110,7 +116,7 @@
       footle: () => (store.get('footle:' + GM.today()) || {}).guesses, club: () => (store.get('cfootle:' + GM.today() + ':' + GM.slug(GM.favClub())) || {}).guesses,
     }[game];
     if (v != null) {
-      const txt = game === 'daily' ? `✓ ${v} goals` : game === 'grid' ? `✓ ${v} pts` : v > 0 ? `✓ Got it in ${v}` : '✗ Missed';
+      const txt = game === 'daily' || game === 'moneyball' ? `✓ ${v} goals` : game === 'grid' ? `✓ ${v} pts` : v > 0 ? `✓ Got it in ${v}` : '✗ Missed';
       return { done: true, text: txt };
     }
     if (inProgress && inProgress()) return { done: false, text: '▶ In progress' };

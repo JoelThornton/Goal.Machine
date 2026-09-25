@@ -282,6 +282,7 @@
       <div class="cmp"><div><h4>You</h4>${side(team(seat), 'p1')}</div><div><h4>${esc(opp)}</h4>${side(team(them), 'p2')}</div></div>
       <div class="actions col">
         ${r.result && r.guest ? `<button class="btn big" id="orematch">🔁 Rematch ${esc(opp)}</button><button class="btn ghost" id="oshareres">📤 Share the result</button>` : ''}
+        ${A.n ? '<button class="btn ghost" id="osharepic">🖼️ Share a picture of your XI</button>' : ''}
         ${!r.result && r.status !== 'declined' ? `<button class="btn ghost small" id="oresign">🏳️ ${r.guest ? 'Resign' : 'Cancel invite'}</button>` : ''}
         <a class="btn ghost" href="#/online">🌐 All your games</a></div>`;
     wireInvite(root, r);
@@ -290,6 +291,10 @@
     if (rm) rm.onclick = async () => { const c = await create(gk(r), r.stat, opp); if (c) location.hash = '#/online?room=' + c; };
     const sh = GM.$('#oshareres', root);
     if (sh) sh.onclick = () => GM.share(`⚽ Goal Machine ${KIND[gk(r)].name} v ${opp}\n${resultLine(r, seat).replace(/<[^>]+>/g, '')}\n${st.icon} ${fmt(A.t)} – ${fmt(B.t)} ${st.label}`, GM.baseUrl());
+    const sp = GM.$('#osharepic', root);
+    if (sp) sp.onclick = () => GM.shareImage(GM.teamPicture(team(seat).map(x => ({ pos: x.pos, p: x.p, v: x.v })), {
+      title: `${KIND[gk(r)].name} v ${opp}`, sub: r.result ? resultLine(r, seat).replace(/<[^>]+>/g, '') : `${st.icon} ${st.name}`, total: A.t, totalLabel: st.label }),
+      `⚽ Goal Machine ${KIND[gk(r)].name} v ${opp}`);
     if (r.result && !root.dataset.played) { root.dataset.played = r.code; GM.sound.play(r.result.winner === seat ? 'fanfare' : 'fulltime'); }
     if (r.guest) rpc('online_friends', auth()).then(fr => {
       const f = (fr || []).find(x => x.name === opp), el = GM.$('#orec', root);

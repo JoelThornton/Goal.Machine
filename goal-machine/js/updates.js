@@ -7,6 +7,14 @@
 (function () {
   GM.UPDATES = [
     {
+      v: 19, label: '4.4', date: '2026-09-26', app: 16, title: 'A steadier draft',
+      items: [
+        '📐 The draft screen holds still: the pitch is sized once for your phone and stays that size from the first spin to full time. The reels, the spin button, your wildcards and the messages share one fixed space underneath',
+        '🏆 The leaderboard button in a game now opens that game’s leaderboard in a pop-up, so you never leave the game',
+        '🪄 Tidier game screens: one-line titles (with a HARD tag), CHAOS events and hints in one place under the reels, and The Treble’s three counts side by side',
+      ],
+    },
+    {
       v: 18, label: '4.3', date: '2026-09-26', app: 16, title: 'Less scrolling, easier leaderboards',
       items: [
         '🗂️ Home has tabs now (Main, Targets, Market, Quick & more), so you’re not scrolling past everything to find a game. The dailies live in the Today tab',

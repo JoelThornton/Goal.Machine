@@ -79,6 +79,9 @@ It is a PWA, so it works offline and can be installed:
 - **Android (Chrome):** open the site and tap *📲 Install app* on the home screen (or ⋮ → *Install app*).
 - **iPhone (Safari):** Share → *Add to Home Screen*.
 - **Android APK:** download it from https://github.com/OpportunisticGames/opportunisticgames.github.io/releases/latest/download/goal-machine.apk. The `android/` folder is a small WebView app around the live site, and the *Android APK* GitHub Actions workflow rebuilds and publishes it whenever `android/` changes on `master`. Because the app loads the live site, game updates need no new APK.
+  - Goal Machine links (such as a friend's challenge) open straight in the app. `/.well-known/assetlinks.json` at the site root verifies this, and it must match the signing key's SHA-256 fingerprint.
+  - The app tells the site its build number (`AndroidApp.version()`). Raise `GM.APP_MIN_BUILD` in `js/core.js` after an app change and older apps will show an update link.
+- **Logo:** `tools/make_icons.js` draws it and writes every site and Android icon (`node goal-machine/tools/make_icons.js` from the repo root; needs Playwright).
 
 ## Global leaderboard
 

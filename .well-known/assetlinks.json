@@ -1,0 +1,8 @@
+[{
+  "relation": ["delegate_permission/common.handle_all_urls"],
+  "target": {
+    "namespace": "android_app",
+    "package_name": "io.github.opportunisticgames.goalmachine",
+    "sha256_cert_fingerprints": ["19:75:EC:F0:87:8A:0F:9B:0C:25:3D:C7:82:56:8D:42:C5:AC:0C:A9:32:B6:1A:5E:1A:73:B7:07:8B:C0:9F:70"]
+  }
+}]

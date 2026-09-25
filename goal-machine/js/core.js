@@ -262,6 +262,10 @@ GM.share = async function (text, url) {
   catch (e) { GM.modal(`<h3>Copy this</h3><textarea class="input" rows="5">${GM.esc(full)}</textarea><div class="row"><button class="btn" data-close>Done</button></div>`); }
 };
 GM.APK_URL = 'https://github.com/OpportunisticGames/opportunisticgames.github.io/releases/latest/download/goal-machine.apk';
+// Oldest Android app build that doesn't need replacing. Raise it after an app change players should pick up; older
+// apps then show an update link. Builds before AndroidApp.version() existed always count as out of date.
+GM.APP_MIN_BUILD = 1;
+GM.appOutdated = () => !!window.AndroidApp && !(typeof window.AndroidApp.version === 'function' && window.AndroidApp.version() >= GM.APP_MIN_BUILD);
 GM.baseUrl = () => location.href.split('#')[0].split('?')[0];
 
 /* ------------------------------------------------------------------ player search (autocomplete) */

@@ -108,6 +108,9 @@ public class MainActivity extends Activity {
             });
         }
         setContentView(frame);
+        if (Build.VERSION.SDK_INT >= 33) {
+            getOnBackInvokedDispatcher().registerOnBackInvokedCallback(android.window.OnBackInvokedDispatcher.PRIORITY_DEFAULT, this::handleBack);
+        }
     }
 
     /** A Goal Machine link (e.g. a friend's challenge) tapped while the app is already open. */
@@ -179,10 +182,20 @@ public class MainActivity extends Activity {
         }
     }
 
+    /** Back (button or swipe) goes to the game first: it closes a pop-up, steps back to the last menu page, or on the
+     *  home screen asks whether to quit (GM.back() in app.js). Only if the page can't answer does Android's usual
+     *  back happen. Android 13+ apps targeting new versions get back through OnBackInvokedCallback, not onBackPressed. */
+    private void handleBack() {
+        web.evaluateJavascript("window.GM && GM.back ? GM.back() : 'native'", result -> {
+            if (result != null && result.contains("handled")) return;
+            if (web.canGoBack()) web.goBack();
+            else finish();
+        });
+    }
+
     @Override
     public void onBackPressed() {
-        if (web.canGoBack()) web.goBack();
-        else super.onBackPressed();
+        handleBack();
     }
 
     /** What the web app can ask of the phone. Adding methods here needs a new APK, so the site checks they exist first. */
@@ -262,6 +275,12 @@ public class MainActivity extends Activity {
                     }
                 } catch (IllegalArgumentException e) { /* not a colour */ }
             });
+        }
+
+        /** Closes the app (after the page has asked "are you sure?"). */
+        @JavascriptInterface
+        public void quit() {
+            runOnUiThread(MainActivity.this::finish);
         }
 
         /** Keeps the screen on (e.g. during a live Draft Duel). */

@@ -37,8 +37,29 @@
   document.body.appendChild(tabbar);
   tabbar.addEventListener('click', () => GM.buzz(8));
 
+  // Back button / swipe in the Android app (MainActivity asks GM.back() first). A pop-up closes; a game or sub-page
+  // goes to the last menu page you were on; the home screen asks before quitting. Returns 'handled' or 'native'.
+  const menuTrail = [];
+  GM.back = function () {
+    const open = GM.$$('.modal-wrap');
+    if (open.length) { open[open.length - 1].click(); open[open.length - 1].remove(); return 'handled'; }
+    const { path } = parseHash();
+    if (!path) {
+      GM.confirm('Leave Goal Machine?', 'Quit', 'Stay').then(ok => { if (ok) GM.app('quit'); });
+      return 'handled';
+    }
+    // the last menu page that isn't this one (Play, Today, Ranks, Album, Players, Settings…), or home
+    while (menuTrail.length && menuTrail[menuTrail.length - 1] === location.hash) menuTrail.pop();
+    location.hash = menuTrail.pop() || '#/';
+    return 'handled';
+  };
+
   function route() {
     const { path, q } = parseHash();
+    if (MENU_PAGES.includes(path)) {  // remember menu pages for the back button
+      if (menuTrail[menuTrail.length - 1] !== (location.hash || '#/')) menuTrail.push(location.hash || '#/');
+      if (menuTrail.length > 30) menuTrail.shift();
+    }
     window.scrollTo(0, 0);
     GM.$$('.modal-wrap').forEach(m => m.remove());
     app.className = 'page-' + (path || 'home');
@@ -49,7 +70,7 @@
     GM.sound.scene(path);  // each game area has its own music
     GM.$('.cal-slot', tabbar).innerHTML = GM.calIcon();  // stays right past midnight
     switch (path) {
-      case 'draft': return GM.draft.start(app, ['target', 'treble', 'mystery', 'club', 'classic', 'classicwild', 'ultimatepure', 'extreme', 'purist'].includes(q.m) ? q.m : 'ultimate',
+      case 'draft': return GM.draft.start(app, ['target', 'treble', 'mystery', 'club', 'classic', 'classicwild', 'ultimatepure', 'extreme', 'purist', 'chaos'].includes(q.m) ? q.m : 'ultimate',
         { stat: q.s, seed: q.seed, vs: q.vs, vss: q.vss ? +q.vss : undefined, hard: q.seed ? q.h === '1' : GM.isHard(), club: q.c });
       case 'today': return GM.todayPage(app);
       case 'online': return GM.onlinePage(app, q);
@@ -130,6 +151,8 @@
           <span class="variant wild-switch" role="group" aria-label="Wildcards"><button data-wild="1" class="${wild ? 'on' : ''}">🃏 Wildcards on</button><button data-wild="0" class="${wild ? '' : 'on'}">🚫 No wildcards</button></span>
           <span class="stat-pick">${statBtn(ult, 'goals')}${statBtn(ult, 'assists')}${statBtn(ult, 'apps')}</span></span>
       </div>
+      <div class="chaos-card"><div class="chaos-head"><span>🌪️</span><div><b>Ultimate Wildcard CHAOS</b><small>Bonus points for chemistry, titles and loyalty. Wildcard storms, red cards, All In… anything can happen.</small></div></div>
+        <div class="stat-row">${Object.keys(GM.STATS).map(s => statBtn('chaos', s)).join('')}</div></div>
       <a class="h2h-banner" href="${waiting ? '#/online' : '#/h2h'}"><span>⚔️</span><span><b>Head to Head</b><small>${waiting ? `🌐 ${waiting} online game${waiting > 1 ? 's' : ''} waiting for your move` : h2h ? `${GM.esc(h2h.names[0])} v ${GM.esc(h2h.names[1])}: tap to carry on` : 'Pass the phone, or play your mates online'}</small></span><span>🏆</span><i class="online-badge" ${waiting ? '' : 'hidden'}>${waiting}</i></a>
       <h3 class="section-title"><a href="#/today">Today${streak ? ` <span class="streak-pill">🔥 ${streak}</span>` : ''}<span class="more">All dailies ›</span></a></h3>
       <div class="tiles">
@@ -282,7 +305,7 @@
     if (m && m.startsWith('dailies')) return dailyBoard(m.split(':')[1]);
     const hard = m ? /^[a-z]+h$/.test(m) && GM.MODES[m] != null : GM.isHard();
     const club = GM.favClub();
-    const tabs = ['ultimate', 'ultimateast', 'ultimateapps', 'ultimatepure', 'classicwild', 'classic', 'extreme', 'purist', 'daily:' + GM.today(), 'footle:' + GM.today(), 'target', 'targetast', 'targetapps', 'treble', 'mystery', 'hopper', 'hilo', 'whoami', 'grid:' + GM.today(), 'grid', 'tally', 'mbdaily:' + GM.today(), 'moneyball', 'window']
+    const tabs = ['ultimate', 'ultimateast', 'ultimateapps', 'chaos', 'chaosast', 'chaosapps', 'ultimatepure', 'classicwild', 'classic', 'extreme', 'purist', 'daily:' + GM.today(), 'footle:' + GM.today(), 'target', 'targetast', 'targetapps', 'treble', 'mystery', 'hopper', 'hilo', 'whoami', 'grid:' + GM.today(), 'grid', 'tally', 'mbdaily:' + GM.today(), 'moneyball', 'window']
       .concat(club ? ['club' + GM.slug(club)] : [])
       .map(k => hard && GM.HARD_MODES.includes(k) ? k + 'h' : k);
     m = m && tabs.includes(m) ? m : tabs[0];
@@ -351,8 +374,9 @@
       const q = GM.fold(GM.$('#pq').value), c = GM.$('#pc').value, s = GM.$('#ps').value, min = +GM.$('#pa').value;
       let list = pool.filter(p => p.apps >= min && (!q || p.key.includes(q)) && (!c || p.clubs.includes(c)));
       list.sort(s === 'name' ? (a, b) => a.name.localeCompare(b.name) : s === 'first' ? (a, b) => b.first - a.first : (a, b) => b[s] - a[s] || b.apps - a.apps);
+      const picks = GM.store.get('picks', { p: {} }).p;
       GM.$('#plist').innerHTML = `<div class="muted">${list.length.toLocaleString()} players${pool === GM.players && min < 50 ? ' · loading everyone else…' : list.length > 150 ? ' · showing the top 150, search to find anyone' : ''}</div>` + list.slice(0, 150).map(p =>
-        `<div class="prow">${GM.avatar(p)}<div><b>${GM.esc(p.name)}</b><small>${GM.flag(p.nat)} ${p.poss.join('/')} · ${GM.era(p)}</small><div class="chips">${p.clubs.map(x => GM.clubChip(x)).join('')}</div></div><span class="num">${p.apps}<small>apps</small></span><span class="num">${s === 'ast' ? p.ast : p.goals}<small>${s === 'ast' ? 'assists' : 'goals'}</small></span></div>`).join('');
+        `<div class="prow">${GM.avatar(p)}<div><b>${GM.esc(p.name)}${(picks[p.pk] || [])[1] ? ` <i class="signed">✍️×${picks[p.pk][1]}</i>` : ''}</b><small>${GM.flag(p.nat)} ${p.poss.join('/')} · ${GM.era(p)}</small><div class="chips">${p.clubs.map(x => GM.clubChip(x)).join('')}</div></div><span class="num">${p.apps}<small>apps</small></span><span class="num">${s === 'ast' ? p.ast : p.goals}<small>${s === 'ast' ? 'assists' : 'goals'}</small></span></div>`).join('');
     };
     ['#pq', '#pc', '#ps', '#pa'].forEach(s => GM.$(s).addEventListener('input', draw));
     draw();

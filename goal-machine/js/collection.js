@@ -7,6 +7,9 @@
   // re-orders the list; albums saved with list positions are converted once.
   const load = (book = 'album') => {
     const a = GM.store.get(book, { players: {}, ach: {}, days: [] });
+    // by: the players signed in each stat's games, with how many times (so the goals Dream XI needs goals-mode signings).
+    // Albums from before v4.2 didn't record the stat, so everyone collected then counts once in all three.
+    if (!a.by) { const once = Object.fromEntries(Object.keys(a.players).map(k => [k, 1])); a.by = { goals: { ...once }, assists: { ...once }, apps: { ...once } }; }
     const keys = Object.keys(a.players);
     if (book === 'album' && keys.length && keys.every(k => /^\d+$/.test(k))) {
       const moved = {};
@@ -44,6 +47,7 @@
     ['club5', '🏟️', 'Club Legends', 'Have 5+ players from the same club in one XI.', e => e.type === 'draft' && maxSameClub(e.xi) >= 5],
     ['wild5', '🃏', 'Wildcard Wizard', 'Use 5 wildcards in one game.', e => e.type === 'draft' && e.wildUsed >= 5],
     ['coin', '🎲', 'Fortune Favours', 'Win a Double or Nothing coin toss.', e => e.type === 'draft' && e.coinWin],
+    ['chaos', '🌪️', 'Agent of Chaos', 'Score 500+ points in Ultimate Wildcard CHAOS (goals).', e => e.type === 'draft' && e.mode === 'chaos' && e.stat === 'goals' && e.points >= 500],
     ['hard', '🥵', 'No Clues', 'Finish a draft in Hard mode.', e => e.type === 'draft' && e.hard],
     ['daily3', '📅', 'Regular', 'Play the Daily Ultimate 3 days in a row.', (e, a) => streak(a.days) >= 3],
     ['daily7', '🗓️', 'Season Ticket', 'Play the Daily Ultimate 7 days in a row.', (e, a) => streak(a.days) >= 7],
@@ -118,9 +122,11 @@
     const a = load();
     const purist = ev.mode === 'purist', book = purist ? load('purist') : a;
     const newPlayers = [];
+    const statBook = book.by[GM.STATS[ev.stat] ? ev.stat : 'goals'];
     ev.xi.forEach(p => {
       if (!purist && !GM.byPk.has(p.pk)) return;  // Extreme's lesser-known players belong to the Purist collection only
       if (!book.players[p.pk]) { book.players[p.pk] = GM.today(); newPlayers.push(p); }
+      statBook[p.pk] = (statBook[p.pk] || 0) + 1;
     });
     if (ev.mode === 'daily' && !a.days.includes(GM.today())) a.days = a.days.concat(GM.today()).slice(-60);
     const fresh = check({ type: 'draft', ...ev }, a);
@@ -142,6 +148,38 @@
     return { players: Object.keys(a.players).length, badges: Object.keys(a.ach).length, totalBadges: A.length,
       purist: Object.keys(GM.store.get('purist', { players: {} }).players).length };
   };
+
+  /* ---------------------------------------------------------------- who you pick */
+  // picks: { p: { "name|first": [times offered, times signed] }, c: { club: signings } } – every draft reel counts
+  GM.trackPick = function (picked, offered) {
+    const t = GM.store.get('picks', { p: {}, c: {} });
+    offered.forEach(p => { if (p) { const e = t.p[p.pk] || (t.p[p.pk] = [0, 0]); e[0]++; } });
+    if (picked) {
+      const e = t.p[picked.pk] || (t.p[picked.pk] = [1, 0]);
+      e[1]++;
+      picked.clubs.forEach(c => { t.c[c] = (t.c[c] || 0) + 1; });
+    }
+    GM.store.set('picks', t);
+  };
+  GM.pickCount = pk => ((GM.store.get('picks', { p: {} }).p[pk] || [0, 0]));
+  const findPk = pk => GM.byPk.get(pk) || (GM.allPlayers || []).find(p => p.pk === pk);
+  function picksHtml() {
+    const t = GM.store.get('picks', { p: {}, c: {} }), rows = Object.entries(t.p);
+    if (!rows.length) return '';
+    const signed = rows.filter(([, [, n]]) => n > 0), total = signed.reduce((a, [, [, n]]) => a + n, 0);
+    const list = (arr, fmtRow) => arr.map(([k, v]) => { const p = findPk(k); return p ? `<li>${GM.avatar(p)}<b>${GM.esc(p.name)}</b><span>${fmtRow(v)}</span></li>` : ''; }).join('');
+    const loved = signed.slice().sort((a, b) => b[1][1] - a[1][1] || a[1][0] - b[1][0]).slice(0, 5);
+    // snubbed: offered most without ever being signed
+    const snubbed = rows.filter(([, [o, n]]) => n === 0 && o >= 2).sort((a, b) => b[1][0] - a[1][0]).slice(0, 5);
+    const clubs = Object.entries(t.c).sort((a, b) => b[1] - a[1]).slice(0, 5);
+    return `<h3 class="section-title">📊 Your picks</h3>
+      <div class="album-head"><div><b>${fmt(total)}</b><small>signings</small></div><div><b>${fmt(signed.length)}</b><small>different players</small></div></div>
+      <div class="picks">
+        <div><h4>❤️ Your favourites</h4><ol>${list(loved, ([o, n]) => `signed ×${n}`)}</ol></div>
+        ${snubbed.length ? `<div><h4>🙅 Always snubbed</h4><ol>${list(snubbed, ([o]) => `passed over ×${o}`)}</ol></div>` : ''}
+        <div><h4>🏟️ Clubs you sign from</h4><ol>${clubs.map(([c, n]) => `<li>${GM.clubChip(c)}<b>${GM.esc(c)}</b><span>${n}</span></li>`).join('')}</ol></div>
+      </div>`;
+  }
 
   /* ---------------------------------------------------------------- dream XI */
   const SLOTS = ['GK', 'LB', 'CB', 'CB', 'RB', 'LM', 'CM', 'CM', 'RM', 'ST', 'ST'];
@@ -173,13 +211,14 @@
     const has = p => !!a.players[p.pk];
     const ids = mine;
     const st = GM.STATS[statId];
-    const xi = dreamXI(mine, st.key);
+    const got = a.by[statId] || {};
+    const xi = dreamXI(mine.filter(p => got[p.pk]), st.key);
     const tot = xi.reduce((t, s) => t + (s.player ? s.player[st.key] : 0), 0);
     const rows = [['ST'], ['LM', 'CM', 'RM'], ['LB', 'CB', 'RB'], ['GK']];
     const rowOf = pos => rows.findIndex(r => r.includes(pos));
     const lines = [0, 1, 2, 3].map(r => xi.map((s, i) => [s, i]).filter(([s]) => rowOf(s.pos) === r));
     const slot = s => s.player
-      ? `<div class="slot filled" title="${GM.esc(s.player.name)}">${GM.avatar(s.player)}<span class="slot-name">${GM.esc(s.player.name.split(' ').slice(-1)[0])}</span><span class="slot-goals">${fmt(s.player[st.key])}</span><span class="slot-pos">${s.pos}</span></div>`
+      ? `<div class="slot filled" title="${GM.esc(s.player.name)}">${GM.avatar(s.player)}<span class="slot-name">${GM.esc(s.player.name.split(' ').slice(-1)[0])}</span><span class="slot-goals">${fmt(s.player[st.key])}</span><span class="slot-pos">${s.pos}</span>${got[s.player.pk] > 1 ? `<span class="slot-times">×${got[s.player.pk]}</span>` : ''}</div>`
       : `<div class="slot empty"><span class="pos pos-${GM.GROUP[s.pos]}">${s.pos}</span></div>`;
     const clubSets = GM.clubs.map(c => {
       const members = list.filter(p => p.clubs.includes(c));
@@ -200,7 +239,7 @@
         : 'Every player you sign in a draft is added to your album. Stored on this device.'}</p>
 
       <h3 class="section-title">⭐ Your Dream XI</h3>
-      <p class="muted">Your best collected player in every position.</p>
+      <p class="muted">Your best player in every position, from players you've signed in ${st.name.toLowerCase()} games (×2, ×3… is how many times you've signed him). ${fmt(Object.keys(got).length)} players in your ${st.name.toLowerCase()} book.</p>
       <div class="hard-toggle small three">${Object.entries(GM.STATS).map(([k, s]) => `<a class="${k === statId ? 'on' : ''}" href="#/album?s=${k}${purist ? '&b=purist' : ''}">${s.icon} ${s.name}</a>`).join('')}</div>
       <div class="pitch"><div class="pitch-lines"></div><div class="shape">${fmt(tot)} ${st.label}</div>
         ${lines.map(l => `<div class="pitch-row">${l.map(([s]) => slot(s)).join('')}</div>`).join('')}</div>
@@ -209,6 +248,7 @@
       <div class="ach-grid">${A.map(x => `<div class="ach ${a.ach[x.id] ? 'got' : ''}" title="${GM.esc(x.desc)}">
         <span class="ach-icon">${a.ach[x.id] ? x.icon : '🔒'}</span><b>${x.name}</b><small>${x.desc}</small></div>`).join('')}</div>`}
 
+      ${purist ? '' : picksHtml()}
       <h3 class="section-title">🗂️ Sets</h3>
       <div class="sets">${SETS.map(s => {
         const m = setMembers[s.id].map(i => GM.players[i]), have = m.filter(has);

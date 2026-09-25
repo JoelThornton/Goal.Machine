@@ -839,3 +839,21 @@ h2, h3 { letter-spacing: .3px; }
 .stat-row { display: flex; gap: 8px; margin: 12px 0; } .stat-row .stat-btn { color: var(--text); background: var(--panel); border-color: var(--line); padding: 14px 6px; }
 .duel-turn > b { font-weight: 800; }
 .mk-lot .avatar, .mk-card .avatar { box-shadow: 0 0 0 1px var(--line); }
+/* v4.2 album: pick stats and sign counts */
+.slot-times { position: absolute; top: -6px; left: -4px; font: 800 .62rem Inter, sans-serif; background: var(--accent2); color: #0a2a1f; border-radius: 8px; padding: 1px 5px; }
+.slot.filled { position: relative; }
+.picks { display: grid; gap: 10px; }
+.picks > div { background: var(--panel); border-radius: 14px; padding: 10px 12px; box-shadow: 0 3px 0 var(--edge); }
+.picks h4 { margin: 0 0 6px; font: 700 .95rem Oswald, sans-serif; letter-spacing: .5px; }
+.picks ol { margin: 0; padding: 0; list-style: none; display: grid; gap: 5px; counter-reset: pk; }
+.picks li { display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: 8px; font-size: .85rem; min-width: 0; }
+.picks li b { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; } .picks li span { color: var(--muted); font-size: .75rem; }
+.signed { font-style: normal; font-size: .68rem; font-weight: 800; color: var(--hi2); }
+.chaos-pts { margin-left: 8px; font: 800 .8rem Inter, sans-serif; color: var(--accent2); }
+.banner.chaos-event { background: linear-gradient(135deg, #3b1f5c, #7a1f3d); color: #fff; border: 0; animation: pop .4s; }
+.chaos-card { margin-top: 14px; padding: 14px; border-radius: 20px; color: #fff; background: radial-gradient(circle at 20% 0%, #ff4d6d 0, transparent 55%), radial-gradient(circle at 90% 100%, #ffb020 0, transparent 50%), linear-gradient(135deg, #2a0f45, #5b1236); box-shadow: 0 5px 0 #1a0a2b; }
+.chaos-head { display: flex; gap: 10px; align-items: center; } .chaos-head > span { font-size: 2.2rem; animation: spin 6s linear infinite; }
+.chaos-head b { display: block; font: 700 1.25rem Oswald, sans-serif; text-transform: uppercase; letter-spacing: 1px; } .chaos-head small { opacity: .85; font-size: .78rem; }
+.chaos-card .stat-row { margin: 10px 0 0; } .chaos-card .stat-btn { color: #fff; background: rgba(255,255,255,.14); border-color: rgba(255,255,255,.25); padding: 9px 6px; }
+@keyframes spin { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) { .chaos-head > span { animation: none; } }

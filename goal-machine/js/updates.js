@@ -7,6 +7,16 @@
 (function () {
   GM.UPDATES = [
     {
+      v: 17, label: '4.2', date: '2026-09-26', app: 14, title: 'CHAOS, your picks + separate Dream XIs',
+      items: [
+        '🌪️ Ultimate Wildcard CHAOS: bonus points for chemistry, squad rating, PL titles, Hall of Famers, one-club men, journeymen and veterans, plus random events (red cards, injuries, the taxman, derby days, TV money), wildcard storms and new cards like 🎰 All In and 🔥 Hot Streak',
+        '📊 Your picks: your most-signed players, the ones you always snub and the clubs you sign from (in the Album), and ✍️ signing counts in the Players tab',
+        '⭐ Separate Dream XIs: a player joins your goals, assists or appearances XI only when you sign him in that kind of game, and shows how many times you’ve had him',
+        '🏟️ Club XI now uses everyone who played for your club in the Premier League, not just those with 50+ appearances',
+        '↩️ In the Android app, back (button or swipe) goes to your last menu page instead of closing the app, and asks before quitting from the home screen',
+      ],
+    },
+    {
       v: 16, label: '4.1', date: '2026-09-25', app: 13, title: 'Friends, the transfer market + match points',
       items: [
         '👥 Online games now belong to your 🔒 name: add friends, challenge them, take your turn whenever suits you, and pick your games back up on any phone',

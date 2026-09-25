@@ -170,6 +170,18 @@ public class MainActivity extends Activity {
             return isNight();
         }
 
+        /** Turns on "your move" notifications for this player's online games (checked every ~15 minutes). The first
+         *  time, Android 13+ asks whether the app may send notifications. */
+        @JavascriptInterface
+        public void watchGames(String user, String url, String key) {
+            GameCheckService.watch(MainActivity.this, user, url, key);
+            if (Build.VERSION.SDK_INT >= 33 && checkSelfPermission("android.permission.POST_NOTIFICATIONS") != android.content.pm.PackageManager.PERMISSION_GRANTED
+                && !getSharedPreferences(GameCheckService.PREFS, MODE_PRIVATE).getBoolean("asked", false)) {
+                getSharedPreferences(GameCheckService.PREFS, MODE_PRIVATE).edit().putBoolean("asked", true).apply();
+                runOnUiThread(() -> requestPermissions(new String[] { "android.permission.POST_NOTIFICATIONS" }, 1));
+            }
+        }
+
         /** Reloads the site after the offline screen. */
         @JavascriptInterface
         public void retry() {

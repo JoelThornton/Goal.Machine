@@ -90,11 +90,11 @@
     // the main event comes in three versions, and Target has a no-wildcards Classic version; the choice is remembered
     const ULT = {
       ultimate: { icon: '👑', short: 'Ultimate', name: 'Ultimate Wildcard', sub: 'Build the XI with the biggest total. Every player with 50+ PL apps is equally likely, so find the stars among the journeymen.' },
+      classic: { icon: '⚽', short: 'Classic', name: 'Classic', sub: 'The same hunt for the biggest total, with no wildcards. Just you, the reels and your football knowledge.' },
       extreme: { icon: '⚡', short: 'Extreme', name: 'Extreme Ultimate', sub: `Every one of the 5,000+ players ever to play in the PL, all equally likely. Wildcards on. Mostly strangers.` },
       purist: { icon: '💎', short: 'Purist', name: 'Purist', sub: 'Every PL player ever, equally likely, no wildcards. Fills your Purist collection.' },
     };
     const ult = ULT[GM.store.get('ultVariant', 'ultimate')] ? GM.store.get('ultVariant', 'ultimate') : 'ultimate';
-    const tgt = GM.store.get('tgtVariant', 'target') === 'classic' ? 'classic' : 'target';
     const streak = GM.streak();
     const dtile = (g, cls, sub) => {
       const G = GM.DAILY_GAMES[g], st = GM.dailyStatus(g), gs = GM.streak(g);
@@ -120,7 +120,7 @@
       <div class="mode-card featured ultimate big-card">
         <span class="mode-icon">${ULT[ult].icon}</span>
         <span class="mode-text"><span class="kicker">Main event</span><b>${ULT[ult].name}</b><small>${ULT[ult].sub}</small>
-          <span class="variant" role="group" aria-label="Version">${Object.entries(ULT).map(([k, v]) => `<button data-ult="${k}" class="${k === ult ? 'on' : ''}">${v.icon} ${v.short}</button>`).join('')}</span>
+          <span class="variant" role="group" aria-label="Version">${Object.entries(ULT).map(([k, v]) => `<button data-ult="${k}" class="${k === ult ? 'on' : ''}"><span>${v.icon}</span>${v.short}</button>`).join('')}</span>
           <span class="stat-pick">${statBtn(ult, 'goals')}${statBtn(ult, 'assists')}${statBtn(ult, 'apps')}</span></span>
       </div>
       <a class="h2h-banner" href="#/h2h"><span>⚔️</span><span><b>Head to Head</b><small>${h2h ? `${GM.esc(h2h.names[0])} v ${GM.esc(h2h.names[1])}: tap to carry on` : 'Pass the phone, or play a friend online'}</small></span><span>🏆</span></a>
@@ -132,10 +132,8 @@
         ${club ? dtile('club', 'club-tile', 'Mystery player from your club') : `<a class="tile t-navy" href="#/settings"><span class="tile-icon">🏟️</span><b>Pick your club</b><small>Unlock Club Footle, Club XI and your colours</small></a>`}
       </div>
       <h3 class="section-title">Hit the target</h3>
-      <div class="tile t-red wide target-tile"><span class="tile-icon">${tgt === 'classic' ? '⚽' : '🎯'}</span><b>${tgt === 'classic' ? 'Classic' : 'Target'}</b>
-        <small>${tgt === 'classic' ? 'The original: hit the number exactly with no wildcards. Pure knowledge.' : 'Hit the number exactly for a bullseye, with wildcards to help.'}</small>
-        <span class="variant"><button data-tgt="target" class="${tgt === 'target' ? 'on' : ''}">🃏 With wildcards</button><button data-tgt="classic" class="${tgt === 'classic' ? 'on' : ''}">⚽ Classic</button></span>
-        <span class="stat-pick">${statBtn(tgt, 'goals', '500 goals')}${statBtn(tgt, 'assists', '350 assists')}${statBtn(tgt, 'apps', '3,750 apps')}</span></div>
+      <div class="tile t-red wide target-tile"><span class="tile-icon">🎯</span><b>Target</b><small>Hit the number exactly for a bullseye.</small>
+        <span class="stat-pick">${statBtn('target', 'goals', '500 goals')}${statBtn('target', 'assists', '350 assists')}${statBtn('target', 'apps', '3,750 apps')}</span></div>
       <div class="tiles">
         ${tile('#/draft?m=treble', 't-gold', '🏆', 'The Treble', '400 goals, 300 assists AND 3,300 apps', pb('treble'))}
         ${tile('#/draft?m=mystery', 't-magenta', '🎲', 'Mystery Target', 'Secret number. Follow the thermometer.', pb('mystery'))}
@@ -158,7 +156,6 @@
       <footer class="muted center">Playing as <a href="#/settings">${GM.account() ? '🔒 ' : ''}${GM.esc(GM.getName() || 'no name yet')}</a> · <a href="#/updates">v${GM.VERSION}</a></footer>`;
     GM.$$('[data-hard]').forEach(b => b.onclick = () => { GM.setHard(b.dataset.hard === '1'); home(); });
     GM.$$('[data-ult]').forEach(b => b.onclick = () => { GM.store.set('ultVariant', b.dataset.ult); home(); });
-    GM.$$('[data-tgt]').forEach(b => b.onclick = () => { GM.store.set('tgtVariant', b.dataset.tgt); home(); });
     const ib = GM.$('#install');
     if (ib) {
       if (installEvt) ib.hidden = false;
@@ -248,7 +245,7 @@
     if (m && m.startsWith('dailies')) return dailyBoard(m.split(':')[1]);
     const hard = m ? /^[a-z]+h$/.test(m) && GM.MODES[m] != null : GM.isHard();
     const club = GM.favClub();
-    const tabs = ['ultimate', 'ultimateast', 'ultimateapps', 'extreme', 'purist', 'daily:' + GM.today(), 'footle:' + GM.today(), 'classic', 'target', 'targetast', 'targetapps', 'treble', 'mystery', 'hopper', 'hilo', 'whoami', 'grid:' + GM.today(), 'grid', 'tally']
+    const tabs = ['ultimate', 'ultimateast', 'ultimateapps', 'classic', 'extreme', 'purist', 'daily:' + GM.today(), 'footle:' + GM.today(), 'target', 'targetast', 'targetapps', 'treble', 'mystery', 'hopper', 'hilo', 'whoami', 'grid:' + GM.today(), 'grid', 'tally']
       .concat(club ? ['club' + GM.slug(club)] : [])
       .map(k => hard && GM.HARD_MODES.includes(k) ? k + 'h' : k);
     m = m && tabs.includes(m) ? m : tabs[0];
@@ -261,7 +258,7 @@
       ${m.startsWith('footle:') ? '<p class="muted center">Footle scores: 8 for a first-guess win, down to 1 for getting it on the last guess.</p>' : ''}
       ${GM.lb.enabled ? `<h3 class="section-title">🌍 Global</h3><div id="global" class="lb"><div class="muted">Loading…</div></div>` :
         `<div class="banner">Global leaderboard isn’t switched on yet – use <b>⚔️ Challenge a friend</b> after a game to go head-to-head on the same spins.</div>`}
-      ${/^(ultimate|club|extreme|purist)/.test(m) || m.startsWith('daily:') ? `<h3 class="section-title">📊 Your spread</h3>${m.startsWith('daily:') ? GM.distHtml('daily', 'goals')
+      ${/^(ultimate|club|classic|extreme|purist)/.test(m) || m.startsWith('daily:') ? `<h3 class="section-title">📊 Your spread</h3>${m.startsWith('daily:') ? GM.distHtml('daily', 'goals')
         : GM.distHtml(m, /apps(h)?$/.test(m) ? 'apps' : /ast(h)?$/.test(m) ? 'assists' : 'goals')}` : ''}
       <h3 class="section-title">📱 Your best on this device</h3>
       <div class="lb">${local.length ? local.slice(0, 10).map((h, i) => `<div class="lb-row"><span>${i + 1}</span><span>${new Date(h.t).toLocaleDateString()}</span><b>${h.s}</b></div>`).join('') : '<div class="muted">No games yet</div>'}</div>`;

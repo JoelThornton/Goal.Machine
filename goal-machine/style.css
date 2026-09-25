@@ -721,3 +721,5 @@ h2, h3 { letter-spacing: .3px; }
 .dx { display: flex; align-items: center; gap: 4px; padding: 5px 6px; border-radius: 10px; background: var(--inset); font-size: .75rem; min-width: 0; }
 .dx b { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; } .dx i { font-style: normal; font-weight: 800; color: var(--hi); }
 .dx.on { background: var(--panel); box-shadow: 0 2px 0 var(--edge); }
+.mode-card .variant button { display: flex; flex-direction: column; align-items: center; gap: 1px; padding: 5px 2px; font-size: .7rem; }
+.mode-card .variant button span { font-size: 1rem; line-height: 1.1; }

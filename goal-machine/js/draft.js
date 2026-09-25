@@ -43,8 +43,8 @@
     mystery: { max: false, mystery: true, weight: p => p.fame, noWild: [] },
   };
   RULES.daily = RULES.ultimate;
-  // Classic: the original - hit the number with no wildcards
-  RULES.classic = { max: false, weight: p => p.fame, noWild: [], wild: false };
+  // Classic: Ultimate without the wildcards - the biggest total from the 50+ app players, all equally likely
+  RULES.classic = { max: true, weight: () => 1, noWild: [], wild: false };
   // Every player to have played in the PL (1+ apps), all equally likely: Extreme has wildcards, Purist has none
   RULES.extreme = { max: true, weight: () => 1, noWild: ['rotation', 'bus'], all: true };
   RULES.purist = { max: true, weight: () => 1, noWild: [], wild: false, all: true };

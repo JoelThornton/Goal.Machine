@@ -179,7 +179,7 @@ GM.addDist = function (key, stat, v) {
 GM.distHtml = function (key, stat, current) {
   const d = GM.dist(key, stat), mx = Math.max(1, ...d), n = d.reduce((a, b) => a + b, 0), me = current == null ? -1 : GM.bandOf(stat, current);
   const label = { goals: 'goals', assists: 'assists', apps: 'apps' }[stat] || stat;
-  return `<div class="dist"><h4>Your results · ${n} game${n === 1 ? '' : 's'}</h4>${d.map((c, i) => ({ c, i })).reverse().map(({ c, i }) =>
+  return `<div class="dist ${n ? '' : 'empty'}"><h4>Your results · ${n} game${n === 1 ? '' : 's'}</h4>${d.map((c, i) => ({ c, i })).reverse().map(({ c, i }) =>
     `<div><span>${GM.bandLabel(stat, i)}</span><i class="${i === me ? 'me' : ''}" style="width:${Math.max(7, 100 * c / mx)}%">${c}</i></div>`).join('')}
     <small>${label} per XI</small></div>`;
 };

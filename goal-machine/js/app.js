@@ -52,6 +52,7 @@
       case 'draft': return GM.draft.start(app, ['target', 'treble', 'mystery', 'club', 'classic', 'extreme', 'purist'].includes(q.m) ? q.m : 'ultimate',
         { stat: q.s, seed: q.seed, vs: q.vs, vss: q.vss ? +q.vss : undefined, hard: q.seed ? q.h === '1' : GM.isHard(), club: q.c });
       case 'today': return GM.todayPage(app);
+      case 'online': return GM.onlinePage(app, q);
       case 'footle': return GM.footle(app, false);
       case 'clubfootle': return GM.footle(app, true);
       case 'daily': return GM.draft.start(app, 'daily');
@@ -122,7 +123,7 @@
           <span class="variant" role="group" aria-label="Version">${Object.entries(ULT).map(([k, v]) => `<button data-ult="${k}" class="${k === ult ? 'on' : ''}">${v.icon} ${v.short}</button>`).join('')}</span>
           <span class="stat-pick">${statBtn(ult, 'goals')}${statBtn(ult, 'assists')}${statBtn(ult, 'apps')}</span></span>
       </div>
-      <a class="h2h-banner" href="#/h2h"><span>⚔️</span><span><b>Head to Head</b><small>${h2h ? `${GM.esc(h2h.names[0])} v ${GM.esc(h2h.names[1])}: tap to carry on` : 'Pass the phone · best of 5 random games'}</small></span><span>🏆</span></a>
+      <a class="h2h-banner" href="#/h2h"><span>⚔️</span><span><b>Head to Head</b><small>${h2h ? `${GM.esc(h2h.names[0])} v ${GM.esc(h2h.names[1])}: tap to carry on` : 'Pass the phone, or play a friend online'}</small></span><span>🏆</span></a>
       <h3 class="section-title"><a href="#/today">Today${streak ? ` <span class="streak-pill">🔥 ${streak}</span>` : ''}<span class="more">All dailies ›</span></a></h3>
       <div class="tiles">
         ${dtile('daily', 't-green', 'Same spins for everyone. One shot.')}

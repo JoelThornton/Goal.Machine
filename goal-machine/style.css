@@ -701,3 +701,23 @@ h2, h3 { letter-spacing: .3px; }
 .code-box { font: 700 1rem ui-monospace, monospace; word-break: break-all; background: var(--inset); border-radius: 12px; padding: 12px; user-select: all; text-align: center; }
 .claim { display: grid; gap: 6px; }
 .claim-msg.ok { color: var(--good); font-weight: 700; } .claim-msg.no { color: var(--bad); font-weight: 700; }
+
+/* online head-to-head */
+.variant-row { display: flex; gap: 4px; padding: 4px; border-radius: 14px; background: var(--inset); margin: 4px 0 10px; }
+.variant-row > * { flex: 1; text-align: center; padding: 9px; border-radius: 10px; font-weight: 800; color: var(--muted); text-decoration: none; }
+.variant-row .on { background: var(--accent); color: #0a2a1f; box-shadow: 0 3px 0 var(--btn-edge); }
+.join-row { display: flex; gap: 8px; } .join-row .input { text-transform: uppercase; letter-spacing: 4px; font: 800 1.2rem ui-monospace, monospace; }
+.room-code { text-align: center; padding: 24px 10px; display: grid; gap: 4px; }
+.room-code b { font: 700 3.4rem Oswald, sans-serif; letter-spacing: 8px; color: var(--hi); }
+.opp-bar { margin: 4px 0; padding: 6px 12px; border-radius: 12px; background: color-mix(in srgb, var(--p2) 18%, transparent); font-size: .85rem; }
+.race-final { font: 700 1.2rem Oswald, sans-serif; }
+.duel-board { margin-top: 0; } .duel-board .h2h-team strong { font-size: 2.2rem; } .duel-board small { font-size: .7rem; opacity: .9; }
+.duel-turn { text-align: center; padding: 10px; border-radius: 14px; background: var(--inset); font-weight: 800; }
+.duel-turn.mine { background: var(--accent); color: #0a2a1f; box-shadow: 0 3px 0 var(--btn-edge); animation: pop .4s; }
+.duel-turn small { display: block; font-weight: 600; opacity: .8; font-size: .72rem; }
+.duel-reel .mate.nofit { background: #56655e; color: #fff; }
+.duel-reel .reel-goals small { display: block; }
+.duel-xi { display: grid; grid-template-columns: repeat(auto-fill, minmax(98px, 1fr)); gap: 4px; margin: 6px 0; }
+.dx { display: flex; align-items: center; gap: 4px; padding: 5px 6px; border-radius: 10px; background: var(--inset); font-size: .75rem; min-width: 0; }
+.dx b { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; } .dx i { font-style: normal; font-weight: 800; color: var(--hi); }
+.dx.on { background: var(--panel); box-shadow: 0 2px 0 var(--edge); }

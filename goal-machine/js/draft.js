@@ -107,7 +107,9 @@
       inv: [], modifier: null, subbing: false, used: [], last: null,
       phase: 'spin', vs: opts.vs, vss: opts.vss, log: [], pending: null, wildUsed: 0, coinWin: false,
       hard: mode !== 'daily' && !!opts.hard, club,
+      online: opts.online || null,  // Live Race: { code, token, seat, opp }
     };
+    if (S.online) root.className = 'page-draft page-online';
     render();
   }
 
@@ -315,6 +317,7 @@
   }
 
   function completePick() {
+    if (S.online && GM.online) GM.online.pushRace(S);
     S.xi.forEach(s => { s.fresh = false; });
     S.spinRespins = 0;
     S.spin++;
@@ -425,6 +428,7 @@
       GM.markDaily('daily', sc.t);
     }
     render();
+    if (S.online && GM.online) GM.online.pushRace(S);
     GM.sound.play('fulltime');
     const bull = sc.diff === 0;
     if (bull) setTimeout(() => GM.sound.play('horn'), 1700);
@@ -565,6 +569,7 @@
     root.innerHTML = `
       <div class="topbar"><a href="#/" class="back">‹</a><h2>${icon} ${modeName()}${S.hard ? ' · Hard' : ''}</h2><button class="icon-btn" id="help">?</button></div>
       ${S.vs ? `<div class="banner">⚔️ Beat <b>${GM.esc(S.vs)}</b>’s score of <b>${GM.esc(S.vss)}</b></div>` : ''}
+      ${S.online ? `<div class="opp-bar" id="oppbar">🌐 Racing <b>${GM.esc(S.online.opp)}</b>…</div>` : ''}
       ${counterHtml()}
       ${pitchHtml()}
       ${S.rules.wild === false ? '' : `<div class="inv"><span class="inv-label">Wildcards ${S.inv.length}/3</span>${S.inv.length ? S.inv.map((w, k) =>
@@ -632,7 +637,7 @@
       ${GM.report ? GM.report(xi, S.st, S.rules.treble) : ''}
       ${pitchHtml()}
       <div class="actions col">
-        ${S.mode !== 'daily' ? `<button class="btn big" id="again">🔁 Play again</button>` : `<div class="muted">New Daily Ultimate tomorrow</div>`}
+        ${S.online ? '<div id="race-result"></div><a class="btn big" href="#/online">🌐 New online game</a>' : S.mode !== 'daily' ? `<button class="btn big" id="again">🔁 Play again</button>` : `<div class="muted">New Daily Ultimate tomorrow</div>`}
         <button class="btn" id="challenge">⚔️ Challenge a friend (same spins)</button>
         <button class="btn ghost" id="share">📤 Share result</button>
         <a class="btn ghost" href="#/leaderboard?m=${encodeURIComponent(modeKey())}">🏆 Leaderboard</a>

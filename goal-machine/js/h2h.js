@@ -70,6 +70,7 @@
     const last = GM.store.get('h2hNames', [GM.getName() || '', '']);
     let bestOf = GM.store.get('h2hBestOf', 5), hard = GM.isHard();
     root.innerHTML = `<div class="topbar"><a href="#/" class="back">‹</a><h2>⚔️ Head to Head</h2><span></span></div>
+      <div class="variant-row"><span class="on">📱 Same phone</span><a href="#/online">🌐 Online</a></div>
       <div class="h2h-hero"><div class="h2h-trophy">🏆</div>
         <h3>Who knows their football?</h3>
         <p>Two players, one phone. Take turns at a best-of series of random quick games. Win a round to take a point, and the first to the target lifts the trophy.</p></div>

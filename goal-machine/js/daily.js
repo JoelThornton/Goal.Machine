@@ -46,7 +46,7 @@
   /* ================================================================ the daily log + streaks */
   // dlog: { 'YYYY-MM-DD': { daily: 512, grid: 1340, footle: 4 (guesses; 0 = missed), club: 3 } }
   const GAMES = {
-    daily: { name: 'Daily Ultimate', icon: '📅', href: '#/daily', won: v => v != null },
+    daily: { name: 'Daily Ultimate', get icon() { return GM.calIcon(); }, href: '#/daily', won: v => v != null },
     footle: { name: 'Footle', icon: '🟩', href: '#/footle', won: v => v > 0 },
     grid: { name: 'Daily Club Grid', icon: '#️⃣', href: '#/dailygrid', won: v => v != null },
     club: { name: 'Club Footle', icon: '🏟️', href: '#/clubfootle', won: v => v > 0 },
@@ -127,7 +127,7 @@
       cal.push(`<i class="cal-day n${Math.min(n, 3)} ${i === 0 ? 'today' : ''}" title="${d}: ${n} daily game${n === 1 ? '' : 's'}">${+d.slice(8)}</i>`);
     }
     const s = GM.streak();
-    root.innerHTML = `<div class="topbar"><a href="#/" class="back">‹</a><h2>📅 Today</h2><span></span></div>
+    root.innerHTML = `<div class="topbar"><a href="#/" class="back">‹</a><h2>${GM.calIcon()} Today</h2><span></span></div>
       <div class="streak-hero"><div class="flame ${s ? 'lit' : ''}">🔥</div><div><b>${s}</b><span>day streak</span><small>Best ${GM.bestStreak()} · play any daily game to keep it going</small></div></div>
       <div class="daily-list">${games.map(g => {
         const G = GAMES[g], st = GM.dailyStatus(g), gs = GM.streak(g);

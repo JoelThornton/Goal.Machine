@@ -29,7 +29,7 @@
   }
 
   // bottom tab bar: shown on the menus, hidden mid-game so the pitch gets the whole screen
-  const TABS = [['', '⚽', 'Play'], ['today', '📅', 'Today'], ['leaderboard', '🏆', 'Ranks'], ['album', '📒', 'Album'], ['players', '📖', 'Players']];
+  const TABS = [['', '⚽', 'Play'], ['today', '<i class="cal-slot"></i>', 'Today'], ['leaderboard', '🏆', 'Ranks'], ['album', '📒', 'Album'], ['players', '📖', 'Players']];
   const MENU_PAGES = ['', 'today', 'leaderboard', 'album', 'players', 'updates', 'settings', 'about', 'h2h', 'credits'];
   const tabbar = document.createElement('nav');
   tabbar.className = 'tabbar';
@@ -46,6 +46,7 @@
     document.body.classList.toggle('has-tabs', menu);
     tabbar.hidden = !menu;
     GM.$$('[data-tab]', tabbar).forEach(a => a.classList.toggle('on', a.dataset.tab === path));
+    GM.$('.cal-slot', tabbar).innerHTML = GM.calIcon();  // stays right past midnight
     switch (path) {
       case 'draft': return GM.draft.start(app, ['target', 'treble', 'mystery', 'club'].includes(q.m) ? q.m : 'ultimate',
         { stat: q.s, seed: q.seed, vs: q.vs, vss: q.vss ? +q.vss : undefined, hard: q.seed ? q.h === '1' : GM.isHard(), club: q.c });
@@ -217,7 +218,7 @@
       .map(k => hard && GM.HARD_MODES.includes(k) ? k + 'h' : k);
     m = m && tabs.includes(m) ? m : tabs[0];
     const flip = hard ? m.replace(/h$/, '') : (GM.HARD_MODES.includes(m) ? m + 'h' : m);
-    const label = k => k.startsWith('daily:') ? '📅 Daily Ultimate' : k.startsWith('grid:') ? '#️⃣ Grid today' : k.startsWith('footle:') ? '🟩 Footle today' : `${GM.MODES[k].icon} ${GM.MODES[k].name.replace(' (Hard)', '')}`;
+    const label = k => k.startsWith('daily:') ? GM.calIcon() + ' Daily Ultimate' : k.startsWith('grid:') ? '#️⃣ Grid today' : k.startsWith('footle:') ? '🟩 Footle today' : `${GM.MODES[k].icon} ${GM.MODES[k].name.replace(' (Hard)', '')}`;
     const local = GM.store.get('hist:' + m, []);
     app.innerHTML = `<div class="topbar"><a href="#/" class="back">‹</a><h2>🏆 Leaderboards</h2><span></span></div>
       <div class="hard-toggle small"><a class="${hard ? '' : 'on'}" href="#/leaderboard?m=${encodeURIComponent(hard ? flip : m)}">🙂 Normal</a><a class="${hard ? 'on' : ''}" href="#/leaderboard?m=${encodeURIComponent(hard ? m : flip)}">🥵 Hard</a></div>
@@ -225,6 +226,8 @@
       ${m.startsWith('footle:') ? '<p class="muted center">Footle scores: 8 for a first-guess win, down to 1 for getting it on the last guess.</p>' : ''}
       ${GM.lb.enabled ? `<h3 class="section-title">🌍 Global</h3><div id="global" class="lb"><div class="muted">Loading…</div></div>` :
         `<div class="banner">Global leaderboard isn’t switched on yet – use <b>⚔️ Challenge a friend</b> after a game to go head-to-head on the same spins.</div>`}
+      ${/^(ultimate|club)/.test(m) || m.startsWith('daily:') ? `<h3 class="section-title">📊 Your spread</h3>${m.startsWith('daily:') ? GM.distHtml('daily', 'goals')
+        : GM.distHtml(m, /apps(h)?$/.test(m) ? 'apps' : /ast(h)?$/.test(m) ? 'assists' : 'goals')}` : ''}
       <h3 class="section-title">📱 Your best on this device</h3>
       <div class="lb">${local.length ? local.slice(0, 10).map((h, i) => `<div class="lb-row"><span>${i + 1}</span><span>${new Date(h.t).toLocaleDateString()}</span><b>${h.s}</b></div>`).join('') : '<div class="muted">No games yet</div>'}</div>`;
     if (GM.lb.enabled) {

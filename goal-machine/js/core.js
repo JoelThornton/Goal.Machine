@@ -146,6 +146,43 @@ GM.$$ = (sel, root = document) => [...root.querySelectorAll(sel)];
 GM.initials = name => name.split(/\s+/).filter(Boolean).map(w => w[0]).join('').slice(0, 3).toUpperCase();
 GM.today = () => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; };
 GM.sleep = ms => new Promise(r => setTimeout(r, ms));
+// A little tear-off calendar showing today's real date (instead of the emoji's fixed "July 17"); sized in em like an emoji
+GM.calIcon = function () {
+  const d = new Date();
+  return `<span class="cal-ico" aria-label="${d.toDateString()}"><b>${d.toLocaleDateString('en-GB', { month: 'short' }).toUpperCase()}</b><i>${d.getDate()}</i></span>`;
+};
+
+// Wordle-style results spread for the "biggest total" drafts: eight bands per stat, e.g. under 200 … 800+ goals
+GM.BANDS = { goals: [200, 100], assists: [150, 50], apps: [2000, 500] };
+GM.bandOf = (stat, v) => { const [base, step] = GM.BANDS[stat] || GM.BANDS.goals; return v < base ? 0 : Math.min(7, 1 + Math.floor((v - base) / step)); };
+GM.bandLabel = (stat, i) => { const [base, step] = GM.BANDS[stat] || GM.BANDS.goals; return i === 0 ? `<${base.toLocaleString()}` : `${(base + (i - 1) * step).toLocaleString()}+`; };
+GM.dist = function (key, stat) {
+  if (key === 'daily') {  // the Daily Ultimate log has every day's total
+    const d = Array(8).fill(0);
+    Object.values(GM.store.get('dlog', {})).forEach(e => { if (e.daily != null) d[GM.bandOf('goals', e.daily)]++; });
+    return d;
+  }
+  let d = GM.store.get('dist:' + key, null);
+  if (!d) {  // start from the best scores already saved on this device
+    d = Array(8).fill(0);
+    GM.store.get('hist:' + key, []).forEach(h => d[GM.bandOf(stat, h.s)]++);
+    GM.store.set('dist:' + key, d);
+  }
+  return d;
+};
+GM.addDist = function (key, stat, v) {
+  if (key === 'daily') return;  // counted from the daily log
+  const d = GM.dist(key, stat);
+  d[GM.bandOf(stat, v)]++;
+  GM.store.set('dist:' + key, d);
+};
+GM.distHtml = function (key, stat, current) {
+  const d = GM.dist(key, stat), mx = Math.max(1, ...d), n = d.reduce((a, b) => a + b, 0), me = current == null ? -1 : GM.bandOf(stat, current);
+  const label = { goals: 'goals', assists: 'assists', apps: 'apps' }[stat] || stat;
+  return `<div class="dist"><h4>Your results · ${n} game${n === 1 ? '' : 's'}</h4>${d.map((c, i) => ({ c, i })).reverse().map(({ c, i }) =>
+    `<div><span>${GM.bandLabel(stat, i)}</span><i class="${i === me ? 'me' : ''}" style="width:${Math.max(7, 100 * c / mx)}%">${c}</i></div>`).join('')}
+    <small>${label} per XI</small></div>`;
+};
 
 // Where a face can come from, best first: the Premier League (FPL code, or one found in its archive), Transfermarkt,
 // then a freely licensed Wikipedia photo. If one fails to load the next is tried, and the initials stay underneath.
@@ -339,7 +376,7 @@ GM.MODES = {
   targetapps: { name: 'Target 3,750 – Apps', icon: '🎯' },
   treble: { name: 'The Treble', icon: '🏆' },
   mystery: { name: 'Mystery Target', icon: '🎲' },
-  daily: { name: 'Daily Ultimate', icon: '📅' },
+  daily: { name: 'Daily Ultimate', get icon() { return GM.calIcon(); } },
   hopper: { name: 'Club Hopper', icon: '🦘' },
   hilo: { name: 'Higher or Lower', icon: '↕️' },
   whoami: { name: 'Who Am I?', icon: '🕵️' },

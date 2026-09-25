@@ -10,6 +10,8 @@
         '📅 A Today hub with every daily game, your 🔥 streak (Wordle-style) and a 4-week calendar',
         '💾 Daily games save as you go. Leave half-way and carry on later, then look back at your result until the next day',
         '📊 Daily stars leaderboard: 450+ goal Daily Ultimates, Footle wins, grids completed and the longest streaks',
+        '📊 Wordle-style spread of your Ultimate scores: how many 800+, 700+, 600+ teams you\'ve built (on the full-time screen and leaderboards)',
+        '🗓️ The daily calendar icon now shows today\'s real date',
         '🏟️ Pick your favourite club in ⚙️ Settings to unlock a daily Club Footle, a Club XI draft (only your club\'s players) and your club\'s colours around the app',
       ],
     },

@@ -101,6 +101,7 @@
 
   const modeKey = () => keyFor(S.mode, S.stat, S.hard, S.club);
   const progressKey = () => 'dailyp:' + GM.today();
+  const distKey = () => S.mode === 'daily' ? 'daily' : modeKey();
   // Hard mode flattens the star bias in the target modes (Shearer ~4x an average player instead of ~16x) but keeps the
   // same targets - big numbers are rarer, so one wrong pick can put the target out of reach.
   const reelWeight = () => (S.hard && !S.rules.max ? p => Math.sqrt(S.rules.weight(p)) : S.rules.weight);
@@ -367,6 +368,7 @@
     S.phase = 'done';
     const sc = scoreFor(S);
     S.final = sc;
+    if (S.rules.max && !S.readonly) GM.addDist(distKey(), S.stat, sc.t);  // before the score is saved (see GM.dist)
     const xiSlots = S.xi.filter(s => s.p != null).map(s => ({ ...s, player: byId(s.p) }));
     if (GM.collectDraft && !S.readonly) {
       const rating = GM.teamRating(xiSlots);
@@ -586,6 +588,7 @@
         ${S.vs ? `<div class="banner">${sc.total > S.vss ? '🎉 You beat' : sc.total == S.vss ? '🤝 You drew with' : '😬 You lost to'} <b>${GM.esc(S.vs)}</b> (${GM.esc(S.vss)})</div>` : ''}
         <div class="muted">Personal best: ${fmt(Math.max(best, sc.total))}</div>
       </div>
+      ${S.rules.max ? GM.distHtml(distKey(), S.stat, sc.t) : ''}
       ${S.collected ? `<a class="collected" href="#/album">📒 ${S.collected.n ? `<b>+${S.collected.n}</b> new player${S.collected.n === 1 ? '' : 's'} for your album` : 'No new players this time'} · ${S.collected.total.toLocaleString()} collected${S.collected.badges.length ? `<br>🏅 ${S.collected.badges.join(' · ')}` : ''} ›</a>` : ''}
       ${GM.report ? GM.report(xi, S.st, S.rules.treble) : ''}
       ${pitchHtml()}

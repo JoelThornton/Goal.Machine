@@ -514,6 +514,10 @@ def tm_match(p):
         except ValueError:
             return True
     c = [x for x in c if age_ok(x)]
+    # a keeper and an outfielder with the same name are different people (e.g. Everton's Dave Watson isn't Barnsley's
+    # keeper David Watson), so never match across that line
+    keeper = L[p['pos']] == 'G'
+    c = [x for x in c if (x.main_position == 'Goalkeeper') == keeper]
     if len(c) > 1:
         prim = L[p['pos']]
         c = [x for x in c if TM_BROAD.get(x.main_position) == prim or (prim == 'M' and x.main_position == 'Attack')] or c

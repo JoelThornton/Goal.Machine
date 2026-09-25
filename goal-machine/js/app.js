@@ -28,11 +28,24 @@
     return { path: path || '', q: Object.fromEntries(new URLSearchParams(qs || '')) };
   }
 
+  // bottom tab bar: shown on the menus, hidden mid-game so the pitch gets the whole screen
+  const TABS = [['', '⚽', 'Play'], ['leaderboard', '🏆', 'Leaderboards'], ['album', '📒', 'Album'], ['players', '📖', 'Players']];
+  const MENU_PAGES = ['', 'leaderboard', 'album', 'players', 'updates', 'settings', 'about', 'h2h'];
+  const tabbar = document.createElement('nav');
+  tabbar.className = 'tabbar';
+  tabbar.innerHTML = TABS.map(([p, i, l]) => `<a href="#/${p}" data-tab="${p}"><span>${i}</span>${l}</a>`).join('');
+  document.body.appendChild(tabbar);
+  tabbar.addEventListener('click', () => GM.buzz(8));
+
   function route() {
     const { path, q } = parseHash();
     window.scrollTo(0, 0);
     GM.$$('.modal-wrap').forEach(m => m.remove());
     app.className = 'page-' + (path || 'home');
+    const menu = MENU_PAGES.includes(path);
+    document.body.classList.toggle('has-tabs', menu);
+    tabbar.hidden = !menu;
+    GM.$$('[data-tab]', tabbar).forEach(a => a.classList.toggle('on', a.dataset.tab === path));
     switch (path) {
       case 'draft': return GM.draft.start(app, ['target', 'treble', 'mystery'].includes(q.m) ? q.m : 'ultimate',
         { stat: q.s, seed: q.seed, vs: q.vs, vss: q.vss ? +q.vss : undefined, hard: q.seed ? q.h === '1' : GM.isHard() });
@@ -47,6 +60,11 @@
       case 'players': return playerIndex();
       case 'album': return GM.album(app, GM.STATS[q.s] ? q.s : 'goals');
       case 'about': return about();
+      case 'credits': return credits();
+      case 'h2h': return GM.h2h(app);
+      case 'h2hplay': return GM.h2hPlay(app);
+      case 'updates': return GM.updatesPage(app);
+      case 'settings': return settings();
       default: return home();
     }
   }
@@ -61,12 +79,16 @@
       const st = GM.STATS[s], best = pb(GM.draft.modeKey(m, s, false));
       return `<a class="stat-btn" href="#/draft?m=${m}&s=${s}">${st.icon} ${label || st.name}${best ? `<small>PB ${best.toLocaleString()}</small>` : ''}</a>`;
     };
-    const card = (href, icon, title, sub, best, extra = '') =>
-      `<a class="mode-card ${extra}" href="${href}"><span class="mode-icon">${icon}</span><span class="mode-text"><b>${title}</b><small>${sub}</small></span>${best != null ? `<span class="pb">${best ? 'PB ' + best : ''}</span>` : ''}</a>`;
+    const tile = (href, cls, icon, title, sub, best, extra = '') =>
+      `<a class="tile ${cls}" href="${href}"><span class="tile-icon">${icon}</span>${best ? `<span class="tile-pb">PB ${best.toLocaleString()}</span>` : ''}<b>${title}</b><small>${sub}</small>${extra}</a>`;
+    const album = GM.albumSummary();
+    const h2h = GM.store.get('h2h', null);
     app.innerHTML = `
+      <div class="appbar"><a class="icon-btn" href="#/settings" aria-label="Settings">⚙️</a>
+        <div class="logo small">GOAL<span>MACHINE</span></div>
+        <a class="icon-btn" href="#/updates" aria-label="Updates">📰${GM.hasUnseenUpdate() ? '<i class="new-dot"></i>' : ''}</a></div>
       <header class="hero">
-        <div class="logo">GOAL<span>MACHINE</span></div>
-        <p>${GM.players.length.toLocaleString()} Premier League players · every one with 50+ apps · 1992 to today</p>
+        <p>${GM.players.length.toLocaleString()} Premier League players · 1992 to today</p>
         ${installHidden() || hasNativeApp ? '' : `<div class="install-bar">
           ${isAndroid ? `<a class="btn small" id="getapk" href="${GM.APK_URL}">🤖 Get the Android app</a>` : `<button class="btn small" id="install" hidden>📲 Install app</button>`}
           <button class="install-x" id="install-x" title="I already have it" aria-label="Hide">✕</button></div>`}
@@ -78,35 +100,35 @@
       </div>
       <div class="mode-card featured ultimate big-card">
         <span class="mode-icon">👑</span>
-        <span class="mode-text"><b>Ultimate Wildcard</b><small>Build the XI with the biggest total. Every player equally likely – find the stars among the journeymen.</small>
+        <span class="mode-text"><span class="kicker">Main event</span><b>Ultimate Wildcard</b><small>Build the XI with the biggest total. Every player is equally likely, so find the stars among the journeymen.</small>
           <span class="stat-pick">${statBtn('ultimate', 'goals')}${statBtn('ultimate', 'assists')}${statBtn('ultimate', 'apps')}</span></span>
       </div>
-      <section class="cards">
-        ${card('#/daily', '📅', 'Daily Ultimate', dailyDone ? `Done today – ${dailyDone.final ? dailyDone.final.t + ' goals' : ''} · back tomorrow` : 'Same spins for everyone today. One shot. Most goals wins.', null, dailyDone ? 'done' : '')}
-        <div class="mode-card">
-          <span class="mode-icon">🎯</span>
-          <span class="mode-text"><b>Target</b><small>Hit the number exactly for a bullseye.</small>
-            <span class="stat-pick">${statBtn('target', 'goals', '500 goals')}${statBtn('target', 'assists', '350 assists')}${statBtn('target', 'apps', '3,750 apps')}</span></span>
-        </div>
-        ${card('#/draft?m=treble', '🏆', 'The Treble', 'Hit 400 goals, 300 assists AND 3,300 apps with one XI.', pb('treble'))}
-        ${card('#/draft?m=mystery', '🎲', 'Mystery Target', 'Random stat, secret number. Follow the thermometer.', pb('mystery'))}
-      </section>
-      <h3 class="section-title">More games</h3>
-      <section class="cards">
-        ${card('#/hopper', '🦘', 'Club Hopper', 'Hop from club to club through players. 90 seconds.', pb('hopper'))}
-        ${card('#/hilo', '↕️', 'Higher or Lower', 'More goals? More apps? Keep the streak', pb('hilo'))}
-        ${card('#/whoami', '🕵️', 'Who Am I?', 'Guess the player from the clues', pb('whoami'))}
-        ${card('#/dailygrid', '#️⃣', gridDone ? 'Daily Club Grid ✓' : 'Daily Club Grid', 'Played for both? 3×3 grid', GM.best('grid'))}
-        ${card('#/grid', '🔀', 'Random Club Grid', 'Endless grids', pb('grid'))}
-        ${card('#/tally', '🔢', 'Guess the Tally', 'How many PL goals did he score?', pb('tally'))}
-      </section>
-      <section class="cards">
-        ${(() => { const s = GM.albumSummary(); return card('#/album', '📒', 'Album & badges', `${s.players.toLocaleString()}/${GM.players.length.toLocaleString()} players collected · ${s.badges}/${s.totalBadges} badges`, null, 'album-card'); })()}
-        ${card('#/leaderboard', '🏆', 'Leaderboards', GM.lb.enabled ? 'Global + your bests' : 'Your best scores', null)}
-        ${card('#/players', '📖', 'Player index', 'Search every player in the game', null)}
-        ${card('#/about', 'ℹ️', 'About the data', `Stats include matches up to ${GM.dataDate}`, null)}
-      </section>
-      <footer class="muted center">Name on leaderboard: <a href="#" id="rename">${GM.esc(GM.getName() || 'not set')}</a></footer>`;
+      <a class="h2h-banner" href="#/h2h"><span>⚔️</span><span><b>Head to Head</b><small>${h2h ? `${GM.esc(h2h.names[0])} v ${GM.esc(h2h.names[1])}: tap to carry on` : 'Pass the phone · best of 5 random games'}</small></span><span>🏆</span></a>
+      <h3 class="section-title">Today</h3>
+      <div class="tiles">
+        ${tile('#/daily', 't-green' + (dailyDone ? ' done' : ''), '📅', 'Daily Ultimate', dailyDone ? `Done: ${dailyDone.final ? dailyDone.final.t + ' goals' : ''} · back tomorrow` : 'Same spins for everyone. One shot.')}
+        ${tile('#/dailygrid', 't-blue' + (gridDone ? ' done' : ''), '#️⃣', 'Daily Club Grid', gridDone ? 'Done today ✓' : 'Played for both? 3×3 grid', GM.best('grid'))}
+      </div>
+      <h3 class="section-title">Hit the target</h3>
+      <div class="tile t-red wide target-tile"><span class="tile-icon">🎯</span><b>Target</b><small>Hit the number exactly for a bullseye.</small>
+        <span class="stat-pick">${statBtn('target', 'goals', '500 goals')}${statBtn('target', 'assists', '350 assists')}${statBtn('target', 'apps', '3,750 apps')}</span></div>
+      <div class="tiles">
+        ${tile('#/draft?m=treble', 't-gold', '🏆', 'The Treble', '400 goals, 300 assists AND 3,300 apps', pb('treble'))}
+        ${tile('#/draft?m=mystery', 't-magenta', '🎲', 'Mystery Target', 'Secret number. Follow the thermometer.', pb('mystery'))}
+      </div>
+      <h3 class="section-title">Quick games</h3>
+      <div class="tiles">
+        ${tile('#/hopper', 't-teal', '🦘', 'Club Hopper', 'Club to club through players. 90s.', pb('hopper'))}
+        ${tile('#/hilo', 't-orange', '↕️', 'Higher or Lower', 'More goals? More apps?', pb('hilo'))}
+        ${tile('#/whoami', 't-indigo', '🕵️', 'Who Am I?', 'Guess the player from the clues', pb('whoami'))}
+        ${tile('#/tally', 't-amber', '🔢', 'Guess the Tally', 'How many PL goals?', pb('tally'))}
+        ${tile('#/grid', 't-navy wide', '🔀', 'Random Club Grid', 'Endless grids. Obscure answers score more.', pb('grid'))}
+      </div>
+      <h3 class="section-title">Your collection</h3>
+      <a class="tile t-purple wide album-tile" href="#/album"><span class="tile-icon">📒</span><b>Album & badges</b>
+        <small>${album.players.toLocaleString()}/${GM.players.length.toLocaleString()} players · ${album.badges}/${album.totalBadges} badges</small>
+        <span class="bar"><i style="width:${(100 * album.players / GM.players.length).toFixed(1)}%"></i></span></a>
+      <footer class="muted center">Playing as <a href="#" id="rename">${GM.esc(GM.getName() || 'no name yet')}</a> · <a href="#/updates">v${GM.VERSION}</a></footer>`;
     GM.$$('[data-hard]').forEach(b => b.onclick = () => { GM.setHard(b.dataset.hard === '1'); home(); });
     const ib = GM.$('#install');
     if (ib) {
@@ -129,6 +151,43 @@
       e.preventDefault();
       const n = await GM.prompt('Your leaderboard name', GM.getName(), 'e.g. Joel');
       if (n != null && n.trim()) { GM.store.set('name', n.trim().slice(0, 20)); home(); }
+    };
+  }
+
+  /* ---------------------------------------------------------------- settings */
+  function settings() {
+    const seg = (id, opts, on) => `<div class="seg" id="${id}">${Object.entries(opts).map(([k, l]) => `<button data-v="${k}" class="${k === String(on) ? 'on' : ''}">${l}</button>`).join('')}</div>`;
+    const build = GM.appBuild(), snd = GM.sound.settings();
+    app.innerHTML = `<div class="topbar"><a href="#/" class="back">‹</a><h2>⚙️ Settings</h2><span></span></div>
+      <section class="settings">
+        <div class="setting"><b>Appearance</b><small>Auto follows your phone's light or dark setting</small>${seg('s-theme', GM.THEMES, GM.getTheme())}</div>
+        <div class="setting"><b>Sound effects</b><small>Whistles, reels, the crowd and the goal horn</small>${seg('s-sfx', { true: '🔊 On', false: '🔇 Off' }, snd.sfx)}
+          <label class="vol">🔈<input type="range" id="s-sfxvol" min="0" max="1" step="0.05" value="${snd.sfxVol}">🔊</label></div>
+        <div class="setting"><b>Music</b><small>A background track while you play</small>${seg('s-bg', { off: '🔇 Off', music: '🎵 On' }, snd.bg)}
+          <label class="vol">🔈<input type="range" id="s-bgvol" min="0" max="1" step="0.05" value="${snd.bgVol}">🔊</label></div>
+        <div class="setting"><b>Difficulty</b><small>Hard shows names and positions only, with fewer stars on the reels</small>${seg('s-hard', { false: '🙂 Normal', true: '🥵 Hard' }, GM.isHard())}</div>
+        <div class="setting"><b>Vibration</b><small>A little buzz on taps, hops and wins (phones only)</small>${seg('s-buzz', { true: '📳 On', false: '🔕 Off' }, GM.store.get('buzz', true))}</div>
+        <div class="setting"><b>Leaderboard name</b><small>${GM.esc(GM.getName() || 'Not set yet')}</small><button class="btn ghost small" id="s-name">✏️ Change name</button></div>
+      </section>
+      <section class="settings links">
+        <a href="#/updates">📰 Updates & version history ${GM.hasUnseenUpdate() ? '<i class="new-dot inline"></i>' : ''}<span>›</span></a>
+        <a href="#/about">ℹ️ About the data<span>›</span></a>
+        ${build == null ? `<a href="${GM.APK_URL}">🤖 Android app (APK)<span>›</span></a>` : ''}
+      </section>
+      <p class="muted center">Goal Machine v${GM.VERSION}${build != null ? ` · App build ${build}` : ''}<br>Made by Opportunistic Games</p>`;
+    const wire = (id, fn) => GM.$$('#' + id + ' [data-v]').forEach(b => b.onclick = () => {
+      fn(b.dataset.v); GM.buzz(); GM.$$('#' + id + ' button').forEach(x => x.classList.toggle('on', x === b));
+    });
+    wire('s-theme', v => GM.setTheme(v));
+    wire('s-hard', v => GM.setHard(v === 'true'));
+    wire('s-buzz', v => GM.store.set('buzz', v === 'true'));
+    wire('s-sfx', v => { GM.sound.set('sfx', v === 'true'); GM.sound.play('whistle'); });
+    wire('s-bg', v => GM.sound.set('bg', v));
+    GM.$('#s-sfxvol').onchange = e => { GM.sound.set('sfxVol', +e.target.value); GM.sound.play('good'); };
+    GM.$('#s-bgvol').oninput = e => GM.sound.set('bgVol', +e.target.value);
+    GM.$('#s-name').onclick = async () => {
+      const n = await GM.prompt('Your leaderboard name', GM.getName(), 'e.g. Joel');
+      if (n != null && n.trim()) { GM.store.set('name', n.trim().slice(0, 20)); settings(); }
     };
   }
 
@@ -183,13 +242,27 @@
       <p>Goal Machine includes <b>${GM.players.length.toLocaleString()}</b> players who have made at least <b>50 Premier League appearances</b> since 1992/93, with their PL goals, assists, appearances, clubs, positions and nationality, plus honours for the full-time badges. Stats include matches up to <b>${GM.dataDate}</b> and refresh automatically every week.</p>
       <p>Stats are stitched together from public datasets: the official premierleague.com player pages (1992–2020), Fantasy Premier League gameweek data (2016–today) and Understat season stats (2014–2016). Which club a player was at in each season (for chemistry and title badges) comes from Transfermarkt transfer records. Assists after 2020 are FPL assists, which run slightly higher than the official count. A handful of players’ early seasons are estimated from minutes played, so the odd tally might be off by a game or a goal.</p>
       <p>Only Premier League appearances and goals count – no cups, Europe or Championship seasons.</p>
+      <p>📸 Player photos come from the Premier League, Transfermarkt and Wikimedia Commons (<a href="#/credits">photo credits</a>). Players without a photo show their initials in their club colours.</p>
       <p>📲 Android app: <a href="${GM.APK_URL}">download the latest APK</a>. Game updates arrive automatically in the app.</p>
       <p>This is a fan-made game inspired by FourFourTwo’s 442GOALS and is not affiliated with the Premier League or FourFourTwo.</p>
       </div>`;
   }
 
+  // Wikimedia Commons photos are freely licensed but need crediting
+  function credits() {
+    const list = GM.players.filter(p => p.photo && p.photo.w).sort((a, b) => a.name.localeCompare(b.name));
+    app.innerHTML = `<div class="topbar"><a href="#/about" class="back">‹</a><h2>📸 Photo credits</h2><span></span></div>
+      <p class="muted">These photos come from Wikimedia Commons under the licences shown. Tap one to see the original file and its full licence. Other photos are from premierleague.com and Transfermarkt.</p>
+      <div class="plist">${list.length ? list.map(p => `<a class="prow credit" href="${GM.esc(p.photo.u)}" target="_blank" rel="noopener">${GM.avatar(p)}<div><b>${GM.esc(p.name)}</b>
+        <small>📷 ${GM.esc(p.photo.a)} · ${GM.esc(p.photo.l)}</small></div></a>`).join('') : '<div class="muted">No Wikimedia photos in use yet.</div>'}</div>`;
+  }
+
   window.addEventListener('hashchange', route);
   route();
+  // loading screen off, then (once per release) what's new
+  const splash = document.getElementById('splash');
+  if (splash) { splash.classList.add('gone'); setTimeout(() => splash.remove(), 500); }
+  if (!parseHash().path) setTimeout(GM.maybeShowWhatsNew, 600);
 
   if ('serviceWorker' in navigator && location.protocol === 'https:') {
     // when a new version's service worker takes over, reload once so the new files are used straight away

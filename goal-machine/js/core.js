@@ -168,8 +168,12 @@ GM.today = () => { const d = new Date(); return `${d.getFullYear()}-${String(d.g
 GM.sleep = ms => new Promise(r => setTimeout(r, ms));
 // A little tear-off calendar showing today's real date (instead of the emoji's fixed "July 17"); sized in em like an emoji
 GM.calIcon = function () {
-  const d = new Date();
-  return `<span class="cal-ico" aria-label="${d.toDateString()}"><span class="cal-m">${d.toLocaleDateString('en-GB', { month: 'short' }).toUpperCase()}</span><span class="cal-d">${d.getDate()}</span></span>`;
+  // drawn as SVG so the month and day always fit, whatever font the phone has; textLength squeezes wide months
+  const d = new Date(), m = d.toLocaleDateString('en-GB', { month: 'short' }).slice(0, 3).toUpperCase(), n = d.getDate();
+  return `<svg class="cal-ico" viewBox="0 0 40 42" role="img" aria-label="${d.toDateString()}"><rect x="1" y="2" width="38" height="39" rx="7" fill="#fff" stroke="rgba(0,0,0,.18)" stroke-width="1.5"/>`
+    + `<path d="M1 9a7 7 0 0 1 7-7h24a7 7 0 0 1 7 7v5H1z" fill="#e5484d"/>`
+    + `<text x="20" y="11.6" text-anchor="middle" font-family="Inter,Arial,sans-serif" font-weight="800" font-size="9" fill="#fff" textLength="22" lengthAdjust="spacingAndGlyphs">${m}</text>`
+    + `<text x="20" y="35" text-anchor="middle" font-family="Inter,Arial,sans-serif" font-weight="800" font-size="20" fill="#10261d"${n > 9 ? ' textLength="24" lengthAdjust="spacingAndGlyphs"' : ''}>${n}</text></svg>`;
 };
 
 // Wordle-style results spread for the "biggest total" drafts: eight bands per stat, e.g. under 200 … 800+ goals
@@ -515,18 +519,26 @@ GM.HARD_MODES = ['ultimate', 'ultimateast', 'ultimateapps', 'target', 'targetast
 GM.isHard = () => GM.store.get('hard', false);
 GM.setHard = v => GM.store.set('hard', !!v);
 
-// Look: 'light' (default), 'dark', or 'auto' to follow the phone. index.html applies it before first paint too.
-GM.THEMES = { light: '☀️ Light', dark: '🌙 Dark', auto: '📱 Auto' };
+// Look: 'light' (default), 'dark', 'auto' to follow the phone, or 'club' (dark, in your favourite club's colours).
+// index.html applies it before first paint too.
+GM.THEMES = { light: '☀️ Light', dark: '🌙 Dark', auto: '📱 Auto', club: '🏟️ Club' };
 GM.getTheme = () => GM.store.get('theme', 'light');
+// Inside the Android app the page always hears "dark" from prefers-color-scheme, so ask the app (build 12+) instead
+GM.phoneDark = () => {
+  try { if (window.AndroidApp && typeof AndroidApp.nightMode === 'function') return !!AndroidApp.nightMode(); } catch (e) { }
+  return !!(window.matchMedia && matchMedia('(prefers-color-scheme: dark)').matches);
+};
 GM.applyTheme = function () {
-  const t = GM.getTheme();
-  const dark = t === 'dark' || (t === 'auto' && window.matchMedia('(prefers-color-scheme: dark)').matches);
-  document.documentElement.dataset.theme = dark ? 'dark' : 'light';
+  const t = GM.getTheme(), root = document.documentElement;
+  const dark = t === 'dark' || t === 'club' || (t === 'auto' && GM.phoneDark());
+  root.dataset.theme = dark ? 'dark' : 'light';
+  root.classList.toggle('club-theme', t === 'club');
   const meta = document.querySelector('meta[name="theme-color"]');
-  if (meta) meta.content = dark ? '#0b3d2e' : '#eef2ee';
+  if (meta) meta.content = t === 'club' ? getComputedStyle(root).getPropertyValue('--bg2').trim() || '#0b3d2e' : dark ? '#0b3d2e' : '#eef2ee';
 };
 GM.setTheme = t => { GM.store.set('theme', t); GM.applyTheme(); };
 if (window.matchMedia) window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => GM.getTheme() === 'auto' && GM.applyTheme());
+document.addEventListener('visibilitychange', () => { if (!document.hidden && GM.getTheme() === 'auto') GM.applyTheme(); });
 GM.applyTheme();
 
 // Little buzz on phones that support it (the Android app included)

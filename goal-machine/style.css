@@ -260,6 +260,7 @@ footer { margin-top: 24px; }
 .stat-pick { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
 .stat-btn { flex: 1 1 90px; display: flex; flex-direction: column; align-items: center; padding: 9px 6px; border-radius: 10px; background: rgba(255,255,255,.12); color: var(--text); text-decoration: none; font-weight: 800; font-size: .88rem; border: 1px solid rgba(255,255,255,.2); text-align: center; }
 .stat-btn:hover { background: rgba(255,255,255,.2); }
+.stat-btn .sb-ico { font-style: normal; font-size: 1.15rem; line-height: 1.2; }
 .stat-btn small { color: var(--hi2); font-weight: 700; font-size: .7rem; }
 .mode-card .mode-text small { display: block; }
 .report { background: var(--panel); border: 1px solid var(--line); border-radius: var(--r); padding: 14px; margin: 10px 0; display: grid; gap: 8px; }
@@ -370,7 +371,7 @@ h2, h3 { letter-spacing: .3px; }
 
 /* section headings: a lime tab, not a ribbon */
 .section-title { display: flex; align-items: center; gap: 8px; color: var(--text); font: 700 1.05rem Oswald, sans-serif; letter-spacing: 1px; margin: 22px 0 10px; }
-.section-title::before { content: ''; width: 6px; height: 18px; border-radius: 3px; background: var(--accent); box-shadow: 0 0 0 1px var(--edge); }
+.section-title::before { content: ''; width: 5px; height: 18px; border-radius: 3px; background: var(--hi); }
 
 /* the featured Ultimate card */
 .mode-card.featured, .mode-card.featured.ultimate { color: #fff; box-shadow: 0 5px 0 #1c0b4d; border: 0; }
@@ -621,16 +622,14 @@ h2, h3 { letter-spacing: .3px; }
 .club-tile .stat-btn { color: var(--club-ink, #fff); border-color: color-mix(in srgb, var(--club-trim, #fff) 50%, transparent); }
 .has-club body::before { content: ''; position: fixed; top: 0; left: 0; right: 0; height: 5px; z-index: 45;
   background: repeating-linear-gradient(90deg, var(--club-main) 0 22px, var(--club-trim) 22px 30px); }
-.has-club .section-title::before { background: var(--club-main); box-shadow: 0 0 0 2px var(--club-trim); }
+.has-club .section-title::before { background: var(--club-main); }
 .has-club .tabbar a.on { background: color-mix(in srgb, var(--club-main) 18%, transparent); }
 .has-club .appbar .icon-btn { border-color: color-mix(in srgb, var(--club-main) 45%, transparent); }
 .fan-chip .chip { font-size: .72rem; vertical-align: middle; }
 .tile.done .tile-pb { left: 46px; }
 
 /* v14: live calendar icon + results spread */
-.cal-ico { display: inline-flex; flex-direction: column; width: 1.05em; height: 1.1em; border-radius: .16em; overflow: hidden; vertical-align: -0.18em; background: #fff; box-shadow: 0 .06em 0 rgba(0,0,0,.25), 0 0 0 .03em rgba(0,0,0,.12); font-style: normal; line-height: 1; }
-.cal-ico .cal-m { display: block; width: 100%; max-width: none; background: #e5484d; color: #fff; font: 800 .26em/1.45 Inter, sans-serif; text-align: center; letter-spacing: .02em; text-transform: none; text-shadow: none; }
-.cal-ico .cal-d { flex: 1; display: flex; align-items: center; justify-content: center; width: 100%; color: #10261d; font: 800 .56em/1 Inter, sans-serif; text-shadow: none; }
+.cal-ico { display: inline-block; width: 1.05em; height: 1.1em; vertical-align: -0.18em; overflow: visible; }
 .tile-icon .cal-ico { transform: rotate(-4deg); }
 .tabbar .cal-slot { font-style: normal; }
 .dist { margin: 10px 0; padding: 12px; border-radius: 16px; background: var(--panel); border: 1px solid var(--line); box-shadow: 0 3px 0 var(--edge); display: grid; gap: 4px; text-align: left; }
@@ -641,7 +640,7 @@ h2, h3 { letter-spacing: .3px; }
 .dist i.me { background: #22a06b; animation: pop .5s; }
 .dist small { color: var(--muted); font-size: .7rem; text-align: right; }
 .tabbar a > span { display: flex; align-items: center; justify-content: center; height: 1.3em; line-height: 1; }
-.tabbar .cal-ico { vertical-align: 0; font-size: .9em; }
+.tabbar .cal-ico { vertical-align: 0; width: 1em; height: 1.05em; }
 
 /* ================================================================ v15: layout tidy-up */
 /* titles with an icon (e.g. the calendar) stay on one line */
@@ -730,3 +729,14 @@ h2, h3 { letter-spacing: .3px; }
 .mode-card .variant button span { font-size: 1rem; line-height: 1.1; }
 .mode-card .wild-switch { margin-top: 6px; }
 .mode-card .wild-switch button { flex-direction: row; justify-content: center; font-size: .74rem; padding: 6px 2px; }
+
+/* v16: the Club look - the dark theme re-tinted in your favourite club's colours */
+:root.has-club.club-theme {
+  --bg: color-mix(in srgb, var(--club-main) 30%, #05100b); --bg2: color-mix(in srgb, var(--club-main) 42%, #07130e);
+  --panel: color-mix(in srgb, var(--club-main) 48%, #0c1813); --panel2: color-mix(in srgb, var(--club-main) 56%, #13211a);
+  --bg-grad: color-mix(in srgb, var(--club-main) 70%, #000); --modal: var(--bg2);
+  --nav: color-mix(in srgb, var(--club-main) 28%, rgba(5,16,11,.94));
+  --accent: var(--club-light); --hi: var(--club-light); --link: var(--club-light); --logo1: var(--club-light);
+  --btn-edge: color-mix(in srgb, var(--club-light) 55%, #000);
+}
+:root.club-theme .btn.spin { background: linear-gradient(180deg, color-mix(in srgb, var(--club-light) 60%, #fff), var(--club-light)); box-shadow: 0 6px 0 var(--btn-edge); }

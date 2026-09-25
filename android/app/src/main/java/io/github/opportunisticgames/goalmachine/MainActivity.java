@@ -3,6 +3,7 @@ package io.github.opportunisticgames.goalmachine;
 import android.app.Activity;
 import android.content.ActivityNotFoundException;
 import android.content.Intent;
+import android.content.res.Configuration;
 import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
@@ -105,6 +106,17 @@ public class MainActivity extends Activity {
         }
     }
 
+    /** The phone switched between light and dark: tell the page, so the Auto look follows it straight away. */
+    @Override
+    public void onConfigurationChanged(Configuration newConfig) {
+        super.onConfigurationChanged(newConfig);
+        if (web != null) web.evaluateJavascript("window.GM && GM.applyTheme && GM.applyTheme()", null);
+    }
+
+    private boolean isNight() {
+        return (getResources().getConfiguration().uiMode & Configuration.UI_MODE_NIGHT_MASK) == Configuration.UI_MODE_NIGHT_YES;
+    }
+
     @Override
     protected void onSaveInstanceState(Bundle outState) {
         super.onSaveInstanceState(outState);
@@ -149,6 +161,13 @@ public class MainActivity extends Activity {
         @JavascriptInterface
         public int version() {
             return BuildConfig.VERSION_CODE;
+        }
+
+        /** Whether the phone is in dark mode. The app's own window style is always dark, so the page can't rely on
+         *  prefers-color-scheme inside the app; the Auto look asks this instead. */
+        @JavascriptInterface
+        public boolean nightMode() {
+            return isNight();
         }
 
         /** Reloads the site after the offline screen. */

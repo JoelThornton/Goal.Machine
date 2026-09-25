@@ -82,7 +82,7 @@
     const club = GM.favClub();
     const statBtn = (m, s, label) => {
       const st = GM.STATS[s], best = m === 'club' ? GM.best(GM.draft.modeKey(m, s, false, club)) : pb(GM.draft.modeKey(m, s, false));
-      return `<a class="stat-btn" href="#/draft?m=${m}&s=${s}${m === 'club' ? '&c=' + encodeURIComponent(club) : ''}">${st.icon} ${label || st.name}${best ? `<small>PB ${best.toLocaleString()}</small>` : ''}</a>`;
+      return `<a class="stat-btn" href="#/draft?m=${m}&s=${s}${m === 'club' ? '&c=' + encodeURIComponent(club) : ''}"><i class="sb-ico">${st.icon}</i>${label || st.name}${best ? `<small>PB ${best.toLocaleString()}</small>` : ''}</a>`;
     };
     const tile = (href, cls, icon, title, sub, best, extra = '') =>
       `<a class="tile ${cls}" href="${href}"><span class="tile-icon">${icon}</span>${best ? `<span class="tile-pb">PB ${best.toLocaleString()}</span>` : ''}<b>${title}</b><small>${sub}</small>${extra}</a>`;
@@ -191,7 +191,7 @@
             <div class="setting-btns"><button class="btn ghost small" id="s-move">📲 Move to another phone</button><button class="btn ghost small" id="s-name">✏️ New name</button></div>`
           : `<small>${GM.getName() ? `You play as “${GM.esc(GM.getName())}”, but it isn't claimed yet.` : 'No leaderboard name yet.'} Claim a unique name so nobody else can post scores as you.</small>
             <div class="setting-btns"><button class="btn small" id="s-name">🔒 Claim a name</button><button class="btn ghost small" id="s-code">🔑 I have a transfer code</button></div>`}</div>
-        <div class="setting"><b>Appearance</b><small>Auto follows your phone's light or dark setting</small>${seg('s-theme', GM.THEMES, GM.getTheme())}</div>
+        <div class="setting"><b>Appearance</b><small>Auto follows your phone's light or dark setting. Club paints the game in your favourite club's colours</small>${seg('s-theme', GM.THEMES, GM.getTheme())}</div>
         <div class="setting"><b>Favourite club</b><small>Unlocks Club Footle and Club XI, and brings your club's colours to the app</small>
           <select class="input" id="s-club"><option value="">None</option>${GM.clubOptions().map(c => `<option ${c === GM.favClub() ? 'selected' : ''}>${GM.esc(c)}</option>`).join('')}</select></div>
         <div class="setting"><b>Sound effects</b><small>Whistles, reels, the crowd and the goal horn</small>${seg('s-sfx', { true: '🔊 On', false: '🔇 Off' }, snd.sfx)}
@@ -212,7 +212,7 @@
     const wire = (id, fn) => GM.$$('#' + id + ' [data-v]').forEach(b => b.onclick = () => {
       fn(b.dataset.v); GM.buzz(); GM.$$('#' + id + ' button').forEach(x => x.classList.toggle('on', x === b));
     });
-    wire('s-theme', v => GM.setTheme(v));
+    wire('s-theme', v => { GM.setTheme(v); if (v === 'club' && !GM.favClub()) GM.toast('🏟️ Pick your favourite club below to see its colours'); });
     wire('s-hard', v => GM.setHard(v === 'true'));
     wire('s-buzz', v => GM.store.set('buzz', v === 'true'));
     GM.$('#s-club').onchange = e => { GM.setFavClub(e.target.value); GM.sound.play('whistle'); if (e.target.value) GM.toast(`🏟️ Welcome, ${GM.esc(GM.clubShort(e.target.value))} fan!`); };

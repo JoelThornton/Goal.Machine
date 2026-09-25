@@ -34,7 +34,12 @@
     root.style.setProperty('--club-main', main);
     root.style.setProperty('--club-trim', trim);
     root.style.setProperty('--club-ink', lum(main) > 0.6 ? '#10261d' : '#ffffff');
+    // the Club look's accent (buttons, highlights) needs to be bright on a dark background: the lighter club colour,
+    // lifted towards white if it's still dark (e.g. navy and white -> white; gold and black -> gold)
+    const light = lum(bg) > lum(fg) ? bg : fg;
+    root.style.setProperty('--club-light', lum(light) < 0.5 ? `color-mix(in srgb, ${light} 45%, #fff)` : light);
     root.classList.add('has-club');
+    if (GM.applyTheme) GM.applyTheme();  // the Club look's bar colour
   };
   GM.setFavClub = c => { store.set('club', c); GM.applyClub(); };
   GM.applyClub();

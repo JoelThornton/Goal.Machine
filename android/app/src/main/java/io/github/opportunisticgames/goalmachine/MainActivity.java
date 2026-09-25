@@ -1,4 +1,4 @@
-package io.github.joelthornton.goalmachine;
+package io.github.opportunisticgames.goalmachine;
 
 import android.app.Activity;
 import android.content.Intent;
@@ -13,7 +13,7 @@ import android.webkit.WebViewClient;
 
 /** Goal Machine for Android: a full-screen WebView around the live site, so the app always has the latest version. */
 public class MainActivity extends Activity {
-    private static final String HOST = "joelthornton.github.io";
+    private static final String HOST = "opportunisticgames.github.io";
     private static final String URL = "https://" + HOST + "/goal-machine/";
 
     private WebView web;

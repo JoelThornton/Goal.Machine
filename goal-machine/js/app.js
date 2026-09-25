@@ -73,7 +73,7 @@
       </header>
       <div class="hard-toggle" role="group" aria-label="Difficulty">
         <button class="${hard ? '' : 'on'}" data-hard="0">🙂 Normal<small>clubs, years &amp; apps shown</small></button>
-        <button class="${hard ? 'on' : ''}" data-hard="1">🥵 Hard<small>names &amp; positions only</small></button>
+        <button class="${hard ? 'on' : ''}" data-hard="1">🥵 Hard<small>names &amp; positions only, fewer stars</small></button>
       </div>
       <div class="mode-card featured ultimate big-card">
         <span class="mode-icon">👑</span>

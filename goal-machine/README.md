@@ -3,7 +3,7 @@
 A fan-made take on FourFourTwo's 442GOALS: build a 4-4-2 whose players have scored exactly **442 Premier League goals**.
 It includes **2,039 players**: everyone with 50+ PL appearances from 1992/93 to today.
 
-Live (once merged to the Pages branch): `https://joelthornton.github.io/goal-machine/`
+Live: `https://opportunisticgames.github.io/goal-machine/` (a free site by Opportunistic Games)
 
 ## Modes
 
@@ -19,6 +19,11 @@ Live (once merged to the Pages branch): `https://joelthornton.github.io/goal-mac
 | 🕵️ Who Am I? | Guess the player from clues |
 | #️⃣ Club Grid | Immaculate-Grid style (daily or random). Obscure answers score more |
 | 🔢 Guess the Tally | How many PL goals did he score? |
+
+**🥵 Hard mode** (the toggle on the home screen):
+- **All games:** cards show only names and positions (no clubs, years, apps, nationality, photos or club colours), and the Who Am I?, Club Grid and Club Hopper suggestions list names only.
+- **Target, The Treble and Mystery Target:** the reels also show far fewer stars. The weighting is square-rooted, so Shearer is about 4× as likely as an average player instead of about 16×, while the targets stay the same. Always taking the biggest number reaches 500 goals in about 18% of games, against 74% in normal mode.
+- **Leaderboards:** hard scores have their own boards.
 
 You keep spinning until the XI is full. Tap a player, then tap one of the highlighted slots he can play.
 
@@ -73,7 +78,7 @@ It is a PWA, so it works offline and can be installed:
 
 - **Android (Chrome):** open the site and tap *📲 Install app* on the home screen (or ⋮ → *Install app*).
 - **iPhone (Safari):** Share → *Add to Home Screen*.
-- **Android APK:** download it from https://github.com/JoelThornton/JoelThornton.github.io/releases/latest/download/goal-machine.apk. The `android/` folder is a small WebView app around the live site, and the *Android APK* GitHub Actions workflow rebuilds and publishes it whenever `android/` changes on `master`. Because the app loads the live site, game updates need no new APK.
+- **Android APK:** download it from https://github.com/OpportunisticGames/opportunisticgames.github.io/releases/latest/download/goal-machine.apk. The `android/` folder is a small WebView app around the live site, and the *Android APK* GitHub Actions workflow rebuilds and publishes it whenever `android/` changes on `master`. Because the app loads the live site, game updates need no new APK.
 
 ## Global leaderboard
 

@@ -924,3 +924,14 @@ body.chaos-mode .reel .reel-goals { background: rgba(0, 0, 0, .35); color: #ffe6
 .chaos-card { position: relative; }
 .welcome { text-align: center; } .welcome .wl-icon { font-size: 3.4rem; animation: pop .4s; } .welcome p { line-height: 1.5; }
 .wl-dots { display: flex; justify-content: center; gap: 6px; margin: 10px 0; } .wl-dots i { width: 8px; height: 8px; border-radius: 50%; background: var(--line); } .wl-dots i.on { background: var(--accent); width: 20px; border-radius: 4px; }
+.nstatus { display: grid; gap: 3px; margin: 6px 0; font-size: .8rem; }
+/* profile pictures */
+.avatar.upic img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+.avatar.upic.lg { width: 64px; height: 64px; font-size: 1.2rem; } .avatar.upic.xl { width: 110px; height: 110px; font-size: 2rem; margin: 0 auto 6px; }
+.avatar.upic.board { width: 40px; height: 40px; margin: 0 auto 2px; display: flex; border-color: rgba(255,255,255,.85); }
+.pic-row { display: grid; grid-template-columns: auto 1fr; gap: 12px; align-items: center; margin: 10px 0; }
+.pic-row small { display: block; } .pic-row label.btn { cursor: pointer; }
+.online-me { justify-content: flex-start; } .online-me .btn { margin-left: auto; } .me-pic { text-decoration: none; }
+.friend .f-av { width: auto; height: auto; padding: 0; background: none; border: 0; cursor: pointer; }
+.og-icon { position: relative; } .og-icon .avatar { width: 40px; height: 40px; } .og-icon i { position: absolute; right: -6px; bottom: -4px; font-style: normal; font-size: 1rem; }
+.league li b { display: flex; align-items: center; gap: 8px; min-width: 0; } .league li .avatar { width: 28px; height: 28px; font-size: .62rem; }

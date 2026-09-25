@@ -89,7 +89,7 @@ It's doable, but a few things need you (accounts and keys) and there are two rea
 - **Ads:** No ads.
 - **App access:** Everything is available without logging in.
 - **Content rating (IARC questionnaire):** trivia/quiz game; no violence, gambling, sexual content, drugs or user-to-user
-  chat. Users can see other users' chosen names on leaderboards, which counts as limited user-generated content.
+  chat. Users can see other users' chosen names on leaderboards and friends' profile pictures (user-generated content, with reporting), so answer yes to users sharing content and describe the report button.
   Expect PEGI 3 / Everyone.
   - The wildcards are luck-based, but there's no real money, betting or purchases, so answer **no** to gambling.
 - **Target audience:** 13+ (avoids the extra Families policy requirements). Not designed for children.
@@ -98,7 +98,8 @@ It's doable, but a few things need you (accounts and keys) and there are two rea
     Purpose: App functionality. Not shared with third parties. Not optional for leaderboard use (optional overall).
   - **User IDs:** the random account key hash counts as an identifier. Purpose: App functionality / Account management.
   - Data is encrypted in transit (HTTPS): **yes**. Users can request deletion: **yes** (see the privacy policy).
-  - No location, contacts, photos, financial, health, device IDs or analytics.
+  - **Photos and videos → Photos** (optional profile picture, shown to friends and opponents). Purpose: App functionality. Optional. Users can report pictures and remove their own.
+  - No location, contacts, financial, health, device IDs or analytics.
 - **Government / news / health / finance declarations:** none apply.
 
 ## Nice to have later

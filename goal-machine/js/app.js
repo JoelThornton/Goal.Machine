@@ -260,6 +260,8 @@
       <section class="settings">
         <div class="setting"><b>Account</b>${GM.account()
           ? `<small>Your leaderboard name is <b>🔒 ${GM.esc(GM.account().name)}</b>. It's yours alone: only this device can post scores with it.</small>
+            <div class="pic-row">${GM.userPic(GM.account().name, 'lg')}<div><b>Profile picture</b><small>Friends and opponents see it in online games and your weekly league</small>
+              <div class="setting-btns"><label class="btn small">📷 Choose a photo<input type="file" id="s-pic" accept="image/*" hidden></label><button class="btn ghost small" id="s-picdel">Remove</button></div></div></div>
             <div class="setting-btns"><button class="btn ghost small" id="s-move">📲 Move to another phone</button><button class="btn ghost small" id="s-name">✏️ New name</button></div>
             <div class="setting-btns"><button class="btn ghost small" id="s-backup">☁️ Back up now</button><button class="btn ghost small" id="s-restore">⤵️ Restore a backup</button></div>
             <small>${GM.store.get('backupAt', 0) ? `Last backup: ${new Date(GM.store.get('backupAt')).toLocaleString(undefined, { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}. ` : ''}Your album, stats, streaks and scores back up automatically after games.</small>
@@ -274,8 +276,9 @@
         <div class="setting"><b>Music</b><small id="s-bg-about"></small>${seg('s-bg', { off: '🔇 Off', music: '🎹 Game', tunes: '🎧 Soundtrack' }, snd.bg)}
           <label class="vol">🔈<input type="range" id="s-bgvol" min="0" max="1" step="0.05" value="${snd.bgVol}">🔊</label>
           <div class="now-playing" id="s-now" hidden><span></span><button class="btn ghost small" id="s-skip">⏭ Next song</button></div></div>
-        ${GM.app('notificationsAllowed') !== undefined ? `<div class="setting"><b>Notifications</b><small>A whistle when a friend challenges you, it's your move, or a game finishes</small>
-          <div class="setting-btns"><span class="muted">${GM.app('notificationsAllowed') ? '🔔 On' : '🔕 Off'}</span><button class="btn ghost small" id="s-notif">Change in phone settings</button></div></div>` : ''}
+        ${GM.app('notificationsAllowed') !== undefined ? `<div class="setting"><b>Notifications</b><small>A whistle when a friend challenges you, it's your move, or a game finishes. The app checks about every 15 minutes while it's closed.</small>
+          <div id="s-nstatus" class="nstatus"></div>
+          <div class="setting-btns"><button class="btn ghost small" id="s-ntest">🔔 Send a test</button><button class="btn ghost small" id="s-ncheck">🔄 Check now</button><button class="btn ghost small" id="s-notif">⚙️ Phone settings</button></div></div>` : ''}
         <div class="setting"><b>Difficulty</b><small>Hard shows names and positions only, with fewer stars on the reels</small>${seg('s-hard', { false: '🙂 Normal', true: '🥵 Hard' }, GM.isHard())}</div>
         <div class="setting"><b>Vibration</b><small>A little buzz on taps, hops and wins (phones only)</small>${seg('s-buzz', { true: '📳 On', false: '🔕 Off' }, GM.store.get('buzz', true))}</div>
       </section>
@@ -292,6 +295,32 @@
       fn(b.dataset.v); GM.buzz(); GM.$$('#' + id + ' button').forEach(x => x.classList.toggle('on', x === b));
     });
     const nb = GM.$('#s-notif'); if (nb) nb.onclick = () => GM.app('openNotificationSettings');
+    // notification health, from the app (build 16+): permission, the 15-minute check, and what it last found
+    const nstatus = () => {
+      const el = GM.$('#s-nstatus'); if (!el) return;
+      let st = null; try { st = JSON.parse(GM.app('notifyStatus') || 'null'); } catch (e) { }
+      const allowed = GM.app('notificationsAllowed');
+      if (!st) { el.innerHTML = `<span>${allowed ? '🔔 Allowed' : '🔕 Not allowed'}</span><span class="muted">Update the app to see more</span>`; return; }
+      const ago = st.lastRun ? Math.round((Date.now() - st.lastRun) / 60000) : null;
+      el.innerHTML = `<span>${st.allowed && st.enabled ? '✅ Allowed' : '❌ Not allowed – tap Phone settings'}</span>
+        <span>${st.scheduled ? '✅ Checking every ~15 min' : GM.account() ? '⏳ Starts when you open the Online tab' : '🔒 Claim a name on the Online tab first'}</span>
+        <span>${ago == null ? 'No check yet' : `Last check ${ago < 1 ? 'just now' : ago + ' min ago'}: ${GM.esc(st.lastResult)}${st.lastCount >= 0 ? ` · ${st.lastCount} waiting` : ''}`}</span>`;
+    };
+    nstatus();
+    const nt = GM.$('#s-ntest');
+    if (nt) nt.onclick = () => {
+      if (GM.app('notificationsAllowed') === false) { GM.app('askNotifications'); GM.app('openNotificationSettings'); return; }
+      if (typeof (window.AndroidApp || {}).testNotification !== 'function') { GM.toast('Update the app to send a test'); return; }
+      GM.app('testNotification');
+      GM.toast('🔔 Sent – check your notifications');
+    };
+    const nc = GM.$('#s-ncheck');
+    if (nc) nc.onclick = () => {
+      if (GM.online && GM.online.check) { GM.online._checked = 0; GM.online.check(); }  // makes sure the app knows who you are
+      if (typeof (window.AndroidApp || {}).checkNow !== 'function') { GM.toast('Update the app for this'); return; }
+      GM.app('checkNow'); GM.toast('🔄 Checking…');
+      setTimeout(nstatus, 2500); setTimeout(nstatus, 6000);
+    };
     GM.$('#s-howto').onclick = e => { e.preventDefault(); GM.welcome(); };
     GM.$('#s-share').onclick = e => { e.preventDefault(); GM.shareGame(); };
     wire('s-theme', v => { GM.setTheme(v); if (v === 'club' && !GM.favClub()) GM.toast('🏟️ Pick your favourite club below to see its colours'); });
@@ -328,6 +357,17 @@
         <div class="row"><button class="btn ghost" data-close>Done</button><button class="btn" id="copycode">📋 Copy</button></div>`);
       GM.$('#copycode', m.el).onclick = async () => { try { await navigator.clipboard.writeText(code); GM.toast('Copied'); } catch (e) { GM.toast('Press and hold the code to copy it'); } };
     };
+    const pf = GM.$('#s-pic');
+    if (pf) pf.onchange = async () => {
+      const f = pf.files && pf.files[0]; if (!f) return;
+      let img;
+      try { img = await GM.shrinkPhoto(f); } catch (e) { GM.toast('That file isn’t a photo I can read'); return; }
+      const r = await GM.setMyPic(img);
+      GM.toast(r === 'ok' ? '📷 Looking good!' : r === 'offline' ? 'Couldn’t reach the server – try again' : 'Couldn’t use that photo');
+      settings();
+    };
+    const pd = GM.$('#s-picdel');
+    if (pd) pd.onclick = async () => { if ((await GM.setMyPic(null)) === 'ok') { GM.pics[GM.account().name.toLowerCase()] = null; settings(); } };
     const bk = GM.$('#s-backup');
     if (bk) bk.onclick = async () => {
       const r = await GM.backup.save(false);

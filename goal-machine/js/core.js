@@ -390,6 +390,59 @@ GM.useTransferCode = async function (code) {
   return r === 'taken' ? 'wrong_code' : r;
 };
 
+/* ------------------------------------------------------------------ 📷 profile pictures */
+// Players can add a picture to their account. It shows to friends and opponents (online games, friends, the weekly
+// league), not on the public leaderboards. GM.userPic(name) draws initials in a colour made from the name; any
+// [data-user] on the page then gets its picture filled in (fetched in batches, cached for the visit).
+GM.pics = {};
+GM.userPic = function (name, cls = '') {
+  const h = [...(name || '?')].reduce((a, c) => (a * 31 + c.charCodeAt(0)) >>> 0, 7) % 360;
+  const pic = GM.pics[(name || '').toLowerCase()];
+  return `<span class="avatar upic ${cls}" data-user="${GM.esc(name || '')}" style="--cb:hsl(${h} 55% 42%);--cf:#fff"><b>${GM.esc(GM.initials(name || '?'))}</b>${pic ? `<img src="${pic}" alt="">` : ''}</span>`;
+};
+GM.fillPics = async function () {
+  const els = GM.$$('[data-user]'), want = [...new Set(els.map(e => e.dataset.user.toLowerCase()))].filter(n => n && !(n in GM.pics));
+  if (want.length && GM.lb.enabled) {
+    want.forEach(n => { GM.pics[n] = null; });  // asked for (null = none), so it isn't fetched twice
+    try {
+      const got = await GM.lb.rpc('get_avatars', { p_names: want.slice(0, 60) });
+      Object.entries(got || {}).forEach(([n, img]) => { GM.pics[n.toLowerCase()] = img; });
+    } catch (e) { want.forEach(n => { delete GM.pics[n]; }); return; }
+  }
+  GM.$$('[data-user]').forEach(e => {
+    const img = GM.pics[e.dataset.user.toLowerCase()], cur = e.querySelector('img');
+    if (img && !cur) e.insertAdjacentHTML('beforeend', `<img src="${img}" alt="">`);
+    if (!img && cur) cur.remove();
+  });
+};
+// fill pictures in whenever new ones appear on the page
+new MutationObserver(() => { clearTimeout(GM._picT); GM._picT = setTimeout(() => { if (document.querySelector('[data-user]')) GM.fillPics(); }, 60); })
+  .observe(document.body, { childList: true, subtree: true });
+// a chosen photo → a 160×160 JPEG, cropped to the middle square
+GM.shrinkPhoto = function (file) {
+  return new Promise((res, rej) => {
+    const url = URL.createObjectURL(file), img = new Image();
+    img.onload = () => {
+      const s = Math.min(img.width, img.height), cv = document.createElement('canvas');
+      cv.width = cv.height = 160;
+      cv.getContext('2d').drawImage(img, (img.width - s) / 2, (img.height - s) / 2, s, s, 0, 0, 160, 160);
+      URL.revokeObjectURL(url);
+      res(cv.toDataURL('image/jpeg', 0.82));
+    };
+    img.onerror = () => { URL.revokeObjectURL(url); rej(new Error('not an image')); };
+    img.src = url;
+  });
+};
+GM.setMyPic = async function (dataUrl) {
+  const a = GM.account();
+  if (!a) return 'no_account';
+  try {
+    const r = await GM.lb.rpc('set_avatar', { p_user: a.name, p_key: a.key, p_image: dataUrl });
+    if (r === 'ok') GM.pics[a.name.toLowerCase()] = dataUrl;
+    return r;
+  } catch (e) { return 'offline'; }
+};
+
 /* ------------------------------------------------------------------ ☁️ backup */
 // Everything the game keeps on this phone (album, pick stats, streaks, scores, settings…) can be backed up under your
 // account and restored on another phone. The account key itself is never included.
@@ -469,7 +522,7 @@ GM.shareGame = () => GM.share('⚽ Goal Machine: spin the reels and build the bi
 GM.APK_URL = 'https://github.com/OpportunisticGames/opportunisticgames.github.io/releases/latest/download/goal-machine.apk';
 // Oldest Android app build that doesn't need replacing. Raise it after an app change players should pick up; older
 // apps then show an update link. Builds before AndroidApp.version() existed always count as out of date.
-GM.APP_MIN_BUILD = 15;  // build 15: the back button goes to the last menu page (and 13's notifications + dark mode)
+GM.APP_MIN_BUILD = 16;  // build 16: notifications that actually arrive (+ test / check now), the back button, dark mode
 // Which app we're in: 'play' (Google Play), 'sideload' (the GitHub APK) or 'web'. The Play version never offers APK
 // downloads (Play doesn't allow apps to update themselves) and skips photos we don't have the rights to.
 GM.channel = (() => { try { return window.AndroidApp && typeof window.AndroidApp.channel === 'function' ? window.AndroidApp.channel() : window.AndroidApp ? 'sideload' : 'web'; } catch (e) { return 'web'; } })();

@@ -32,7 +32,7 @@ import java.util.Set;
  *  referee's whistle) for each new item. The server decides everything - which function to call, the title, text and
  *  the link a tap opens - so new kinds of notification never need a new APK. Tapping one opens that page in the app. */
 public class GameCheckService extends JobService {
-    private static final int JOB_ID = 4242;
+    private static final int JOB_ID = 4243, OLD_JOB_ID = 4242;  // 4243: persisted across restarts (build 16+)
     private static final String CHANNEL = "moves_whistle";
     static final String PREFS = "online";
 
@@ -41,18 +41,20 @@ public class GameCheckService extends JobService {
         SharedPreferences p = ctx.getSharedPreferences(PREFS, MODE_PRIVATE);
         p.edit().putString("config", configJson).apply();
         JobScheduler js = (JobScheduler) ctx.getSystemService(Context.JOB_SCHEDULER_SERVICE);
-        if (js == null || js.getPendingJob(JOB_ID) != null) return;
+        if (js == null) return;
+        js.cancel(OLD_JOB_ID);
+        if (js.getPendingJob(JOB_ID) != null) return;
         js.schedule(new JobInfo.Builder(JOB_ID, new ComponentName(ctx, GameCheckService.class))
             .setRequiredNetworkType(JobInfo.NETWORK_TYPE_ANY)
             .setPeriodic(15 * 60 * 1000L)
-            .setPersisted(false)
+            .setPersisted(true)  // survives a phone restart (RECEIVE_BOOT_COMPLETED)
             .build());
     }
 
     @Override
     public boolean onStartJob(JobParameters params) {
         new Thread(() -> {
-            try { check(this); } catch (Exception e) { /* try again next time */ }
+            try { check(this, false); } catch (Exception e) { note(this, "error: " + e.getClass().getSimpleName() + " " + e.getMessage(), -1); }
             jobFinished(params, false);
         }).start();
         return true;
@@ -79,12 +81,46 @@ public class GameCheckService extends JobService {
         return Uri.parse("android.resource://" + ctx.getPackageName() + "/" + R.raw.whistle);
     }
 
-    static void check(Context ctx) throws Exception {
+    /** What the last check did, for the game's Settings page ("checked 4 minutes ago, 2 waiting"). */
+    static void note(Context ctx, String result, int count) {
+        ctx.getSharedPreferences(PREFS, MODE_PRIVATE).edit().putLong("lastRun", System.currentTimeMillis())
+            .putString("lastResult", result).putInt("lastCount", count).apply();
+    }
+
+    static boolean allowed(Context ctx) {
+        return Build.VERSION.SDK_INT < 33 || ctx.checkSelfPermission("android.permission.POST_NOTIFICATIONS") == android.content.pm.PackageManager.PERMISSION_GRANTED;
+    }
+
+    static String status(Context ctx) {
+        SharedPreferences p = ctx.getSharedPreferences(PREFS, MODE_PRIVATE);
+        JobScheduler js = (JobScheduler) ctx.getSystemService(Context.JOB_SCHEDULER_SERVICE);
+        NotificationManager nm = (NotificationManager) ctx.getSystemService(Context.NOTIFICATION_SERVICE);
+        try {
+            return new JSONObject().put("allowed", allowed(ctx)).put("enabled", nm.areNotificationsEnabled())
+                .put("scheduled", js != null && js.getPendingJob(JOB_ID) != null).put("configured", !p.getString("config", "").isEmpty())
+                .put("lastRun", p.getLong("lastRun", 0)).put("lastResult", p.getString("lastResult", "")).put("lastCount", p.getInt("lastCount", -1)).toString();
+        } catch (Exception e) { return "{}"; }
+    }
+
+    /** A sample notification, so players can check sound and permission. */
+    static void test(Context ctx) {
+        channel(ctx);
+        Intent open = new Intent(ctx, MainActivity.class);
+        PendingIntent pi = PendingIntent.getActivity(ctx, 1, open, PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
+        Notification.Builder nb = Build.VERSION.SDK_INT >= 26 ? new Notification.Builder(ctx, CHANNEL) : new Notification.Builder(ctx);
+        nb.setSmallIcon(R.drawable.ic_stat_ball).setColor(0xFF16803C).setContentTitle("⚽ Goal Machine notifications work!")
+            .setContentText("You'll hear this whistle when it's your move.").setContentIntent(pi).setAutoCancel(true);
+        if (Build.VERSION.SDK_INT < 26) nb.setSound(whistle(ctx)).setVibrate(new long[] { 0, 120, 80, 260 }).setPriority(Notification.PRIORITY_HIGH);
+        ((NotificationManager) ctx.getSystemService(Context.NOTIFICATION_SERVICE)).notify(1, nb.build());
+    }
+
+    /** force = "check now" from Settings: notify even while the game is open. */
+    static void check(Context ctx, boolean force) throws Exception {
         SharedPreferences p = ctx.getSharedPreferences(PREFS, MODE_PRIVATE);
         JSONObject cfg = new JSONObject(p.getString("config", "{}"));
         String url = cfg.optString("url"), key = cfg.optString("key"), rpc = cfg.optString("rpc", "app_inbox");
-        if (!url.startsWith("https://") || !rpc.matches("[a-z_]+")) return;
-        if (Build.VERSION.SDK_INT >= 33 && ctx.checkSelfPermission("android.permission.POST_NOTIFICATIONS") != android.content.pm.PackageManager.PERMISSION_GRANTED) return;
+        if (!url.startsWith("https://") || !rpc.matches("[a-z_]+")) { note(ctx, "not set up (open the Online tab)", -1); return; }
+        if (!allowed(ctx)) { note(ctx, "no permission", -1); return; }
         HttpURLConnection c = (HttpURLConnection) new URL(url + "/rest/v1/rpc/" + rpc).openConnection();
         c.setRequestMethod("POST");
         c.setConnectTimeout(15000);
@@ -96,22 +132,27 @@ public class GameCheckService extends JobService {
         try (OutputStream o = c.getOutputStream()) {
             o.write(cfg.optJSONObject("args") != null ? cfg.getJSONObject("args").toString().getBytes(StandardCharsets.UTF_8) : "{}".getBytes(StandardCharsets.UTF_8));
         }
-        if (c.getResponseCode() != 200) return;
+        if (c.getResponseCode() != 200) { note(ctx, "server said " + c.getResponseCode(), -1); return; }
         ByteArrayOutputStream buf = new ByteArrayOutputStream();
         try (InputStream in = c.getInputStream()) {
             byte[] b = new byte[4096];
             for (int n; (n = in.read(b)) > 0; ) buf.write(b, 0, n);
         }
         JSONArray items = new JSONArray(buf.toString("UTF-8"));
-        // each item is shown once (by id); anything that turns up while the game is open counts as seen
+        // each item is shown once (by id). While the game is on screen nothing is shown, and nothing is marked as seen
+        // either, so it still arrives once you've closed the app (build 15 marked it seen, so it never came)
         Set<String> seen = new HashSet<>(p.getStringSet("seen", new HashSet<>())), now = new HashSet<>();
+        boolean quiet = MainActivity.visible && !force;
+        int shown = 0;
         NotificationManager nm = (NotificationManager) ctx.getSystemService(Context.NOTIFICATION_SERVICE);
         channel(ctx);
         for (int i = 0; i < items.length(); i++) {
             JSONObject g = items.getJSONObject(i);
             String id = g.optString("id");
+            if (quiet) { if (seen.contains(id)) now.add(id); continue; }
             now.add(id);
-            if (seen.contains(id) || MainActivity.visible) continue;  // no need to buzz while they're playing
+            if (seen.contains(id)) continue;
+            shown++;
             String link = g.optString("link", "https://opportunisticgames.github.io/goal-machine/");
             Intent open = new Intent(Intent.ACTION_VIEW, Uri.parse(link), ctx, MainActivity.class);
             PendingIntent pi = PendingIntent.getActivity(ctx, id.hashCode(), open, PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
@@ -126,5 +167,6 @@ public class GameCheckService extends JobService {
             nm.notify(id.hashCode(), nb.build());
         }
         p.edit().putStringSet("seen", now).apply();
+        note(ctx, "ok" + (quiet ? " (game open, so saved for later)" : shown > 0 ? ", showed " + shown : ""), items.length());
     }
 }

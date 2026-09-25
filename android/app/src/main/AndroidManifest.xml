@@ -6,6 +6,8 @@
     <uses-permission android:name="android.permission.VIBRATE" />
     <!-- "your move" notifications for online games (Android 13+ asks the player first) -->
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <!-- so the 15-minute "your move" check carries on after the phone restarts -->
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
 
     <application
         android:allowBackup="true"

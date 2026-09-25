@@ -61,7 +61,7 @@
     if (q.join) return join(root, q.join);
     if (q.room) return room(root, q.room, q);
     root.innerHTML = `${top('Online')}
-      <div class="online-me"><span>Playing as <b>🔒 ${esc(me())}</b></span><button class="btn small" id="onew">⚔️ New game</button></div>
+      <div class="online-me"><a href="#/settings" class="me-pic">${GM.userPic(me())}</a><span>Playing as <b>🔒 ${esc(me())}</b></span><button class="btn small" id="onew">⚔️ New game</button></div>
       <div id="olists"><p class="muted center">Loading your games…</p></div>
       <h3 class="section-title">🏆 This week's league<span class="more" id="lgreset"></span></h3>
       <div class="seg wrap league-modes" id="lgmode">${LEAGUE.map(([k, l]) => `<button data-v="${k}" class="${k === GM.store.get('leagueMode', 'ultimate') ? 'on' : ''}">${l}</button>`).join('')}</div>
@@ -83,7 +83,7 @@
       if (!el) return;
       const daily = ['daily', 'dchaos', 'mbdaily'].includes(mode);
       el.innerHTML = (rows || []).length > 1 ? `<ol>${rows.map((r, i) => `<li class="${r.me ? 'me' : ''} ${r.score ? '' : 'none'}"><span class="lg-pos">${r.score ? ['🥇', '🥈', '🥉'][i] || i + 1 : '–'}</span>
-          <b>${esc(r.name)}${r.me ? ' (you)' : ''}</b><span class="lg-score">${r.score ? fmt(r.score) : 'not played'}${daily && r.games ? `<small>${r.games} day${r.games > 1 ? 's' : ''}</small>` : ''}</span></li>`).join('')}</ol>`
+          <b>${GM.userPic(r.name)} ${esc(r.name)}${r.me ? ' (you)' : ''}</b><span class="lg-score">${r.score ? fmt(r.score) : 'not played'}${daily && r.games ? `<small>${r.games} day${r.games > 1 ? 's' : ''}</small>` : ''}</span></li>`).join('')}</ol>`
         : '<p class="muted center">Add some friends and the league fills up with their best scores this week.</p>';
     };
     GM.$$('#lgmode button').forEach(b => b.onclick = () => { GM.store.set('leagueMode', b.dataset.v); GM.$$('#lgmode button').forEach(x => x.classList.toggle('on', x === b)); loadLeague(); });
@@ -114,7 +114,7 @@
           : g.kind === 'duel' ? (g.turn === seat ? '👉 Your pick' : `⏳ ${esc(opp)}’s pick`)
           : g.kind === 'auction' ? (myMove(g, seat) ? '👉 Your bid' : `⏳ Waiting for ${esc(opp)}’s bid`)
           : `You ${(s[seat] || {}).done ? '✓ done' : `${(s[seat] || {}).n || 0}/11`} · ${esc(opp)} ${(s[other(seat)] || {}).done ? '✓ done' : `${(s[other(seat)] || {}).n || 0}/11`}`;
-        return `<a class="og-row ${o ? 'res-' + o.text.toLowerCase() : ''}" href="#/online?room=${g.code}"><span class="og-icon">${k.icon}</span>
+        return `<a class="og-row ${o ? 'res-' + o.text.toLowerCase() : ''}" href="#/online?room=${g.code}"><span class="og-icon">${opp ? GM.userPic(opp) : ''}<i>${k.icon}</i></span>
           <span class="og-main"><b>${opp ? esc(opp) : 'Open invite'}</b><small>${k.name} · ${st.icon} ${st.name}</small><small class="og-sub">${sub}</small></span>
           <span class="og-when">${when(g.updated)}</span></a>`;
       };
@@ -123,11 +123,30 @@
       GM.$('#olists').innerHTML = block('Your move', yours, 'Nothing waiting on you. Start a game!')
         + (theirs.length ? block('Their move', theirs, '') : '')
         + (done.length ? block('Finished', done.slice(0, 20), '') : '');
-      GM.$('#ofriends').innerHTML = friends.length ? friends.map(f => `<div class="friend"><span class="f-av">${esc(GM.initials(f.name))}</span>
+      GM.$('#ofriends').innerHTML = friends.length ? friends.map(f => `<div class="friend"><button class="f-av" data-fmenu="${esc(f.name)}" title="Options">${GM.userPic(f.name)}</button>
           <span class="f-main"><b>${esc(f.name)}</b>${f.w + f.d + f.l ? record(f) : '<small class="muted">No games yet</small>'}</span>
           <button class="btn small" data-challenge="${esc(f.name)}">⚔️ Play</button></div>`).join('')
         : '<p class="muted center">Add friends by their Goal Machine name, or send an invite code. Anyone you play is added automatically.</p>';
       GM.$$('[data-challenge]').forEach(b => b.onclick = () => newGame(b.dataset.challenge));
+      // tap a friend's picture: challenge, remove them, or report their picture
+      GM.$$('[data-fmenu]').forEach(b => b.onclick = () => {
+        const n = b.dataset.fmenu;
+        const m = GM.modal(`<div class="center">${GM.userPic(n, 'xl')}<h3>${esc(n)}</h3></div>
+          <div class="actions col"><button class="btn" data-a="play">⚔️ Challenge</button><button class="btn ghost" data-a="report">🚩 Report their picture</button>
+          <button class="btn ghost danger" data-a="remove">Remove friend</button><button class="btn ghost" data-close>Close</button></div>`);
+        GM.$$('[data-a]', m.el).forEach(x => x.onclick = async () => {
+          m.close();
+          if (x.dataset.a === 'play') return newGame(n);
+          if (x.dataset.a === 'remove') {
+            if (!await GM.confirm(`Remove ${esc(n)} from your friends? Your record against them stays.`, 'Remove', 'Keep')) return;
+            try { await rpc('online_remove_friend', { ...auth(), p_friend: n }); } catch (e) { }
+            return load();
+          }
+          if (!await GM.confirm(`Report ${esc(n)}'s picture as offensive? If several players report it, it's removed.`, 'Report', 'Cancel')) return;
+          try { const r = await rpc('report_avatar', { ...auth(), p_target: n }); GM.toast(r === 'removed' ? 'Thanks – the picture has been removed' : 'Thanks – reported'); if (r === 'removed') { GM.pics[n.toLowerCase()] = null; load(); } }
+          catch (e) { GM.toast('Couldn’t reach the server – try again'); }
+        });
+      });
       GM.online.setWaiting(yours.length);
     };
     function newGame(opp = '') {
@@ -296,9 +315,9 @@
         <b>${x.p ? esc(x.p.name.split(' ').slice(-1)[0]) : '–'}</b><i>${x.p ? fmt(x.v) : ''}</i></div>`).join('')}</div>`;
     root.innerHTML = `${top(KIND[gk(r)].name, '#/online')}
       <div class="h2h-board duel-board">
-        <div class="h2h-team p1"><b>You</b><strong>${pts ? fmt(pts[0]) : fmt(A.t)}</strong><small>${pts ? 'points' : `${A.n}/11`}</small></div>
+        <div class="h2h-team p1">${GM.userPic(me(), 'board')}<b>You</b><strong>${pts ? fmt(pts[0]) : fmt(A.t)}</strong><small>${pts ? 'points' : `${A.n}/11`}</small></div>
         <div class="h2h-mid"><small>${st.icon} ${st.name}</small><span>VS</span><small id="orec"></small></div>
-        <div class="h2h-team p2"><b>${esc(opp)}</b><strong>${pts ? fmt(pts[1]) : fmt(B.t)}</strong><small>${pts ? 'points' : `${B.n}/11${B.done ? ' ✓' : ''}`}</small></div></div>
+        <div class="h2h-team p2">${r[them] ? GM.userPic(opp, 'board') : ''}<b>${esc(opp)}</b><strong>${pts ? fmt(pts[1]) : fmt(B.t)}</strong><small>${pts ? 'points' : `${B.n}/11${B.done ? ' ✓' : ''}`}</small></div></div>
       ${r.result ? `<div class="banner race-final">${resultLine(r, seat)}</div>`
         : `<div class="banner">⏳ ${r.guest ? `${esc(opp)} is still building their XI (${B.n}/11). You can watch it fill up here.` : 'Nobody has joined yet.'}</div>`}
       ${inviteBar(r)}
@@ -446,9 +465,9 @@
     const cardsLeft = Object.keys(SCOUT_CARDS).filter(w => !st.wild[you][w]);
     root.innerHTML = `${top(KIND[gk(r)].name, '#/online')}
       <div class="h2h-board duel-board">
-        <div class="h2h-team p1"><b>You</b><strong>${scoutGame ? '?' : tMe}</strong><small>${11 - myOpen.length}/11</small></div>
+        <div class="h2h-team p1">${GM.userPic(me(), 'board')}<b>You</b><strong>${scoutGame ? '?' : tMe}</strong><small>${11 - myOpen.length}/11</small></div>
         <div class="h2h-mid"><small>${stat.icon} ${stat.name}</small><span>VS</span><small>${live ? '🟢 Both here' : 'Take your time'}</small></div>
-        <div class="h2h-team p2"><b>${esc(opp || '…')}</b><strong>${scoutGame ? '?' : tThem}</strong><small>${11 - st.open(them).length}/11</small></div></div>
+        <div class="h2h-team p2">${opp ? GM.userPic(opp, 'board') : ''}<b>${esc(opp || '…')}</b><strong>${scoutGame ? '?' : tThem}</strong><small>${11 - st.open(them).length}/11</small></div></div>
       ${inviteBar(r)}
       <div class="duel-turn ${mineNow ? 'mine' : ''}">${mineNow ? (st.first === you ? '👉 Your pick – first choice this spin' : '👉 Your pick – from what’s left') : `⏳ ${esc(opp || 'Your opponent')} is picking…${live ? '' : ' They’ll see it’s their turn next time they open the game.'}`}
         <small>Spin ${st.spin + 1}</small>${mineNow && live ? `<span class="clock" id="dclock">${PICK_SECONDS}</span>` : ''}</div>

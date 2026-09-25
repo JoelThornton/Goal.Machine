@@ -245,6 +245,33 @@ public class MainActivity extends Activity {
             askForNotifications();
         }
 
+        /** How notifications are doing: permission, whether the check is scheduled, and what the last check found. */
+        @JavascriptInterface
+        public String notifyStatus() {
+            return GameCheckService.status(MainActivity.this);
+        }
+
+        /** Sends a sample notification (with the whistle), to test sound and permission. */
+        @JavascriptInterface
+        public void testNotification() {
+            GameCheckService.test(MainActivity.this);
+        }
+
+        /** Checks the server for anything to notify about right now (and shows it even though the game is open). */
+        @JavascriptInterface
+        public void checkNow() {
+            new Thread(() -> {
+                try { GameCheckService.check(MainActivity.this, true); }
+                catch (Exception e) { GameCheckService.note(MainActivity.this, "error: " + e.getClass().getSimpleName(), -1); }
+            }).start();
+        }
+
+        /** Asks for notification permission again (Android only asks once; after that it's the phone's settings). */
+        @JavascriptInterface
+        public void askNotifications() {
+            if (Build.VERSION.SDK_INT >= 33) runOnUiThread(() -> requestPermissions(new String[] { "android.permission.POST_NOTIFICATIONS" }, 1));
+        }
+
         /** Whether notifications are allowed (so the site can offer a button to switch them on). */
         @JavascriptInterface
         public boolean notificationsAllowed() {

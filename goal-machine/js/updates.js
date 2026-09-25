@@ -7,13 +7,15 @@
 (function () {
   GM.UPDATES = [
     {
-      v: 17, label: '4.2', date: '2026-09-26', app: 15, title: 'CHAOS, the Online tab + your picks',
+      v: 17, label: '4.2', date: '2026-09-26', app: 16, title: 'CHAOS, the Online tab + your picks',
       items: [
         '🌪️ Ultimate Wildcard CHAOS, with its own neon look and its own music (Mayhem): bonus points for chemistry, squad rating, PL titles, Hall of Famers, one-club men, journeymen and veterans, random events (red cards, injuries, VAR, golden goals, masked men, mystery boxes…), wildcard storms, a CHAOS meter that unleashes double points, and new cards like 🎰 All In',
         '📅 Daily CHAOS: the same chaos for everyone, once a day, with a streak and a daily leaderboard',
         '🌐 Online gets its own tab (the Player index moves to the Album and the home screen), with a weekly league against your friends',
         '☁️ Back up your album, stats and streaks to your account (it happens automatically after games) and restore them on a new phone, or delete your account from Settings',
         '▶️ Leave a draft half-way and carry on where you left off; Moneyball and Transfer Window check before you leave',
+        '📷 Profile pictures: add a photo in Settings and your friends and opponents see it in online games, your friends list and the weekly league (tap a friend to report a picture or remove them)',
+        '🔔 Notifications fixed: anything that arrived while the game was open was quietly marked as seen, so it never buzzed. Settings now shows whether they’re allowed and working, with a test button and Check now',
         '👋 A quick welcome for new players, and NEW tags on modes you haven’t tried yet',
         '📊 Your picks: your most-signed players, the ones you always snub and the clubs you sign from (in the Album), and ✍️ signing counts in the Player index',
         '⭐ Separate Dream XIs: a player joins your goals, assists or appearances XI only when you sign him in that kind of game, and shows how many times you’ve had him',

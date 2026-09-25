@@ -9,7 +9,7 @@ on:
   workflow_dispatch:
   push:
     branches: ['claude/**']
-    paths: ['goal-machine/tools/fetch_photos.py', '.github/workflows/photos.yml']
+    paths: ['goal-machine/tools/fetch_photos.py', 'goal-machine/tools/face_points.py', '.github/workflows/photos.yml']
 
 permissions:
   contents: write
@@ -33,10 +33,15 @@ jobs:
       - name: Look up photos
         run: SRC="$RUNNER_TEMP/src" python goal-machine/tools/fetch_photos.py
 
+      - name: Find the faces in them (so avatars zoom onto the face)
+        run: |
+          pip install -q "opencv-python-headless<5" numpy  # 5.x dropped the Haar face detector
+          python goal-machine/tools/face_points.py
+
       - name: Publish if changed
         run: |
-          git add goal-machine/data/photos.js goal-machine/data/photos_checked.json
-          if git diff --cached --quiet -- goal-machine/data/photos.js; then echo "No new photos"; exit 0; fi
+          git add goal-machine/data/photos.js goal-machine/data/photos_checked.json goal-machine/data/faces.js
+          if git diff --cached --quiet -- goal-machine/data/photos.js goal-machine/data/faces.js; then echo "No new photos"; exit 0; fi
           if [ "${{ github.ref }}" = "refs/heads/master" ]; then (cd goal-machine && python tools/bump_version.py && git add -A .); fi
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"

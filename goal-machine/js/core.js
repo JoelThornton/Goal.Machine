@@ -186,26 +186,48 @@ GM.distHtml = function (key, stat, current) {
 
 // Where a face can come from, best first: the Premier League (FPL code, or one found in its archive), Transfermarkt,
 // then a freely licensed Wikipedia photo. If one fails to load the next is tried, and the initials stay underneath.
-GM.photoUrls = function (p) {
+// Each source is framed differently, so non-PL photos zoom onto the face found by tools/face_points.py (GM_FACES).
+GM.photoSrcs = function (p) {
   const pl = c => `https://resources.premierleague.com/premierleague/photos/players/110x140/p${c}.png`;
-  const urls = [];
-  if (p.code) urls.push(pl(p.code));
-  if (p.photo && p.photo.pl) urls.push(pl(p.photo.pl));
-  if (p.tm) urls.push(`https://img.a.transfermarkt.technology/portrait/header/${p.tm}.jpg`);
-  if (p.photo && p.photo.w) urls.push(p.photo.w);
-  return urls;
+  const out = [];
+  if (p.code) out.push({ u: pl(p.code), f: 'pl' });
+  if (p.photo && p.photo.pl) out.push({ u: pl(p.photo.pl), f: 'pl' });
+  if (p.tm) out.push({ u: `https://img.a.transfermarkt.technology/portrait/header/${p.tm}.jpg`, f: 'tm:' + p.tm });
+  if (p.photo && p.photo.w) out.push({ u: p.photo.w, f: 'w:' + p.name + '|' + p.first });
+  return out;
+};
+GM.photoUrls = p => GM.photoSrcs(p).map(x => x.u);
+
+// Scale and place the photo so the face fills about 55% of the circle, centred a touch above the middle
+GM.fitFace = function (img) {
+  const f = (window.GM_FACES || {})[img.dataset.f], box = img.parentNode && img.parentNode.clientWidth;
+  if (!f || f.length < 3 || !box || !img.naturalWidth) return;
+  const nw = img.naturalWidth, nh = img.naturalHeight, fw = f[2] / 100 * nw;
+  let sc = Math.max(0.55 * box / fw, box / nw, box / nh);
+  sc = Math.min(sc, 4 * Math.max(box / nw, box / nh));  // never blow a tiny face up into mush
+  const W = nw * sc, H = nh * sc;
+  const left = Math.min(0, Math.max(box - W, box / 2 - f[0] / 100 * W));
+  const top = Math.min(0, Math.max(box - H, box * 0.46 - f[1] / 100 * H));
+  Object.assign(img.style, { width: W + 'px', height: H + 'px', left: left + 'px', top: top + 'px' });
+  img.classList.add('fitted');
 };
 GM.nextPhoto = function (img) {
-  const rest = (img.dataset.alt || '').split(' ').filter(Boolean);
+  let rest = [];
+  try { rest = JSON.parse(img.dataset.alt || '[]'); } catch (e) { }
   if (!rest.length) { img.remove(); return; }
-  img.src = rest.shift();
-  img.dataset.alt = rest.join(' ');
+  const n = rest.shift();
+  img.removeAttribute('style'); img.classList.remove('fitted');
+  img.className = n.f === 'pl' ? 'ph-pl' : 'ph-x';
+  img.dataset.f = n.f;
+  img.dataset.alt = JSON.stringify(rest);
+  img.src = n.u;
 };
 GM.avatar = function (p, cls = '', plain = false) {
   // plain = hard mode: no photo, no club colours
   const [, bg, fg] = plain ? [0, '#23483b', '#e8f5ee'] : GM.CLUB[p.clubs[p.clubs.length - 1]] || [0, '#334', '#fff'];
-  const urls = plain ? [] : GM.photoUrls(p);
-  const img = urls.length ? `<img loading="lazy" alt="" referrerpolicy="no-referrer" src="${GM.esc(urls[0])}" data-alt="${GM.esc(urls.slice(1).join(' '))}" onerror="GM.nextPhoto(this)">` : '';
+  const srcs = plain ? [] : GM.photoSrcs(p);
+  const img = srcs.length ? `<img loading="lazy" alt="" referrerpolicy="no-referrer" class="${srcs[0].f === 'pl' ? 'ph-pl' : 'ph-x'}" src="${GM.esc(srcs[0].u)}"
+    data-f="${GM.esc(srcs[0].f)}" data-alt="${GM.esc(JSON.stringify(srcs.slice(1)))}" onload="GM.fitFace(this)" onerror="GM.nextPhoto(this)">` : '';
   return `<span class="avatar ${cls}" style="--cb:${bg};--cf:${fg}"><b>${GM.initials(p.name)}</b>${img}</span>`;
 };
 

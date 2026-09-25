@@ -686,3 +686,7 @@ h2, h3 { letter-spacing: .3px; }
 /* the results spread only once there's something in it */
 .dist.empty { display: none; }
 .tile-icon { font-size: 2.4rem; top: 10px; right: 10px; }
+/* photo framing per source (PL cut-outs are head-and-shoulders; others zoom onto the detected face) */
+.avatar img.ph-pl { height: 130%; object-position: top; }
+.avatar img.ph-x { height: 100%; object-position: 50% 18%; }
+.avatar img.fitted { inset: auto; object-fit: fill; max-width: none; }

@@ -7,7 +7,7 @@
 (function () {
   GM.UPDATES = [
     {
-      v: 17, label: '4.2', date: '2026-09-26', app: 14, title: 'CHAOS, your picks + separate Dream XIs',
+      v: 17, label: '4.2', date: '2026-09-26', app: 15, title: 'CHAOS, your picks + separate Dream XIs',
       items: [
         '🌪️ Ultimate Wildcard CHAOS: bonus points for chemistry, squad rating, PL titles, Hall of Famers, one-club men, journeymen and veterans, plus random events (red cards, injuries, the taxman, derby days, TV money), wildcard storms and new cards like 🎰 All In and 🔥 Hot Streak',
         '📊 Your picks: your most-signed players, the ones you always snub and the clubs you sign from (in the Album), and ✍️ signing counts in the Players tab',

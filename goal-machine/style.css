@@ -885,7 +885,7 @@ body.chaos-mode .btn.spin { background: linear-gradient(90deg, #ff2bd6, #ffe600,
 @keyframes rainbow { to { background-position: 300% 0; } }
 body.chaos-mode .counter-num b { color: #ffe600; text-shadow: 0 0 12px rgba(255, 230, 0, .6); }
 body.chaos-mode .pitch { box-shadow: 0 0 0 2px rgba(0, 240, 255, .5), 0 0 24px rgba(0, 240, 255, .35); }
-body.chaos-mode .wild-card { background: linear-gradient(135deg, #ff2bd6, #7a00ff); }
+body.chaos-mode .reel.is-wild { background: linear-gradient(160deg, #ff2bd6, #9b00ff 60%, #00c2ff); color: #fff; }  /* the whole card, not a box inside it */
 body.chaos-mode .result-score { color: #ffe600; text-shadow: 0 0 20px rgba(255, 230, 0, .6); }
 .chaos-meter { display: flex; align-items: center; gap: 4px; margin-top: 6px; font: 800 .66rem Inter, sans-serif; letter-spacing: 2px; color: #ff2bd6; }
 .chaos-meter span { margin-right: 4px; }
@@ -944,3 +944,11 @@ body.chaos-mode .reel .reel-goals { background: rgba(0, 0, 0, .35); color: #ffe6
 .notice-icon { font-size: 2rem; }
 .notice-text { display: grid; min-width: 0; } .notice-text b { font-size: .95rem; line-height: 1.25; } .notice-text small { opacity: .75; font-size: .78rem; }
 .notice-go { font: 700 1.6rem Oswald, sans-serif; opacity: .6; }
+
+/* the draft pitch grows into the space on taller phones (it was sized for the smallest ones), still fitting one screen */
+.page-draft .slot { min-height: var(--slot-h, 52px); }  /* set by fitPitch() in draft.js */
+.page-draft .slot .avatar { width: clamp(28px, calc(var(--slot-h, 52px) - 30px), 40px); height: clamp(28px, calc(var(--slot-h, 52px) - 30px), 40px); }
+.page-draft .pitch-row { margin: clamp(2px, calc((100dvh - 760px) / 25), 6px) 0; }
+.page-draft .slot-name { font-size: clamp(.66rem, calc(.5rem + .4dvh), .78rem); }
+.page-draft .banner.chaos-event { padding: 6px 10px; margin: 4px 0; font-size: .82rem; line-height: 1.3; }
+@media (max-height: 760px) { .page-draft .counter-sub { font-size: .72rem; } }

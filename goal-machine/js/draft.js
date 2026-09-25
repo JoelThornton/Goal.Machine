@@ -721,7 +721,7 @@
       return `<div class="counter max">
       <div class="counter-num"><b>${fmt(t)}</b><span>${S.st.label}</span>${S.rules.chaos ? `<span class="chaos-pts">+${fmt(scoreFor(S).bonus)} bonus</span>` : ''}</div>
       <div class="bar"><i style="width:${pb ? Math.min(100, t / pb * 100) : 0}%"></i></div>
-      <div class="counter-sub">${pb ? (t > pb && !S.rules.chaos ? '🔥 Beating your best (' + fmt(pb) + ')' : `Your best: ${fmt(pb)}`) : 'Set your first score'} · ${left} slot${left === 1 ? '' : 's'} left${mod}${S.hot ? ` · <b>🔥 ×1.5 ×${S.hot}</b>` : ''}${S.golden ? ' · <b>⚽ ×3 next</b>' : ''}${S.unleash ? ` · <b>💥 ×2 ×${S.unleash}</b>` : ''}</div>
+      <div class="counter-sub">${pb ? (t > pb && !S.rules.chaos ? '🔥 Beating your best (' + fmt(pb) + ')' : `Your best: ${fmt(pb)}${S.rules.chaos ? ' pts' : ''}`) : 'Set your first score'} · ${left} slot${left === 1 ? '' : 's'} left${mod}${S.hot ? ` · <b>🔥 ×1.5 ×${S.hot}</b>` : ''}${S.golden ? ' · <b>⚽ ×3 next</b>' : ''}${S.unleash ? ` · <b>💥 ×2 ×${S.unleash}</b>` : ''}</div>
       ${S.rules.chaos ? `<div class="chaos-meter" title="The CHAOS meter: full = your next two signings count double"><span>CHAOS</span>${Array.from({ length: METER }, (_, i) => `<i class="${i < (S.meter || 0) ? 'on' : ''}"></i>`).join('')}</div>` : ''}
     </div>`;
     }
@@ -779,9 +779,24 @@
     }, 1400);
   }
 
+  // Size the pitch to the screen: after each update, give its four rows whatever height is left over (46-86px a row),
+  // so it fills tall phones without making short ones scroll
+  function fitPitch() {
+    const pitch = GM.$('.pitch', root);
+    if (!pitch || !root.isConnected || S.phase === 'done') return;
+    const rows = GM.$$('.pitch-row', pitch).length || 4;
+    const cur = parseFloat(getComputedStyle(root).getPropertyValue('--slot-h')) || 52;
+    // the game's own content (the page itself always stretches to the screen, so measure #app, padding included)
+    const spare = window.innerHeight - (root.getBoundingClientRect().bottom + window.scrollY);
+    const next = Math.max(46, Math.min(86, Math.floor(cur + spare / rows)));
+    if (Math.abs(next - cur) >= 1) root.style.setProperty('--slot-h', next + 'px');
+  }
+  window.addEventListener('resize', () => { if (S && root) fitPitch(); });
+
   function render() {
     if (!S) return;
     if (S.phase === 'done') return renderDone();
+    requestAnimationFrame(fitPitch);
     if (!S.readonly && saveKey()) GM.store.set(saveKey(), { ...S, rules: undefined });  // saved on every move
     if (S.revealStage === 'intro') return mysteryIntro();
     const icon = S.mode === 'club' ? '🏟️' : GM.MODES[S.mode === 'daily' ? 'daily' : S.mode].icon;
@@ -851,9 +866,10 @@
       <div class="result">
         ${S.rules.mystery ? `<div class="mystery-reveal">🎲 The mystery target was <b>${fmt(S.target)}</b> ${S.st.label}</div>` : ''}
         ${S.rules.treble ? `<div class="result-total ${sc.diff === 0 ? 'bull' : ''}">${sc.hits.length === 3 ? '🏆' : sc.hits.length === 2 ? '🥈' : ''}${fmt(sc.t)}<small>goals · ${fmt(tot('assists'))} assists · ${fmt(tot('apps'))} apps</small></div>`
+        : S.rules.chaos ? `<div class="result-total">${fmt(sc.total)}<small>CHAOS points · ${fmt(sc.t)} ${S.st.label} + ${fmt(sc.bonus)} bonus</small></div>`
         : `<div class="result-total ${sc.diff === 0 ? 'bull' : ''}">${fmt(sc.t)}<small>PL ${S.st.label}${S.rules.max ? '' : ` · target ${fmt(S.target)}`}</small></div>`}
         ${S.rules.chaos ? `<div class="chaos-level">${chaosLevel()}</div>` : ''}
-        ${S.rules.max && !S.rules.chaos ? '' : `<div class="result-score">${fmt(sc.total)}<small>points</small></div>
+        ${S.rules.max && !S.rules.chaos ? '' : `${S.rules.chaos ? '' : `<div class="result-score">${fmt(sc.total)}<small>points</small></div>`}
         <table class="breakdown">${sc.parts.map(([k, v]) => `<tr><td>${k}</td><td>+${v}</td></tr>`).join('')}</table>`}
         ${S.vs ? `<div class="banner">${sc.total > S.vss ? '🎉 You beat' : sc.total == S.vss ? '🤝 You drew with' : '😬 You lost to'} <b>${GM.esc(S.vs)}</b> (${GM.esc(S.vss)})</div>` : ''}
         <div class="muted">Personal best: ${fmt(Math.max(best, sc.total))}</div>
@@ -893,6 +909,7 @@
     const head = S.mode === 'daily' ? `Daily Ultimate · ${GM.today()}` : modeName() + (S.hard ? ' (Hard)' : '');
     const rating = GM.teamRating ? GM.teamRating(S.xi.filter(s => s.p != null).map(s => ({ ...s, player: byId(s.p) }))) : null;
     const tier = rating ? `\n${rating.tier.icon} ${rating.tier.name}` : '';
+    if (S.rules.chaos) return `⚽ Goal Machine – ${head}\n🌪️ ${fmt(sc.total)} CHAOS points (${fmt(sc.t)} ${S.st.label} + ${fmt(sc.bonus)} bonus)${tier}\n${icons}`;
     if (S.rules.max) return `⚽ Goal Machine – ${head}\n👑 ${fmt(sc.t)} PL ${S.st.label}${tier}\n${icons}`;
     if (S.rules.treble) return `⚽ Goal Machine – ${head}\n${STAT_KEYS.map(k => `${GM.STATS[k].icon} ${fmt(tot(k))}/${fmt(TREBLE[k])}`).join(' ')}${sc.hits.length === 3 ? ' 🏆 TREBLE!' : ''}\n${sc.total} pts${tier}\n${icons}`;
     if (S.rules.mystery) return `⚽ Goal Machine – ${head}\n🎲 ${fmt(sc.t)} ${S.st.label} vs a secret ${fmt(S.target)}${sc.diff === 0 ? ' 🎯 BULLSEYE' : ''} · ${sc.total} pts${tier}\n${icons}`;

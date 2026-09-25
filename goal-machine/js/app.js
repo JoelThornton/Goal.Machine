@@ -419,19 +419,20 @@
     app.innerHTML = `<div class="topbar"><a href="#/" class="back">‹</a><h2>🏆 Leaderboards</h2><span></span></div>
       <div class="hard-toggle small"><a class="${hard ? '' : 'on'}" href="#/leaderboard?m=${encodeURIComponent(hard ? flip : m)}">🙂 Normal</a><a class="${hard ? 'on' : ''}" href="#/leaderboard?m=${encodeURIComponent(hard ? m : flip)}">🥵 Hard</a></div>
       <div class="tabs"><a class="tab" href="#/leaderboard?m=dailies">📊 Daily stars</a>${tabs.map(k => `<a class="tab ${k === m ? 'active' : ''}" href="#/leaderboard?m=${encodeURIComponent(k)}">${label(k)}</a>`).join('')}</div>
+      ${/^d?chaos/.test(m) ? '<p class="muted center">🌪️ CHAOS scores are total points: your XI’s tally plus every bonus (chemistry, rating, titles, loyalty…).</p>' : ''}
       ${m.startsWith('footle:') ? '<p class="muted center">Footle scores: 8 for a first-guess win, down to 1 for getting it on the last guess.</p>' : ''}
       ${GM.lb.enabled ? `<h3 class="section-title">🌍 Global</h3><div id="global" class="lb"><div class="muted">Loading…</div></div>` :
         `<div class="banner">Global leaderboard isn’t switched on yet – use <b>⚔️ Challenge a friend</b> after a game to go head-to-head on the same spins.</div>`}
       ${/^(ultimate|club|classic|extreme|purist)/.test(m) || m.startsWith('daily:') ? `<h3 class="section-title">📊 Your spread</h3>${m.startsWith('daily:') ? GM.distHtml('daily', 'goals')
         : GM.distHtml(m, /apps(h)?$/.test(m) ? 'apps' : /ast(h)?$/.test(m) ? 'assists' : 'goals')}` : ''}
       <h3 class="section-title">📱 Your best on this device</h3>
-      <div class="lb">${local.length ? local.slice(0, 10).map((h, i) => `<div class="lb-row"><span>${i + 1}</span><span>${new Date(h.t).toLocaleDateString()}</span><b>${h.s}</b></div>`).join('') : '<div class="muted">No games yet</div>'}</div>`;
+      <div class="lb">${local.length ? local.slice(0, 10).map((h, i) => `<div class="lb-row"><span>${i + 1}</span><span>${new Date(h.t).toLocaleDateString()}</span><b>${h.s.toLocaleString()}${/^d?chaos/.test(m) ? '<small> pts</small>' : ''}</b></div>`).join('') : '<div class="muted">No games yet</div>'}</div>`;
     if (GM.lb.enabled) {
       try {
-        const rows = await GM.lb.top(m);
+        const rows = await GM.lb.top(m), pts = /^d?chaos/.test(m);
         const me = GM.getName();
         GM.$('#global').innerHTML = rows.length ? rows.map((r, i) =>
-          `<div class="lb-row ${r.name === me ? 'me' : ''}"><span>${i < 3 ? ['🥇', '🥈', '🥉'][i] : i + 1}</span><span>${GM.esc(r.name)}</span><b>${r.score}</b></div>`).join('')
+          `<div class="lb-row ${r.name === me ? 'me' : ''}"><span>${i < 3 ? ['🥇', '🥈', '🥉'][i] : i + 1}</span><span>${GM.esc(r.name)}</span><b>${r.score.toLocaleString()}${pts ? '<small> pts</small>' : ''}</b></div>`).join('')
           : '<div class="muted">No scores yet – be the first!</div>';
       } catch (e) { GM.$('#global').innerHTML = '<div class="muted">Couldn’t load the global board.</div>'; }
     }

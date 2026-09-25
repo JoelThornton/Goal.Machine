@@ -227,21 +227,32 @@ GM.photoSrcs = function (p) {
 GM.photoUrls = p => GM.photoSrcs(p).map(x => x.u);
 
 // Scale and place the photo so the face fills about 55% of the circle, centred a touch above the middle
+// Photos are remembered for the session: which links are dead, and where each face sits (as percentages of the
+// avatar, so it works at any size). Screens that redraw on every tap then draw the working photo already centred,
+// instead of re-trying dead links and re-centring - which made some faces flicker all game.
+GM._ph = { bad: new Set(), fit: new Map() };
 GM.fitFace = function (img) {
-  const f = (window.GM_FACES || {})[img.dataset.f], box = img.parentNode && img.parentNode.clientWidth;
-  if (!f || f.length < 3 || !box || !img.naturalWidth) return;
+  const u = img.getAttribute('src'), f = (window.GM_FACES || {})[img.dataset.f];
+  if (!img.naturalWidth) return;
+  if (!f || f.length < 3) { GM._ph.fit.set(u, null); return; }  // loads fine, no face data: the CSS default crop
+  // everything scales with the box, so work it out for a box of 1 and store percentages
   const nw = img.naturalWidth, nh = img.naturalHeight, fw = f[2] / 100 * nw;
-  let sc = Math.max(0.55 * box / fw, box / nw, box / nh);
-  sc = Math.min(sc, 4 * Math.max(box / nw, box / nh));  // never blow a tiny face up into mush
+  let sc = Math.max(0.55 / fw, 1 / nw, 1 / nh);
+  sc = Math.min(sc, 4 * Math.max(1 / nw, 1 / nh));  // never blow a tiny face up into mush
   const W = nw * sc, H = nh * sc;
-  const left = Math.min(0, Math.max(box - W, box / 2 - f[0] / 100 * W));
-  const top = Math.min(0, Math.max(box - H, box * 0.46 - f[1] / 100 * H));
-  Object.assign(img.style, { width: W + 'px', height: H + 'px', left: left + 'px', top: top + 'px' });
+  const left = Math.min(0, Math.max(1 - W, 0.5 - f[0] / 100 * W));
+  const top = Math.min(0, Math.max(1 - H, 0.46 - f[1] / 100 * H));
+  const pc = x => (x * 100).toFixed(2) + '%';
+  const fit = { width: pc(W), height: pc(H), left: pc(left), top: pc(top) };
+  GM._ph.fit.set(u, fit);
+  Object.assign(img.style, fit);
   img.classList.add('fitted');
 };
 GM.nextPhoto = function (img) {
+  GM._ph.bad.add(img.getAttribute('src'));
   let rest = [];
   try { rest = JSON.parse(img.dataset.alt || '[]'); } catch (e) { }
+  rest = rest.filter(x => !GM._ph.bad.has(x.u));
   if (!rest.length) { img.remove(); return; }
   const n = rest.shift();
   img.removeAttribute('style'); img.classList.remove('fitted');
@@ -253,9 +264,15 @@ GM.nextPhoto = function (img) {
 GM.avatar = function (p, cls = '', plain = false) {
   // plain = hard mode: no photo, no club colours
   const [, bg, fg] = plain ? [0, '#23483b', '#e8f5ee'] : GM.CLUB[p.clubs[p.clubs.length - 1]] || [0, '#334', '#fff'];
-  const srcs = plain ? [] : GM.photoSrcs(p);
-  const img = srcs.length ? `<img loading="lazy" alt="" referrerpolicy="no-referrer" class="${srcs[0].f === 'pl' ? 'ph-pl' : 'ph-x'}" src="${GM.esc(srcs[0].u)}"
-    data-f="${GM.esc(srcs[0].f)}" data-alt="${GM.esc(JSON.stringify(srcs.slice(1)))}" onload="GM.fitFace(this)" onerror="GM.nextPhoto(this)">` : '';
+  const srcs = plain ? [] : GM.photoSrcs(p).filter(x => !GM._ph.bad.has(x.u));
+  let img = '';
+  if (srcs.length) {
+    const s0 = srcs[0], known = GM._ph.fit.has(s0.u), fit = GM._ph.fit.get(s0.u);
+    // a photo that's already loaded once is drawn straight away, in place; a new one loads lazily and centres itself
+    img = `<img ${known ? '' : 'loading="lazy"'} alt="" referrerpolicy="no-referrer" class="${s0.f === 'pl' ? 'ph-pl' : 'ph-x'}${fit ? ' fitted' : ''}" src="${GM.esc(s0.u)}"
+    ${fit ? `style="width:${fit.width};height:${fit.height};left:${fit.left};top:${fit.top}"` : ''}
+    data-f="${GM.esc(s0.f)}" data-alt="${GM.esc(JSON.stringify(srcs.slice(1)))}" ${known ? '' : 'onload="GM.fitFace(this)"'} onerror="GM.nextPhoto(this)">`;
+  }
   return `<span class="avatar ${cls}" style="--cb:${bg};--cf:${fg}"><b>${GM.initials(p.name)}</b>${img}</span>`;
 };
 
@@ -490,13 +507,13 @@ GM.lbModal = async function (key) {
   const md = GM.MODES[hard ? key.slice(0, -1) : key] || GM.MODES[key] || {};
   const title = date ? `${DATED[pre] || pre} · today` : `${md.icon || ''} ${(md.name || key).replace(/ \(Hard\)$/, '')}${hard ? ' · Hard' : ''}`;
   const pts = /^d?chaos/.test(key) ? '<small> pts</small>' : '', me = GM.getName();
-  const local = GM.store.get('hist:' + key, []);
   const m = GM.modal(`<div class="lb-pop"><h3>${title}</h3><p class="lb-pop-kicker">🏆 Leaderboard</p>
     ${pts ? '<p class="muted center small">CHAOS points: your XI’s total plus every bonus</p>' : ''}
     <div class="lb lb-pop-list" id="lbpop">${GM.lb.enabled ? '<div class="muted">Loading…</div>' : '<div class="muted">The global leaderboard is switched off.</div>'}</div>
-    ${local.length ? `<h4>📱 Your best</h4><div class="lb">${local.slice(0, 3).map((h, i) => `<div class="lb-row"><span>${i + 1}</span><span>${new Date(h.t).toLocaleDateString()}</span><b>${h.s.toLocaleString()}${pts}</b></div>`).join('')}</div>` : ''}
+    <h4>⭐ You</h4><div class="lb" id="lbpopyou"></div>
     <div class="row"><a class="btn ghost small" href="#/leaderboard?m=${encodeURIComponent(key)}" data-leave>All leaderboards ›</a><button class="btn" data-close>Back to the game</button></div></div>`);
   const leave = GM.$('[data-leave]', m.el); if (leave) leave.addEventListener('click', () => m.close());
+  GM.lbYou(key, GM.$('#lbpopyou', m.el));
   if (!GM.lb.enabled) return;
   try {
     const rows = await GM.lb.top(key), el = GM.$('#lbpop', m.el);
@@ -505,6 +522,20 @@ GM.lbModal = async function (key) {
       : '<div class="muted">No scores yet – be the first!</div>';
     const mine = GM.$('.lb-row.me', el); if (mine) mine.scrollIntoView({ block: 'nearest' });
   } catch (e) { const el = GM.$('#lbpop', m.el); if (el) el.innerHTML = '<div class="muted">Couldn’t load the leaderboard.</div>'; }
+};
+// your line on a board: your account's best and where it ranks (this phone's best if you've no score online yet)
+GM.lbYou = async function (key, el) {
+  if (!el) return;
+  const pts = /^d?chaos/.test(key) ? '<small> pts</small>' : '', name = GM.getName();
+  const localBest = (GM.store.get('hist:' + key, [])[0] || {}).s;
+  const show = (html) => { if (el.isConnected) el.innerHTML = html; };
+  const row = (rank, label, score) => `<div class="lb-row me"><span>${rank}</span><span>${label}</span><b>${score.toLocaleString()}${pts}</b></div>`;
+  show('<div class="muted">Loading…</div>');
+  let mine = null;
+  if (GM.lb.enabled && name) { try { mine = await GM.lb.mine(key, name); } catch (e) { } }
+  if (mine) show(row(`#${mine.rank}`, `${GM.esc(name)}<small class="muted"> · of ${mine.of.toLocaleString()} · ${new Date(mine.at).toLocaleDateString()}</small>`, mine.score));
+  else if (localBest != null) show(row('–', `${name ? GM.esc(name) : 'You'}<small class="muted"> · not on the board yet</small>`, localBest));
+  else show('<div class="muted">You haven’t played this one yet</div>');
 };
 document.addEventListener('click', e => { const b = e.target.closest && e.target.closest('[data-lb]'); if (b) { e.preventDefault(); GM.lbModal(b.dataset.lb); } });
 // An in-app notification: a card that drops in from the top, and opens href when tapped (swipe it up or wait to dismiss)
@@ -747,5 +778,21 @@ GM.lb = {
       { headers: this.headers() });
     if (!r.ok) throw new Error(await r.text());
     return r.json();
+  },
+  // your account's best on a board, with your rank and how many are on it (null if you haven't a score there)
+  async mine(mode, name = GM.getName()) {
+    if (!name) return null;
+    const base = `${this.cfg.supabaseUrl}/rest/v1/best_scores?mode=eq.${encodeURIComponent(mode)}`;
+    const count = async q => {
+      const r = await fetch(`${base}${q}&select=name`, { headers: { ...this.headers(), Prefer: 'count=exact', Range: '0-0' } });
+      if (!r.ok && r.status !== 206) throw new Error(await r.text());
+      return +((r.headers.get('content-range') || '').split('/')[1] || 0);
+    };
+    const r = await fetch(`${base}&name=eq.${encodeURIComponent(name)}&select=score,created_at&limit=1`, { headers: this.headers() });
+    if (!r.ok) throw new Error(await r.text());
+    const [row] = await r.json();
+    if (!row) return null;
+    const [above, of] = await Promise.all([count(`&score=gt.${row.score}`), count('')]);
+    return { score: row.score, at: row.created_at, rank: above + 1, of };
   },
 };

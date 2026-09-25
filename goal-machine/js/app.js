@@ -445,7 +445,6 @@
       <div class="tabs">${CATS[cat][1].map(k => `<a class="tab ${k === base ? 'active' : ''}" href="${link(k === 'dailies' ? 'dailies' : keyFor(k))}">${label(k)}</a>`).join('')}</div>
       ${hasStats(base) ? `<div class="hard-toggle small three">${Object.entries(GM.STATS).map(([k, st]) => `<a class="${k === stat ? 'on' : ''}" href="${link(keyFor(base, k))}">${st.icon} ${st.name}</a>`).join('')}</div>` : ''}
       ${canHard ? `<div class="hard-toggle small"><a class="${hard ? '' : 'on'}" href="${link(keyFor(base, stat, false))}">🙂 Normal</a><a class="${hard ? 'on' : ''}" href="${link(keyFor(base, stat, true))}">🥵 Hard</a></div>` : ''}`;
-    const local = GM.store.get('hist:' + m, []);
     app.innerHTML = `<div class="topbar"><a href="#/" class="back">‹</a><h2>🏆 Leaderboards</h2><span></span></div>
       ${pickers}
       ${/^d?chaos/.test(m) ? '<p class="muted center">🌪️ CHAOS scores are total points: your XI’s tally plus every bonus (chemistry, rating, titles, loyalty…).</p>' : ''}
@@ -454,8 +453,9 @@
         `<div class="banner">Global leaderboard isn’t switched on yet – use <b>⚔️ Challenge a friend</b> after a game to go head-to-head on the same spins.</div>`}
       ${/^(ultimate|club|classic|extreme|purist)/.test(m) || m.startsWith('daily:') ? `<h3 class="section-title">📊 Your spread</h3>${m.startsWith('daily:') ? GM.distHtml('daily', 'goals')
         : GM.distHtml(m, /apps(h)?$/.test(m) ? 'apps' : /ast(h)?$/.test(m) ? 'assists' : 'goals')}` : ''}
-      <h3 class="section-title">📱 Your best on this device</h3>
-      <div class="lb">${local.length ? local.slice(0, 10).map((h, i) => `<div class="lb-row"><span>${i + 1}</span><span>${new Date(h.t).toLocaleDateString()}</span><b>${h.s.toLocaleString()}${/^d?chaos/.test(m) ? '<small> pts</small>' : ''}</b></div>`).join('') : '<div class="muted">No games yet</div>'}</div>`;
+      <h3 class="section-title">⭐ You</h3>
+      <div class="lb" id="lbyou"></div>`;
+    GM.lbYou(m, GM.$('#lbyou'));
     if (GM.lb.enabled) {
       try {
         const rows = await GM.lb.top(m), pts = /^d?chaos/.test(m);

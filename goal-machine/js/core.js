@@ -149,7 +149,7 @@ GM.sleep = ms => new Promise(r => setTimeout(r, ms));
 // A little tear-off calendar showing today's real date (instead of the emoji's fixed "July 17"); sized in em like an emoji
 GM.calIcon = function () {
   const d = new Date();
-  return `<span class="cal-ico" aria-label="${d.toDateString()}"><b>${d.toLocaleDateString('en-GB', { month: 'short' }).toUpperCase()}</b><i>${d.getDate()}</i></span>`;
+  return `<span class="cal-ico" aria-label="${d.toDateString()}"><span class="cal-m">${d.toLocaleDateString('en-GB', { month: 'short' }).toUpperCase()}</span><span class="cal-d">${d.getDate()}</span></span>`;
 };
 
 // Wordle-style results spread for the "biggest total" drafts: eight bands per stat, e.g. under 200 … 800+ goals

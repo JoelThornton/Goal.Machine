@@ -624,8 +624,8 @@ h2, h3 { letter-spacing: .3px; }
 
 /* v14: live calendar icon + results spread */
 .cal-ico { display: inline-flex; flex-direction: column; width: 1.05em; height: 1.1em; border-radius: .16em; overflow: hidden; vertical-align: -0.18em; background: #fff; box-shadow: 0 .06em 0 rgba(0,0,0,.25), 0 0 0 .03em rgba(0,0,0,.12); font-style: normal; line-height: 1; }
-.cal-ico b { display: block; background: #e5484d; color: #fff; font: 800 .26em/1.45 Inter, sans-serif; text-align: center; letter-spacing: .02em; }
-.cal-ico i { flex: 1; display: flex; align-items: center; justify-content: center; color: #10261d; font: 800 .56em/1 Inter, sans-serif; font-style: normal; }
+.cal-ico .cal-m { display: block; width: 100%; max-width: none; background: #e5484d; color: #fff; font: 800 .26em/1.45 Inter, sans-serif; text-align: center; letter-spacing: .02em; text-transform: none; text-shadow: none; }
+.cal-ico .cal-d { flex: 1; display: flex; align-items: center; justify-content: center; width: 100%; color: #10261d; font: 800 .56em/1 Inter, sans-serif; text-shadow: none; }
 .tile-icon .cal-ico { transform: rotate(-4deg); }
 .tabbar .cal-slot { font-style: normal; }
 .dist { margin: 10px 0; padding: 12px; border-radius: 16px; background: var(--panel); border: 1px solid var(--line); box-shadow: 0 3px 0 var(--edge); display: grid; gap: 4px; text-align: left; }
@@ -635,3 +635,5 @@ h2, h3 { letter-spacing: .3px; }
 .dist i { font-style: normal; background: #56655e; color: #fff; text-align: right; padding: 3px 7px; border-radius: 6px; font-weight: 800; min-width: 24px; transition: width .5s; }
 .dist i.me { background: #22a06b; animation: pop .5s; }
 .dist small { color: var(--muted); font-size: .7rem; text-align: right; }
+.tabbar a > span { display: flex; align-items: center; justify-content: center; height: 1.3em; line-height: 1; }
+.tabbar .cal-ico { vertical-align: 0; font-size: .9em; }

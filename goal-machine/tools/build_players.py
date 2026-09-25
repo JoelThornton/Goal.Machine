@@ -728,7 +728,7 @@ print('TM teammate links', len(links), 'TM ids', len(tm_id), file=sys.stderr)
 
 def stint_str(st):
     parts = []
-    for c, ys in st.items():
+    for c, ys in sorted(st.items(), key=lambda kv: (min(kv[1]), kv[0])):  # chronological, so builds are reproducible
         ys = sorted(ys)
         runs, start, prev = [], ys[0], ys[0]
         for y in ys[1:] + [None]:

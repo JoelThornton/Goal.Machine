@@ -101,7 +101,7 @@
         ${(() => { const s = GM.albumSummary(); return card('#/album', '📒', 'Album & badges', `${s.players.toLocaleString()}/${GM.players.length.toLocaleString()} players collected · ${s.badges}/${s.totalBadges} badges`, null, 'album-card'); })()}
         ${card('#/leaderboard', '🏆', 'Leaderboards', GM.lb.enabled ? 'Global + your bests' : 'Your best scores', null)}
         ${card('#/players', '📖', 'Player index', 'Search every player in the game', null)}
-        ${card('#/about', 'ℹ️', 'About the data', `Updated ${GM.dataDate}`, null)}
+        ${card('#/about', 'ℹ️', 'About the data', `Stats include matches up to ${GM.dataDate}`, null)}
       </section>
       <footer class="muted center">Name on leaderboard: <a href="#" id="rename">${GM.esc(GM.getName() || 'not set')}</a></footer>`;
     GM.$$('[data-hard]').forEach(b => b.onclick = () => { GM.setHard(b.dataset.hard === '1'); home(); });
@@ -177,7 +177,7 @@
   function about() {
     app.innerHTML = `<div class="topbar"><a href="#/" class="back">‹</a><h2>ℹ️ About the data</h2><span></span></div>
       <div class="prose">
-      <p>Goal Machine includes <b>${GM.players.length.toLocaleString()}</b> players who have made at least <b>50 Premier League appearances</b> since 1992/93, with their PL goals, assists, appearances, clubs, positions and nationality, plus honours for the full-time badges. Data updated <b>${GM.dataDate}</b>.</p>
+      <p>Goal Machine includes <b>${GM.players.length.toLocaleString()}</b> players who have made at least <b>50 Premier League appearances</b> since 1992/93, with their PL goals, assists, appearances, clubs, positions and nationality, plus honours for the full-time badges. Stats include matches up to <b>${GM.dataDate}</b> and refresh automatically every week.</p>
       <p>Stats are stitched together from public datasets: the official premierleague.com player pages (1992–2020), Fantasy Premier League gameweek data (2016–today) and Understat season stats (2014–2016). Which club a player was at in each season (for chemistry and title badges) comes from Transfermarkt transfer records. Assists after 2020 are FPL assists, which run slightly higher than the official count. A handful of players’ early seasons are estimated from minutes played, so the odd tally might be off by a game or a goal.</p>
       <p>Only Premier League appearances and goals count – no cups, Europe or Championship seasons.</p>
       <p>📲 Android app: <a href="${GM.APK_URL}">download the latest APK</a>. Game updates arrive automatically in the app.</p>

@@ -116,7 +116,9 @@ When you change any JS/CSS/data file, bump the `?v=` number on the file links in
 
 Assists are the official PL figures up to 2020 and FPL assists after that. FPL counts a few more assists than the official figures (e.g. it can credit an assist for winning a penalty).
 
-To refresh after new gameweeks:
+The **Update player data** GitHub Action does this automatically every Tuesday: it runs `tools/fetch_sources.sh` and `tools/build_players.py`, checks the result with `tools/check_data.py`, and publishes it (bumping the version with `tools/bump_version.py`) only if the data changed. You can also run it from the repo's Actions tab.
+
+To run it yourself:
 
 ```bash
 mkdir src && cd src

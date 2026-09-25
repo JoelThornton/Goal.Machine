@@ -305,3 +305,7 @@ footer { margin-top: 24px; }
 .hard-toggle.three { grid-template-columns: repeat(3, 1fr); }
 .clubs-block { margin-top: 10px; }
 .clubs-block .sets { margin-top: 8px; }
+
+.install-bar { display: inline-flex; align-items: center; gap: 6px; }
+.install-bar[hidden] { display: none; }
+.install-x { background: none; border: 0; color: var(--muted); font-size: 1rem; cursor: pointer; padding: 4px 6px; }

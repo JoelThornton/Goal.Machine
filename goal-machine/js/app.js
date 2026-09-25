@@ -5,7 +5,22 @@
   const app = GM.$('#app');
   let installEvt = null;
 
-  window.addEventListener('beforeinstallprompt', e => { e.preventDefault(); installEvt = e; const b = GM.$('#install'); if (b) b.hidden = false; });
+  const isAndroid = /Android/i.test(navigator.userAgent);
+  // Already "installed"? Inside the Android app, running as an installed web app, or the user said so.
+  const standalone = () => !!window.AndroidApp || window.matchMedia('(display-mode: standalone)').matches || navigator.standalone === true;
+  const installHidden = () => standalone() || GM.store.get('installed', false);
+  let hasNativeApp = false;
+  // Android Chrome can tell us if the Goal Machine app is installed (manifest related_applications + app asset_statements)
+  if (isAndroid && navigator.getInstalledRelatedApps) {
+    navigator.getInstalledRelatedApps().then(apps => {
+      if (apps && apps.length) { hasNativeApp = true; GM.$$('.install-bar').forEach(b => b.remove()); }
+    }).catch(() => { });
+  }
+  window.addEventListener('beforeinstallprompt', e => {
+    e.preventDefault(); installEvt = e;
+    const b = GM.$('#install'); if (b && !isAndroid && !installHidden()) b.hidden = false;
+  });
+  window.addEventListener('appinstalled', () => { GM.store.set('installed', true); GM.$$('.install-bar').forEach(b => b.remove()); });
 
   function parseHash() {
     const h = location.hash.replace(/^#\/?/, '');
@@ -52,8 +67,9 @@
       <header class="hero">
         <div class="logo">GOAL<span>MACHINE</span></div>
         <p>${GM.players.length.toLocaleString()} Premier League players · every one with 50+ apps · 1992 to today</p>
-        <button class="btn small" id="install" hidden>📲 Install app</button>
-        ${/Android/i.test(navigator.userAgent) && !window.AndroidApp ? `<a class="btn small ghost" href="${GM.APK_URL}">🤖 Get the Android app</a>` : ''}
+        ${installHidden() || hasNativeApp ? '' : `<div class="install-bar">
+          ${isAndroid ? `<a class="btn small" id="getapk" href="${GM.APK_URL}">🤖 Get the Android app</a>` : `<button class="btn small" id="install" hidden>📲 Install app</button>`}
+          <button class="install-x" id="install-x" title="I already have it" aria-label="Hide">✕</button></div>`}
       </header>
       <div class="hard-toggle" role="group" aria-label="Difficulty">
         <button class="${hard ? '' : 'on'}" data-hard="0">🙂 Normal<small>clubs, years &amp; apps shown</small></button>
@@ -90,8 +106,22 @@
       <footer class="muted center">Name on leaderboard: <a href="#" id="rename">${GM.esc(GM.getName() || 'not set')}</a></footer>`;
     GM.$$('[data-hard]').forEach(b => b.onclick = () => { GM.setHard(b.dataset.hard === '1'); home(); });
     const ib = GM.$('#install');
-    if (installEvt) ib.hidden = false;
-    ib.onclick = async () => { if (installEvt) { installEvt.prompt(); installEvt = null; ib.hidden = true; } };
+    if (ib) {
+      if (installEvt) ib.hidden = false;
+      ib.onclick = async () => {
+        if (!installEvt) return;
+        installEvt.prompt();
+        const { outcome } = await installEvt.userChoice;
+        installEvt = null;
+        if (outcome === 'accepted') { GM.store.set('installed', true); GM.$$('.install-bar').forEach(b => b.remove()); }
+      };
+    }
+    // downloading the APK counts as installing – don't nag again on this browser
+    const ga = GM.$('#getapk'); if (ga) ga.addEventListener('click', () => GM.store.set('installed', true));
+    const ix = GM.$('#install-x'); if (ix) ix.onclick = () => { GM.store.set('installed', true); GM.$$('.install-bar').forEach(b => b.remove()); };
+    // hide the bar entirely on desktop until Chrome actually offers an install
+    const bar = GM.$('.install-bar'); if (bar && ib && !installEvt) bar.hidden = true;
+    window.addEventListener('beforeinstallprompt', () => { const b2 = GM.$('.install-bar'); if (b2 && !installHidden()) b2.hidden = false; }, { once: true });
     GM.$('#rename').onclick = async e => {
       e.preventDefault();
       const n = await GM.prompt('Your leaderboard name', GM.getName(), 'e.g. Joel');
@@ -150,6 +180,7 @@
       <p>Goal Machine includes <b>${GM.players.length.toLocaleString()}</b> players who have made at least <b>50 Premier League appearances</b> since 1992/93, with their PL goals, assists, appearances, clubs, positions and nationality, plus honours for the full-time badges. Data updated <b>${GM.dataDate}</b>.</p>
       <p>Stats are stitched together from public datasets: the official premierleague.com player pages (1992–2020), Fantasy Premier League gameweek data (2016–today) and Understat season stats (2014–2016). Which club a player was at in each season (for chemistry and title badges) comes from Transfermarkt transfer records. Assists after 2020 are FPL assists, which run slightly higher than the official count. A handful of players’ early seasons are estimated from minutes played, so the odd tally might be off by a game or a goal.</p>
       <p>Only Premier League appearances and goals count – no cups, Europe or Championship seasons.</p>
+      <p>📲 Android app: <a href="${GM.APK_URL}">download the latest APK</a>. Game updates arrive automatically in the app.</p>
       <p>This is a fan-made game inspired by FourFourTwo’s 442GOALS and is not affiliated with the Premier League or FourFourTwo.</p>
       </div>`;
   }

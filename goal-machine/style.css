@@ -552,3 +552,72 @@ h2, h3 { letter-spacing: .3px; }
 .vol input { flex: 1; accent-color: var(--accent); height: 28px; }
 :root[data-theme="light"] .vol input { accent-color: #16803c; }
 .prow.credit { grid-template-columns: 34px 1fr; text-decoration: none; color: var(--text); }
+
+/* ================================================================ v14: dailies, Footle, favourite club */
+.section-title a { display: flex; align-items: center; gap: 8px; flex: 1; color: inherit; text-decoration: none; }
+.section-title .more { margin-left: auto; font: 700 .75rem Inter, sans-serif; letter-spacing: 0; color: var(--muted); }
+.streak-pill { font: 800 .8rem Inter, sans-serif; background: #ff7a1a; color: #fff; padding: 2px 8px; border-radius: 999px; letter-spacing: 0; }
+.tabbar a { font-size: .66rem; }
+
+/* Today hub */
+.streak-hero { display: flex; align-items: center; gap: 14px; padding: 16px; border-radius: 20px; background: linear-gradient(135deg, #ff9a3d, #e8452c); color: #fff; box-shadow: 0 5px 0 #a3301c; margin: 6px 0 14px; }
+.streak-hero .flame { font-size: 3rem; filter: grayscale(1) opacity(.6); }
+.streak-hero .flame.lit { filter: drop-shadow(0 4px 8px rgba(0,0,0,.3)); animation: lift 1.4s ease-in-out infinite alternate; }
+.streak-hero b { font: 700 2.6rem/1 Oswald, sans-serif; margin-right: 6px; }
+.streak-hero span { font: 700 1.1rem Oswald, sans-serif; text-transform: uppercase; }
+.streak-hero small { display: block; opacity: .9; font-size: .78rem; margin-top: 2px; }
+.daily-list { display: grid; gap: 10px; }
+.daily-row { display: grid; grid-template-columns: 44px 1fr auto auto; align-items: center; gap: 10px; padding: 12px; border-radius: 18px; background: var(--panel); border: 1px solid var(--line); color: var(--text); text-decoration: none; box-shadow: 0 3px 0 var(--edge); }
+.daily-row:active { transform: translateY(2px); box-shadow: 0 1px 0 var(--edge); }
+.dr-icon { font-size: 1.8rem; text-align: center; }
+.dr-text small { display: block; color: var(--muted); font-size: .78rem; }
+.daily-row.done .dr-text small { color: var(--hi); font-weight: 700; }
+.dr-streak { font-weight: 800; font-size: .85rem; }
+.dr-go { font: 800 .8rem Inter, sans-serif; background: var(--accent); color: #0a2a1f; padding: 7px 12px; border-radius: 10px; box-shadow: 0 3px 0 var(--btn-edge); }
+.daily-row.done .dr-go { background: var(--inset); color: var(--text); box-shadow: none; }
+.pick-club { display: block; margin-top: 12px; padding: 12px; border-radius: 16px; border: 2px dashed var(--line); color: var(--text); text-decoration: none; text-align: center; font-size: .9rem; }
+.calendar { display: grid; grid-template-columns: repeat(7, 1fr); gap: 6px; }
+.cal-day { aspect-ratio: 1; border-radius: 10px; display: flex; align-items: center; justify-content: center; font: 700 .8rem Inter, sans-serif; font-style: normal; background: var(--inset); color: var(--muted); }
+.cal-day.n1 { background: #9be7b4; color: #10261d; } .cal-day.n2 { background: #3ccf73; color: #10261d; } .cal-day.n3 { background: #16803c; color: #fff; }
+.cal-day.today { outline: 2px solid var(--accent); outline-offset: 1px; }
+
+/* Footle */
+.icon-btn.small { width: 36px; height: 36px; font-size: 1rem; }
+.f-head, .f-row { display: grid; grid-template-columns: 96px 1fr; gap: 6px; align-items: center; }
+.f-head { margin: 12px 0 4px; font: 800 .62rem Inter, sans-serif; color: var(--muted); text-transform: uppercase; letter-spacing: .5px; }
+.f-cells { display: grid; grid-template-columns: repeat(6, 1fr); gap: 4px; text-align: center; }
+.f-rows { display: grid; gap: 6px; }
+.f-row { animation: pop .35s; }
+.f-name { display: flex; align-items: center; gap: 6px; min-width: 0; }
+.f-name b { font-size: .75rem; line-height: 1.1; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+.f-name .avatar { width: 28px; height: 28px; font-size: .6rem; }
+.f-cell { position: relative; min-height: 42px; display: flex; flex-direction: column; align-items: center; justify-content: center; border-radius: 10px; font: 800 .78rem Inter, sans-serif; color: #fff; padding: 2px; line-height: 1.1; }
+.f-cell i { font-style: normal; font-size: .7rem; }
+.f-cell.hit { background: #22a06b; box-shadow: 0 3px 0 #11694a; }
+.f-cell.near { background: #e0a526; box-shadow: 0 3px 0 #a8660b; }
+.f-cell.miss { background: #56655e; box-shadow: 0 3px 0 #3a4540; }
+.f-row.win .f-name b { color: var(--hi); }
+.f-result h3 { margin: 6px 0 2px; font-size: 1.5rem; }
+.f-stats, .dstats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; margin: 14px 0; text-align: center; }
+.f-stats b, .dstats b { display: block; font: 700 1.7rem Oswald, sans-serif; color: var(--hi); }
+.f-stats small, .dstats small { color: var(--muted); font-size: .7rem; }
+.dstats > div { background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 10px 4px; box-shadow: 0 3px 0 var(--edge); }
+.f-dist { display: grid; gap: 4px; margin-bottom: 8px; }
+.f-dist div { display: grid; grid-template-columns: 16px 1fr; gap: 6px; align-items: center; font-size: .8rem; }
+.f-dist i { font-style: normal; background: #56655e; color: #fff; text-align: right; padding: 2px 6px; border-radius: 6px; font-weight: 800; min-width: 22px; }
+.f-dist i.me { background: #22a06b; }
+.lb-row small.muted { font-size: .75rem; }
+#dsort { margin: 10px 0 4px; flex-wrap: wrap; }
+#dsort button { font-size: .8rem; }
+
+/* favourite club: kit stripe, club tiles and touches of colour */
+.club-tile { --c1: var(--club-main, #34507a); --c2: color-mix(in srgb, var(--club-main, #34507a) 72%, #000); --c3: color-mix(in srgb, var(--club-main, #34507a) 45%, #000); color: var(--club-ink, #fff); }
+.club-tile small { opacity: .92; }
+.club-tile .stat-btn { color: var(--club-ink, #fff); border-color: color-mix(in srgb, var(--club-trim, #fff) 50%, transparent); }
+.has-club body::before { content: ''; position: fixed; top: 0; left: 0; right: 0; height: 5px; z-index: 45;
+  background: repeating-linear-gradient(90deg, var(--club-main) 0 22px, var(--club-trim) 22px 30px); }
+.has-club .section-title::before { background: var(--club-main); box-shadow: 0 0 0 2px var(--club-trim); }
+.has-club .tabbar a.on { background: color-mix(in srgb, var(--club-main) 18%, transparent); }
+.has-club .appbar .icon-btn { border-color: color-mix(in srgb, var(--club-main) 45%, transparent); }
+.fan-chip .chip { font-size: .72rem; vertical-align: middle; }
+.tile.done .tile-pb { left: 46px; }

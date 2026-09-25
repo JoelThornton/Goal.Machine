@@ -19,9 +19,13 @@ Live: `https://opportunisticgames.github.io/goal-machine/` (a free site by Oppor
 | 🕵️ Who Am I? | Guess the player from clues |
 | #️⃣ Club Grid | Immaculate-Grid style (daily or random). Obscure answers score more |
 | 🔢 Guess the Tally | How many PL goals did he score? |
+| 🟩 Footle (daily) | Guess the mystery PL player in 8 tries (Wordle-style). Each guess shows position, nationality, clubs in common, debut season, apps and goals: 🟩 match, 🟨 close, ▲▼ higher or lower. It picks well-known players with no repeats within 30 days |
+| 🏟️ Club Footle & Club XI | Set a favourite club in ⚙️ Settings to get a daily Footle of your club's players and an Ultimate Wildcard draft with only your club's players (their whole PL careers count). The app also takes on your club's colours |
 | ⚔️ Head to Head | Two players, one phone. A best-of-3, 5 or 7 series of random quick games (Higher or Lower, a 3-player Who Am I?, a 5-player Guess the Tally, a 60-second Club Hopper). Each player gets their own questions, the higher score takes the round, and draws mean an extra round |
 
 **Sound:** everything is synthesised with Web Audio in `js/audio.js`, so there are no audio files. Sound effects include the referee's whistle, spinning and landing reels, signings, wildcards, right and wrong answers, the Club Hopper clock, a goal horn with crowd roar for a bullseye, and a trophy fanfare. Optional background music is a 56-bar song at 122 bpm, about 1 min 50 s: intro, groove, lift, breakdown, chorus, a groove with a new bassline, chorus and a turnaround, with a written chorus tune and arpeggios that vary on each pass. Effects are on and music is off by default, with volumes in ⚙️ Settings. Audio starts on the first tap (a browser rule) and pauses when the app is in the background. `GM.sound.renderDemo()` renders everything to a buffer for checking without speakers.
+
+**📅 Today:** the daily games (Daily Ultimate, Footle, Daily Club Grid and Club Footle) with Wordle-style 🔥 streaks and a 4-week calendar. Dailies save after every move, so you can leave and carry on, and a finished daily stays viewable until midnight. Results go in a local log (`gm:dlog`).
 
 **Look and settings:** light theme by default, with Dark or Auto (follows the phone) in ⚙️ Settings, alongside difficulty, vibration and your leaderboard name. **📰 Updates** lists every version and Android app build. When you release, add an entry to the top of `js/updates.js` (`v` = the new `?v=` number), and returning players get a one-off "What's new" pop-up.
 
@@ -120,6 +124,25 @@ create view public.best_scores with (security_invoker = on) as
   select distinct on (mode, lower(btrim(name))) mode, btrim(name) as name, score, created_at
   from public.scores order by mode, lower(btrim(name)), score desc, created_at asc;
 grant select on public.best_scores to anon, authenticated;
+```
+
+The **Daily stars** board reads this view: 450+ Daily Ultimates, Footle wins, daily grids completed and streaks per player:
+
+```sql
+create or replace view public.daily_board with (security_invoker = on) as
+with d as (
+  select lower(btrim(name)) as k, split_part(mode, ':', 1) as game, split_part(mode, ':', 2)::date as day, max(score) as score
+  from public.scores where mode ~ '^(daily|grid|footle):[0-9]{4}-[0-9]{2}-[0-9]{2}$' group by 1, 2, 3
+), days as (select distinct k, day from d),
+runs as (select k, day, day - (row_number() over (partition by k order by day))::int as grp from days),
+streaks as (select k, count(*)::int as len, max(day) as last_day from runs group by k, grp)
+select (select btrim(s.name) from public.scores s where lower(btrim(s.name)) = d.k order by s.created_at desc limit 1) as name,
+  count(*) filter (where game = 'daily' and score >= 450)::int as big_days, count(*) filter (where game = 'daily')::int as daily_days,
+  count(*) filter (where game = 'grid')::int as grid_days, count(*) filter (where game = 'footle' and score > 0)::int as footle_wins,
+  count(distinct day)::int as days_played, (select max(len) from streaks s where s.k = d.k) as best_streak,
+  coalesce((select max(len) from streaks s where s.k = d.k and s.last_day >= current_date - 1), 0) as current_streak
+from d group by k;
+grant select on public.daily_board to anon, authenticated;
 ```
 
 Then put the project URL and the publishable key into `config.js`. There is no anti-cheat, so this setup suits a board shared with friends.

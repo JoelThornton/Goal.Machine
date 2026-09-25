@@ -119,41 +119,66 @@
   const fmt = n => n.toLocaleString();
 
   /* ---------------------------------------------------------------- reel generation */
+  // Fair deals. Every spin has its own fixed running order of players, drawn from the whole field and seeded by the
+  // game seed + spin number (+ which re-roll or special spin it is). The reels are the first players in that order who
+  // fit your open positions. So two people on the same seed see the same players on the same spin wherever their
+  // positions allow - if Shearer is 1st in spin 3's order, everyone with a striker slot open on spin 3 gets him -
+  // and identical decisions always give identical games. Wildcards depend on the spin alone.
+  const samplers = new Map();
+  function sampler(key, list, w) {
+    if (!samplers.has(key)) {
+      const cum = []; let t = 0;
+      for (const p of list) { t += w(p); cum.push(t); }
+      samplers.set(key, { list, cum, t });
+    }
+    const sm = samplers.get(key);
+    return u => {  // binary search the cumulative weights
+      let lo = 0, hi = sm.cum.length - 1; const x = u * sm.t;
+      while (lo < hi) { const mid = (lo + hi) >> 1; if (sm.cum[mid] < x) lo = mid + 1; else hi = mid; }
+      return sm.list[lo];
+    };
+  }
   function makeReels(special) {
-    const r = GM.rng(`${S.seed}|${S.stat}|${S.spin}|${S.respins}|${special || ''}`);
+    const tag = `${S.seed}|${S.stat}|${S.spin}|${S.spinRespins || 0}|${special || ''}`;
+    const r = GM.rng(tag), rw = GM.rng(tag + '|wild');
     const open = openPos();
     const used = new Set(S.used.concat(S.xi.filter(s => s.p != null).map(s => s.p)));
-    let pool = GM.players.filter(p => fits(p, open) && !used.has(p.id));
-    if (S.club) {  // Club XI: only the club's players, unless it has nobody left for the open positions
-      const mine = pool.filter(p => p.clubs.includes(S.club));
-      if (mine.length) pool = mine;
-    }
+    const ok = p => fits(p, open) && !used.has(p.id);
     const wc = special && WILDCARDS[special];
     const n = (wc && wc.reels) || 3;
-    const reels = [];
-    let wildShown = !!special;
+    // the field: everyone (or the club's players in Club XI, or a wildcard's theme), as long as it still has someone who fits
+    let field = GM.players, fkey = 'all';
+    if (S.club) {
+      const mine = GM.players.filter(p => p.clubs.includes(S.club));
+      if (mine.some(ok)) { field = mine; fkey = 'club:' + S.club; }
+    }
+    if (wc && wc.filter) {
+      const themed = field.filter(p => wc.filter(p, wst()));
+      if (themed.some(ok)) { field = themed; fkey += '|' + special; }
+    }
+    const draw = sampler(`${fkey}|${S.mode}|${S.hard ? 'h' : ''}`, field, reelWeight());
+    // wildcard: reel 1 or 2 on 28% of spins each, decided by the spin number only
+    let wildAt = -1, wild = null;
+    if (!special && S.spin >= 1) {
+      if (rw() < 0.28) wildAt = 0; else if (rw() < 0.28) wildAt = 1;
+      const types = Object.keys(WILDCARDS).filter(t => !S.rules.noWild.includes(t));
+      wild = rw.weighted(types, t => WILDCARDS[t].w);
+    }
+    const reels = [], taken = new Set();
     for (let i = 0; i < n; i++) {
-      if (S.spin >= 1 && !wildShown && i < 2 && r() < 0.28) {
-        const types = Object.keys(WILDCARDS).filter(t => !S.rules.noWild.includes(t));
-        reels.push({ wild: r.weighted(types, t => WILDCARDS[t].w) });
-        wildShown = true;
-        continue;
+      if (i === wildAt) { reels.push({ wild }); continue; }
+      let p = null;
+      for (let tries = 0; tries < 800 && !p; tries++) { const c = draw(r()); if (ok(c) && !taken.has(c.id)) p = c; }
+      if (!p) {  // very few players left who fit: pick from them directly
+        const rest = field.filter(c => ok(c) && !taken.has(c.id));
+        if (!rest.length) break;
+        p = r.weighted(rest, reelWeight());
       }
-      const taken = new Set(reels.filter(x => x.id != null).map(x => x.id));
-      let cands = pool.filter(p => !taken.has(p.id));
-      let mate = null;
-      if (wc && wc.filter) {
-        const themed = cands.filter(p => wc.filter(p, wst()));
-        if (themed.length) cands = themed;
-      } else if (i === 1 && S.last != null && r() < 0.35) {
-        const lp = byId(S.last);
-        const mates = cands.filter(p => p.first <= lp.last && p.last >= lp.first && p.clubs.some(c => lp.clubs.includes(c)));
-        if (mates.length) { cands = mates; mate = lp; }
-      }
-      if (!cands.length) break;
-      const p = r.weighted(cands, reelWeight());
+      taken.add(p.id);
       const x = { id: p.id };
-      if (mate) x.mate = { name: mate.name, club: p.clubs.find(c => mate.clubs.includes(c)) };
+      // chemistry hint (a label only, so it doesn't change who you're offered): played with your last signing
+      const lp = S.last != null ? byId(S.last) : null;
+      if (lp && p.first <= lp.last && p.last >= lp.first && p.clubs.some(c => lp.clubs.includes(c))) x.mate = { name: lp.name, club: p.clubs.find(c => lp.clubs.includes(c)) };
       reels.push(x);
     }
     return reels;
@@ -277,6 +302,7 @@
 
   function completePick() {
     S.xi.forEach(s => { s.fresh = false; });
+    S.spinRespins = 0;
     S.spin++;
     S.reels = [];
     S.selected = -1;
@@ -299,9 +325,9 @@
         break;
       case 'respin':
         if (S.phase !== 'pick') { GM.toast('Spin first, then Roll Again if you don’t like them'); return; }
-        S.respins++; consume(); doSpin(); return;
+        S.respins++; S.spinRespins = (S.spinRespins || 0) + 1; consume(); doSpin(); return;
       case 'special':
-        S.respins++; consume(); doSpin(w); return;
+        S.respins++; S.spinRespins = (S.spinRespins || 0) + 1; consume(); doSpin(w); return;
       case 'sub':
         if (!S.xi.some(s => s.p != null)) { GM.toast('No one to release yet'); return; }
         S.subbing = k; S.pending = null; render(); GM.toast('Tap a player on the pitch to release him'); return;
@@ -317,7 +343,7 @@
         if (!idx.length) { GM.toast(w === 'gegenpress' ? 'Your LM and RM slots are already filled' : 'No free attacking slots to drop back'); return; }
         idx.forEach(i => { S.xi[i].pos = w === 'gegenpress' ? 'ST' : 'CB'; });
         GM.toast(w === 'gegenpress' ? `⚡ Gegenpress! ${idx.length} midfield slot${idx.length > 1 ? 's' : ''} → strikers` : `🚌 Bus parked: ${idx.length} slot${idx.length > 1 ? 's' : ''} → defence`);
-        if (S.phase === 'pick' && !S.reels.some(x => x.wild || fits(byId(x.id), openPos()))) { S.respins++; consume(); doSpin(); return; }
+        if (S.phase === 'pick' && !S.reels.some(x => x.wild || fits(byId(x.id), openPos()))) { S.respins++; S.spinRespins = (S.spinRespins || 0) + 1; consume(); doSpin(); return; }
         break;
       }
     }

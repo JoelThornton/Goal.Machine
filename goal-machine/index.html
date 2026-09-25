@@ -5,7 +5,16 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <title>Goal Machine – Premier League XI game</title>
   <meta name="description" content="Build the biggest-scoring Premier League XI from 2,000+ players. Wildcards, a daily challenge, The Treble, Mystery Target, Club Hopper, club grids and more.">
-  <meta name="theme-color" content="#0b3d2e">
+  <meta name="theme-color" content="#eef2ee">
+  <script>
+    // apply the saved look before anything paints (see GM.applyTheme)
+    (function () {
+      var t = 'light';
+      try { t = JSON.parse(localStorage.getItem('gm:theme')) || 'light'; } catch (e) { }
+      var dark = t === 'dark' || (t === 'auto' && window.matchMedia && matchMedia('(prefers-color-scheme: dark)').matches);
+      document.documentElement.setAttribute('data-theme', dark ? 'dark' : 'light');
+    })();
+  </script>
   <meta property="og:title" content="Goal Machine">
   <meta property="og:description" content="Can you build the biggest-scoring Premier League XI?">
   <link rel="manifest" href="manifest.webmanifest">
@@ -14,18 +23,26 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Oswald:wght@500;700&family=Inter:wght@400;600;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="style.css?v=12">
+  <link rel="stylesheet" href="style.css?v=13">
 </head>
 <body>
+  <div id="splash" aria-hidden="true">
+    <img src="icons/icon.svg" alt="" width="104" height="104">
+    <div class="logo">GOAL<span>MACHINE</span></div>
+    <div class="splash-bar"><i></i></div>
+    <small>by Opportunistic Games</small>
+  </div>
   <main id="app"></main>
   <noscript>Goal Machine needs JavaScript.</noscript>
-  <script src="data/players.js?v=12"></script>
-  <script src="config.js?v=12"></script>
-  <script src="js/core.js?v=12"></script>
-  <script src="js/draft.js?v=12"></script>
-  <script src="js/report.js?v=12"></script>
-  <script src="js/collection.js?v=12"></script>
-  <script src="js/modes.js?v=12"></script>
-  <script src="js/app.js?v=12"></script>
+  <script src="data/players.js?v=13"></script>
+  <script src="config.js?v=13"></script>
+  <script src="js/core.js?v=13"></script>
+  <script src="js/draft.js?v=13"></script>
+  <script src="js/report.js?v=13"></script>
+  <script src="js/collection.js?v=13"></script>
+  <script src="js/modes.js?v=13"></script>
+  <script src="js/h2h.js?v=13"></script>
+  <script src="js/updates.js?v=13"></script>
+  <script src="js/app.js?v=13"></script>
 </body>
 </html>

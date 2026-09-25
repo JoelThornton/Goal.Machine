@@ -3,9 +3,22 @@
 
 (function () {
   const P = GM.players;
-  const top = (label, icon) => `<div class="topbar"><a href="#/" class="back">‹</a><h2>${icon} ${label}</h2><span></span></div>`;
+  // opts (all optional) let Head to Head run a game: seed, hard, rounds/time, back (link), done(score) instead of saving
+  let backTo = '#/';
+  const top = (label, icon) => `<div class="topbar"><a href="${backTo}" class="back">‹</a><h2>${icon} ${label}</h2><span></span></div>`;
+  const setup = opts => { backTo = opts.back || '#/'; return { r: GM.rng(opts.seed || GM.newSeed()), hard: opts.hard != null ? opts.hard : GM.isHard() }; };
 
-  async function gameOver(root, mode, score, lines, again, shareText, extra) {
+  async function gameOver(root, mode, score, lines, again, shareText, extra, done) {
+    if (done) {  // Head to Head: no saving, just hand the score back
+      const box = document.createElement('div');
+      box.className = 'result';
+      box.innerHTML = `<div class="result-score">${score}<small>points</small></div>${lines || ''}
+        <div class="actions col"><button class="btn big" data-next>Continue ➜</button></div>`;
+      root.appendChild(box);
+      box.scrollIntoView({ behavior: 'smooth' });
+      box.querySelector('[data-next]').onclick = () => done(score);
+      return;
+    }
     if (GM.checkGame) GM.checkGame(mode, score, extra);
     const { isBest } = await GM.recordScore(mode, score);
     const box = document.createElement('div');
@@ -23,9 +36,8 @@
   }
 
   /* =============================================================== HIGHER OR LOWER */
-  GM.hilo = function (root) {
-    const r = GM.rng(GM.newSeed());
-    const hard = GM.isHard(), key = hard ? 'hiloh' : 'hilo';
+  GM.hilo = function (root, opts = {}) {
+    const { r, hard } = setup(opts), key = hard ? 'hiloh' : 'hilo';
     let streak = 0, a, b, stat, busy = false;
     const pickStat = () => (r() < 0.55 ? 'goals' : 'apps');
     const draw = (exclude) => {
@@ -44,7 +56,7 @@
     }
     function render() {
       root.innerHTML = `${top('Higher or Lower' + (hard ? ' · Hard' : ''), '↕️')}
-        <div class="hl-head">Streak <b>${streak}</b> · Best ${GM.best(key)}</div>
+        <div class="hl-head">Streak <b>${streak}</b>${opts.done ? '' : ` · Best ${GM.best(key)}`}</div>
         <div class="hl">${card(a, true, 'hla')}<div class="vs">VS</div>${card(b, false, 'hlb')}</div>
         <div class="hl-q">Does <b>${GM.esc(b.name)}</b> have more or fewer ${label(stat)} than ${GM.esc(a.name.split(' ').slice(-1)[0])}?</div>
         <div class="actions row2"><button class="btn big up" data-g="1">⬆ Higher</button><button class="btn big down" data-g="-1">⬇ Lower</button></div>
@@ -59,12 +71,12 @@
       GM.$('#hlb', root).classList.add(ok ? 'good' : 'bad');
       await GM.sleep(700);
       if (ok) {
-        streak++;
+        streak++; GM.buzz();
         a = b; stat = pickStat(); b = draw(a);
         busy = false; render();
       } else {
         GM.$$('[data-g]', root).forEach(x => x.disabled = true);
-        gameOver(GM.$('#hl-over', root), key, streak, `<div class="muted">${GM.esc(b.name)}: ${b[stat]} vs ${GM.esc(a.name)}: ${a[stat]}</div>`, () => GM.hilo(root));
+        gameOver(GM.$('#hl-over', root), key, streak, `<div class="muted">${GM.esc(b.name)}: ${b[stat]} vs ${GM.esc(a.name)}: ${a[stat]}</div>`, () => GM.hilo(root), null, null, opts.done);
       }
     }
     render();
@@ -76,10 +88,10 @@
   }
 
   /* =============================================================== WHO AM I */
-  GM.whoami = function (root) {
-    const r = GM.rng(GM.newSeed());
-    const ROUNDS = 10, PTS = [500, 400, 300, 200, 100];
-    const hard = GM.isHard(), key = hard ? 'whoamih' : 'whoami';
+  GM.whoami = function (root, opts = {}) {
+    const { r, hard } = setup(opts);
+    const ROUNDS = opts.rounds || 10, PTS = [500, 400, 300, 200, 100];
+    const key = hard ? 'whoamih' : 'whoami';
     let round = 0, score = 0, target, clue, results = [], wrong = [];
     const pool = P.filter(p => p.apps >= 100 || p.goals >= 25);
     const next = () => { target = r.weighted(pool, p => Math.pow(p.fame, 1.15)); clue = 0; wrong = []; };
@@ -127,7 +139,7 @@
           round++;
           if (round >= ROUNDS) {
             root.innerHTML = top('Who Am I?', '🕵️') + `<div class="center big-emoji">${results.join('')}</div>`;
-            gameOver(root, key, score, '', () => GM.whoami(root), `⚽ Goal Machine – Who Am I?${hard ? ' (Hard)' : ''}\n${results.join('')}\n${score} pts`);
+            gameOver(root, key, score, '', () => GM.whoami(root), `⚽ Goal Machine – Who Am I?${hard ? ' (Hard)' : ''}\n${results.join('')}\n${score} pts`, null, opts.done);
           } else { next(); render(); }
         },
       });
@@ -169,6 +181,7 @@
   }
 
   GM.grid = function (root, daily) {
+    backTo = '#/';
     const seed = daily ? 'grid:' + GM.today() : GM.newSeed();
     const hard = GM.isHard();
     const g = makeGrid(seed);
@@ -234,10 +247,9 @@
   };
 
   /* =============================================================== GUESS THE TALLY */
-  GM.tally = function (root) {
-    const r = GM.rng(GM.newSeed());
-    const hard = GM.isHard(), key = hard ? 'tallyh' : 'tally';
-    const ROUNDS = 10;
+  GM.tally = function (root, opts = {}) {
+    const { r, hard } = setup(opts), key = hard ? 'tallyh' : 'tally';
+    const ROUNDS = opts.rounds || 10;
     let round = 0, score = 0, p;
     const pool = P.filter(x => x.pos !== 'G');
     const next = () => { p = r.weighted(pool, x => x.fame); };
@@ -262,7 +274,7 @@
           <p><b>+${pts}</b> ${d === 0 ? '🎯 Spot on!' : ''}</p><button class="btn" data-close>${round + 1 < ROUNDS ? 'Next' : 'See score'}</button></div>`, {
           onClose: () => {
             round++;
-            if (round >= ROUNDS) { root.innerHTML = top('Guess the Tally', '🎯'); gameOver(root, key, score, '', () => GM.tally(root)); }
+            if (round >= ROUNDS) { root.innerHTML = top('Guess the Tally', '🎯'); gameOver(root, key, score, '', () => GM.tally(root), null, null, opts.done); }
             else { next(); render(); }
           },
         });
@@ -273,11 +285,10 @@
   };
   /* =============================================================== CLUB HOPPER */
   // Name a player who played for the club on screen, then hop to one of his other PL clubs. 90 seconds.
-  GM.hopper = function (root) {
-    const TIME = 90;
-    const r = GM.rng(GM.newSeed());
+  GM.hopper = function (root, opts = {}) {
+    const TIME = opts.time || 90;
+    const { r, hard } = setup(opts), key = hard ? 'hopperh' : 'hopper';
     const big = Object.keys(clubCount).filter(c => clubCount[c] >= 40);
-    const hard = GM.isHard(), key = hard ? 'hopperh' : 'hopper';
     let club = r.pick(big), hops = 0, left = TIME, used = new Set(), chain = [], timer = null, over = false, choosing = null;
     const fmtT = s => `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
 
@@ -295,7 +306,7 @@
 
     function render() {
       root.innerHTML = `${top('Club Hopper' + (hard ? ' · Hard' : ''), '🦘')}
-        <div class="hop-head"><span>Hops <b>${hops}</b></span><span class="timer" id="htime">${fmtT(left)}</span><span>Best ${GM.best(key)}</span></div>
+        <div class="hop-head"><span>Hops <b>${hops}</b></span><span class="timer" id="htime">${fmtT(left)}</span><span>${opts.done ? '' : 'Best ' + GM.best(key)}</span></div>
         <div class="hop-club">${GM.clubChip(club, true)}</div>
         ${choosing ? `<p class="center">Where next with <b>${GM.esc(choosing.name)}</b>?</p>
           <div class="hop-choices">${choosing.clubs.filter(c => c !== club).map(c => `<button class="btn" data-hop="${GM.esc(c)}">${GM.clubChip(c)} ${GM.esc(c)}</button>`).join('')}</div>`
@@ -323,6 +334,7 @@
       choosing = p; render();
     }
     function hop(p, to) {
+      GM.buzz();
       chain.push([p, club, to]);
       hops++; club = to; choosing = null;
       render();
@@ -333,7 +345,7 @@
       GM.$$('input, [data-hop], #hskip', root).forEach(x => { x.disabled = true; });
       const route = chain.map(([, from]) => GM.clubShort(from)).concat(chain.length ? [GM.clubShort(club)] : []).join('→');
       gameOver(GM.$('#hover', root), key, hops, `<div class="muted">${chain.length ? route : 'No hops this time'}</div>`, () => GM.hopper(root),
-        `⚽ Goal Machine – Club Hopper: ${hops} hops in ${TIME}s 🦘\n${route}`);
+        `⚽ Goal Machine – Club Hopper: ${hops} hops in ${TIME}s 🦘\n${route}`, null, opts.done);
     }
     // stop the clock if the player leaves the page
     window.addEventListener('hashchange', () => { over = true; clearInterval(timer); }, { once: true });

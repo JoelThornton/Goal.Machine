@@ -331,6 +331,23 @@ GM.MODES = {
 GM.HARD_MODES = ['ultimate', 'ultimateast', 'ultimateapps', 'target', 'targetast', 'targetapps', 'treble', 'mystery', 'hopper', 'grid', 'hilo', 'whoami', 'tally'];
 GM.isHard = () => GM.store.get('hard', false);
 GM.setHard = v => GM.store.set('hard', !!v);
+
+// Look: 'light' (default), 'dark', or 'auto' to follow the phone. index.html applies it before first paint too.
+GM.THEMES = { light: '☀️ Light', dark: '🌙 Dark', auto: '📱 Auto' };
+GM.getTheme = () => GM.store.get('theme', 'light');
+GM.applyTheme = function () {
+  const t = GM.getTheme();
+  const dark = t === 'dark' || (t === 'auto' && window.matchMedia('(prefers-color-scheme: dark)').matches);
+  document.documentElement.dataset.theme = dark ? 'dark' : 'light';
+  const meta = document.querySelector('meta[name="theme-color"]');
+  if (meta) meta.content = dark ? '#0b3d2e' : '#eef2ee';
+};
+GM.setTheme = t => { GM.store.set('theme', t); GM.applyTheme(); };
+if (window.matchMedia) window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => GM.getTheme() === 'auto' && GM.applyTheme());
+GM.applyTheme();
+
+// Little buzz on phones that support it (the Android app included)
+GM.buzz = (ms = 15) => { try { if (GM.store.get('buzz', true) && navigator.vibrate) navigator.vibrate(ms); } catch (e) { } };
 Object.keys(GM.MODES).filter(k => GM.HARD_MODES.includes(k)).forEach(k => {
   GM.MODES[k + 'h'] = { name: GM.MODES[k].name + ' (Hard)', icon: GM.MODES[k].icon };
 });

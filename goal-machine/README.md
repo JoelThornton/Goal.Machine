@@ -19,6 +19,9 @@ Live: `https://opportunisticgames.github.io/goal-machine/` (a free site by Oppor
 | 🕵️ Who Am I? | Guess the player from clues |
 | #️⃣ Club Grid | Immaculate-Grid style (daily or random). Obscure answers score more |
 | 🔢 Guess the Tally | How many PL goals did he score? |
+| ⚔️ Head to Head | Two players, one phone. A best-of-3, 5 or 7 series of random quick games (Higher or Lower, a 3-player Who Am I?, a 5-player Guess the Tally, a 60-second Club Hopper). Each player gets their own questions, the higher score takes the round, and draws mean an extra round |
+
+**Look and settings:** light theme by default, with Dark or Auto (follows the phone) in ⚙️ Settings, alongside difficulty, vibration and your leaderboard name. **📰 Updates** lists every version and Android app build. When you release, add an entry to the top of `js/updates.js` (`v` = the new `?v=` number), and returning players get a one-off "What's new" pop-up.
 
 **🥵 Hard mode** (the toggle on the home screen):
 - **All games:** cards show only names and positions (no clubs, years, apps, nationality, photos or club colours), and the Who Am I?, Club Grid and Club Hopper suggestions list names only.

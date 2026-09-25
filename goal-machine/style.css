@@ -792,3 +792,4 @@ h2, h3 { letter-spacing: .3px; }
 .cx b { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; } .cx i { font-style: normal; font-weight: 800; color: var(--hi); }
 .cx.empty { opacity: .5; background: var(--inset); }
 .page-online #challenge, .page-online a[href^="#/leaderboard"] { display: none; }
+.prow.credit > div { min-width: 0; } .prow.credit small { overflow-wrap: anywhere; }

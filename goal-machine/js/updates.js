@@ -4,6 +4,20 @@
 (function () {
   GM.UPDATES = [
     {
+      v: 16, date: '2026-09-25', app: 12, title: 'Friends, challenges + match points',
+      items: [
+        '👥 Online games now belong to your 🔒 name: add friends, challenge them, take your turn whenever suits you, and pick your games back up on any phone',
+        '🔔 “Your move” alerts on the home screen, and notifications in the Android app when a friend challenges you or it’s your pick',
+        '📜 Every online game is kept: look back at finished games, both teams side by side, and your win-draw-loss record against each friend',
+        '🏁 Live Race match points: 50 for the bigger total, 30 for the better squad rating and 20 for the quicker XI. Once you’ve finished, watch your friend’s XI fill up',
+        '🤝 Draft Duel: five players a spin with at least two for each of you (no more empty reels late on), the challenged player picks first, and a 15-second pick clock when you’re both in the game',
+        '🏟️ A new Club look paints the game in your favourite club’s colours, and Auto now follows your phone’s light or dark setting in the app',
+        '📖 The Players tab lists all 5,157 Premier League players, with an apps filter and a most-assists sort',
+        '📣 Share Goal Machine with your mates from the home screen or Settings',
+        '🗓️ Tidier calendar icon, heading markers and stat buttons',
+      ],
+    },
+    {
       v: 15, date: '2026-09-25', title: 'Online duels, new modes + fair spins',
       items: [
         '🌐 Play a friend online: a Draft Duel (take turns picking from the same reels) or a Live Race (same spins, watch their total), from the Head to Head banner',

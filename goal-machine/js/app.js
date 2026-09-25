@@ -29,8 +29,8 @@
   }
 
   // bottom tab bar: shown on the menus, hidden mid-game so the pitch gets the whole screen
-  const TABS = [['', '⚽', 'Play'], ['leaderboard', '🏆', 'Leaderboards'], ['album', '📒', 'Album'], ['players', '📖', 'Players']];
-  const MENU_PAGES = ['', 'leaderboard', 'album', 'players', 'updates', 'settings', 'about', 'h2h'];
+  const TABS = [['', '⚽', 'Play'], ['today', '<i class="cal-slot"></i>', 'Today'], ['leaderboard', '🏆', 'Ranks'], ['album', '📒', 'Album'], ['players', '📖', 'Players']];
+  const MENU_PAGES = ['', 'today', 'leaderboard', 'album', 'players', 'updates', 'settings', 'about', 'h2h', 'credits'];
   const tabbar = document.createElement('nav');
   tabbar.className = 'tabbar';
   tabbar.innerHTML = TABS.map(([p, i, l]) => `<a href="#/${p}" data-tab="${p}"><span>${i}</span>${l}</a>`).join('');
@@ -46,9 +46,13 @@
     document.body.classList.toggle('has-tabs', menu);
     tabbar.hidden = !menu;
     GM.$$('[data-tab]', tabbar).forEach(a => a.classList.toggle('on', a.dataset.tab === path));
+    GM.$('.cal-slot', tabbar).innerHTML = GM.calIcon();  // stays right past midnight
     switch (path) {
-      case 'draft': return GM.draft.start(app, ['target', 'treble', 'mystery'].includes(q.m) ? q.m : 'ultimate',
-        { stat: q.s, seed: q.seed, vs: q.vs, vss: q.vss ? +q.vss : undefined, hard: q.seed ? q.h === '1' : GM.isHard() });
+      case 'draft': return GM.draft.start(app, ['target', 'treble', 'mystery', 'club'].includes(q.m) ? q.m : 'ultimate',
+        { stat: q.s, seed: q.seed, vs: q.vs, vss: q.vss ? +q.vss : undefined, hard: q.seed ? q.h === '1' : GM.isHard(), club: q.c });
+      case 'today': return GM.todayPage(app);
+      case 'footle': return GM.footle(app, false);
+      case 'clubfootle': return GM.footle(app, true);
       case 'daily': return GM.draft.start(app, 'daily');
       case 'hilo': return GM.hilo(app);
       case 'hopper': return GM.hopper(app);
@@ -71,24 +75,29 @@
 
   /* ---------------------------------------------------------------- home */
   function home() {
-    const dailyDone = GM.store.get('daily2:' + GM.today());
-    const gridDone = GM.store.get('hist:grid:' + GM.today(), []).length > 0;
     const hard = GM.isHard();
     const pb = k => GM.best(hard && GM.HARD_MODES.includes(k) ? k + 'h' : k);
+    const club = GM.favClub();
     const statBtn = (m, s, label) => {
-      const st = GM.STATS[s], best = pb(GM.draft.modeKey(m, s, false));
-      return `<a class="stat-btn" href="#/draft?m=${m}&s=${s}">${st.icon} ${label || st.name}${best ? `<small>PB ${best.toLocaleString()}</small>` : ''}</a>`;
+      const st = GM.STATS[s], best = m === 'club' ? GM.best(GM.draft.modeKey(m, s, false, club)) : pb(GM.draft.modeKey(m, s, false));
+      return `<a class="stat-btn" href="#/draft?m=${m}&s=${s}${m === 'club' ? '&c=' + encodeURIComponent(club) : ''}">${st.icon} ${label || st.name}${best ? `<small>PB ${best.toLocaleString()}</small>` : ''}</a>`;
     };
     const tile = (href, cls, icon, title, sub, best, extra = '') =>
       `<a class="tile ${cls}" href="${href}"><span class="tile-icon">${icon}</span>${best ? `<span class="tile-pb">PB ${best.toLocaleString()}</span>` : ''}<b>${title}</b><small>${sub}</small>${extra}</a>`;
     const album = GM.albumSummary();
+    const streak = GM.streak();
+    const dtile = (g, cls, sub) => {
+      const G = GM.DAILY_GAMES[g], st = GM.dailyStatus(g), gs = GM.streak(g);
+      return `<a class="tile ${cls}${st.done ? ' done' : ''}" href="${G.href}"><span class="tile-icon">${G.icon}</span>${gs ? `<span class="tile-pb">🔥 ${gs}</span>` : ''}
+        <b>${g === 'club' ? GM.esc(GM.clubShort(club)) + ' Footle' : G.name}</b><small>${st.text || sub}</small></a>`;
+    };
     const h2h = GM.store.get('h2h', null);
     app.innerHTML = `
       <div class="appbar"><a class="icon-btn" href="#/settings" aria-label="Settings">⚙️</a>
         <div class="logo small">GOAL<span>MACHINE</span></div>
         <a class="icon-btn" href="#/updates" aria-label="Updates">📰${GM.hasUnseenUpdate() ? '<i class="new-dot"></i>' : ''}</a></div>
       <header class="hero">
-        <p>${GM.players.length.toLocaleString()} Premier League players · 1992 to today</p>
+        <p>${club ? `<span class="fan-chip">${GM.clubChip(club, true)}</span> ` : ''}${GM.players.length.toLocaleString()} Premier League players · 1992 to today</p>
         ${installHidden() || hasNativeApp ? '' : `<div class="install-bar">
           ${isAndroid ? `<a class="btn small" id="getapk" href="${GM.APK_URL}">🤖 Get the Android app</a>` : `<button class="btn small" id="install" hidden>📲 Install app</button>`}
           <button class="install-x" id="install-x" title="I already have it" aria-label="Hide">✕</button></div>`}
@@ -104,10 +113,12 @@
           <span class="stat-pick">${statBtn('ultimate', 'goals')}${statBtn('ultimate', 'assists')}${statBtn('ultimate', 'apps')}</span></span>
       </div>
       <a class="h2h-banner" href="#/h2h"><span>⚔️</span><span><b>Head to Head</b><small>${h2h ? `${GM.esc(h2h.names[0])} v ${GM.esc(h2h.names[1])}: tap to carry on` : 'Pass the phone · best of 5 random games'}</small></span><span>🏆</span></a>
-      <h3 class="section-title">Today</h3>
+      <h3 class="section-title"><a href="#/today">Today${streak ? ` <span class="streak-pill">🔥 ${streak}</span>` : ''}<span class="more">All dailies ›</span></a></h3>
       <div class="tiles">
-        ${tile('#/daily', 't-green' + (dailyDone ? ' done' : ''), '📅', 'Daily Ultimate', dailyDone ? `Done: ${dailyDone.final ? dailyDone.final.t + ' goals' : ''} · back tomorrow` : 'Same spins for everyone. One shot.')}
-        ${tile('#/dailygrid', 't-blue' + (gridDone ? ' done' : ''), '#️⃣', 'Daily Club Grid', gridDone ? 'Done today ✓' : 'Played for both? 3×3 grid', GM.best('grid'))}
+        ${dtile('daily', 't-green', 'Same spins for everyone. One shot.')}
+        ${dtile('footle', 't-teal', 'Guess the player in 8')}
+        ${dtile('grid', 't-blue', 'Played for both? 3×3 grid')}
+        ${club ? dtile('club', 'club-tile', 'Mystery player from your club') : `<a class="tile t-navy" href="#/settings"><span class="tile-icon">🏟️</span><b>Pick your club</b><small>Unlock Club Footle, Club XI and your colours</small></a>`}
       </div>
       <h3 class="section-title">Hit the target</h3>
       <div class="tile t-red wide target-tile"><span class="tile-icon">🎯</span><b>Target</b><small>Hit the number exactly for a bullseye.</small>
@@ -124,6 +135,9 @@
         ${tile('#/tally', 't-amber', '🔢', 'Guess the Tally', 'How many PL goals?', pb('tally'))}
         ${tile('#/grid', 't-navy wide', '🔀', 'Random Club Grid', 'Endless grids. Obscure answers score more.', pb('grid'))}
       </div>
+      ${club ? `<h3 class="section-title">Your club</h3>
+      <div class="tile club-tile wide target-tile"><span class="tile-icon">🏟️</span><b>${GM.esc(club)} XI</b><small>Ultimate Wildcard with only ${GM.esc(club)} players. Their whole PL careers count.</small>
+        <span class="stat-pick">${statBtn('club', 'goals')}${statBtn('club', 'assists')}${statBtn('club', 'apps')}</span></div>` : ''}
       <h3 class="section-title">Your collection</h3>
       <a class="tile t-purple wide album-tile" href="#/album"><span class="tile-icon">📒</span><b>Album & badges</b>
         <small>${album.players.toLocaleString()}/${GM.players.length.toLocaleString()} players · ${album.badges}/${album.totalBadges} badges</small>
@@ -161,6 +175,8 @@
     app.innerHTML = `<div class="topbar"><a href="#/" class="back">‹</a><h2>⚙️ Settings</h2><span></span></div>
       <section class="settings">
         <div class="setting"><b>Appearance</b><small>Auto follows your phone's light or dark setting</small>${seg('s-theme', GM.THEMES, GM.getTheme())}</div>
+        <div class="setting"><b>Favourite club</b><small>Unlocks Club Footle and Club XI, and brings your club's colours to the app</small>
+          <select class="input" id="s-club"><option value="">None</option>${GM.clubOptions().map(c => `<option ${c === GM.favClub() ? 'selected' : ''}>${GM.esc(c)}</option>`).join('')}</select></div>
         <div class="setting"><b>Sound effects</b><small>Whistles, reels, the crowd and the goal horn</small>${seg('s-sfx', { true: '🔊 On', false: '🔇 Off' }, snd.sfx)}
           <label class="vol">🔈<input type="range" id="s-sfxvol" min="0" max="1" step="0.05" value="${snd.sfxVol}">🔊</label></div>
         <div class="setting"><b>Music</b><small>A background track while you play</small>${seg('s-bg', { off: '🔇 Off', music: '🎵 On' }, snd.bg)}
@@ -181,6 +197,7 @@
     wire('s-theme', v => GM.setTheme(v));
     wire('s-hard', v => GM.setHard(v === 'true'));
     wire('s-buzz', v => GM.store.set('buzz', v === 'true'));
+    GM.$('#s-club').onchange = e => { GM.setFavClub(e.target.value); GM.sound.play('whistle'); if (e.target.value) GM.toast(`🏟️ Welcome, ${GM.esc(GM.clubShort(e.target.value))} fan!`); };
     wire('s-sfx', v => { GM.sound.set('sfx', v === 'true'); GM.sound.play('whistle'); });
     wire('s-bg', v => GM.sound.set('bg', v));
     GM.$('#s-sfxvol').onchange = e => { GM.sound.set('sfxVol', +e.target.value); GM.sound.play('good'); };
@@ -193,18 +210,24 @@
 
   /* ---------------------------------------------------------------- leaderboard */
   async function leaderboard(m) {
+    if (m && m.startsWith('dailies')) return dailyBoard(m.split(':')[1]);
     const hard = m ? /^[a-z]+h$/.test(m) && GM.MODES[m] != null : GM.isHard();
-    const tabs = ['ultimate', 'ultimateast', 'ultimateapps', 'daily:' + GM.today(), 'target', 'targetast', 'targetapps', 'treble', 'mystery', 'hopper', 'hilo', 'whoami', 'grid:' + GM.today(), 'grid', 'tally']
+    const club = GM.favClub();
+    const tabs = ['ultimate', 'ultimateast', 'ultimateapps', 'daily:' + GM.today(), 'footle:' + GM.today(), 'target', 'targetast', 'targetapps', 'treble', 'mystery', 'hopper', 'hilo', 'whoami', 'grid:' + GM.today(), 'grid', 'tally']
+      .concat(club ? ['club' + GM.slug(club)] : [])
       .map(k => hard && GM.HARD_MODES.includes(k) ? k + 'h' : k);
     m = m && tabs.includes(m) ? m : tabs[0];
     const flip = hard ? m.replace(/h$/, '') : (GM.HARD_MODES.includes(m) ? m + 'h' : m);
-    const label = k => k.startsWith('daily:') ? '📅 Daily Ultimate' : k.startsWith('grid:') ? '#️⃣ Grid today' : `${GM.MODES[k].icon} ${GM.MODES[k].name.replace(' (Hard)', '')}`;
+    const label = k => k.startsWith('daily:') ? GM.calIcon() + ' Daily Ultimate' : k.startsWith('grid:') ? '#️⃣ Grid today' : k.startsWith('footle:') ? '🟩 Footle today' : `${GM.MODES[k].icon} ${GM.MODES[k].name.replace(' (Hard)', '')}`;
     const local = GM.store.get('hist:' + m, []);
     app.innerHTML = `<div class="topbar"><a href="#/" class="back">‹</a><h2>🏆 Leaderboards</h2><span></span></div>
       <div class="hard-toggle small"><a class="${hard ? '' : 'on'}" href="#/leaderboard?m=${encodeURIComponent(hard ? flip : m)}">🙂 Normal</a><a class="${hard ? 'on' : ''}" href="#/leaderboard?m=${encodeURIComponent(hard ? m : flip)}">🥵 Hard</a></div>
-      <div class="tabs">${tabs.map(k => `<a class="tab ${k === m ? 'active' : ''}" href="#/leaderboard?m=${encodeURIComponent(k)}">${label(k)}</a>`).join('')}</div>
+      <div class="tabs"><a class="tab" href="#/leaderboard?m=dailies">📊 Daily stars</a>${tabs.map(k => `<a class="tab ${k === m ? 'active' : ''}" href="#/leaderboard?m=${encodeURIComponent(k)}">${label(k)}</a>`).join('')}</div>
+      ${m.startsWith('footle:') ? '<p class="muted center">Footle scores: 8 for a first-guess win, down to 1 for getting it on the last guess.</p>' : ''}
       ${GM.lb.enabled ? `<h3 class="section-title">🌍 Global</h3><div id="global" class="lb"><div class="muted">Loading…</div></div>` :
         `<div class="banner">Global leaderboard isn’t switched on yet – use <b>⚔️ Challenge a friend</b> after a game to go head-to-head on the same spins.</div>`}
+      ${/^(ultimate|club)/.test(m) || m.startsWith('daily:') ? `<h3 class="section-title">📊 Your spread</h3>${m.startsWith('daily:') ? GM.distHtml('daily', 'goals')
+        : GM.distHtml(m, /apps(h)?$/.test(m) ? 'apps' : /ast(h)?$/.test(m) ? 'assists' : 'goals')}` : ''}
       <h3 class="section-title">📱 Your best on this device</h3>
       <div class="lb">${local.length ? local.slice(0, 10).map((h, i) => `<div class="lb-row"><span>${i + 1}</span><span>${new Date(h.t).toLocaleDateString()}</span><b>${h.s}</b></div>`).join('') : '<div class="muted">No games yet</div>'}</div>`;
     if (GM.lb.enabled) {
@@ -216,6 +239,33 @@
           : '<div class="muted">No scores yet – be the first!</div>';
       } catch (e) { GM.$('#global').innerHTML = '<div class="muted">Couldn’t load the global board.</div>'; }
     }
+  }
+
+  // Daily stars: who turns up and does well every day (from the daily_board view)
+  async function dailyBoard(sort) {
+    const SORTS = { big_days: ['⚽ 450+ days', 'Daily Ultimates with 450+ goals'], footle_wins: ['🟩 Footle wins', 'Footles solved'],
+      grid_days: ['#️⃣ Grids', 'Daily Club Grids completed'], best_streak: ['🔥 Streaks', 'Longest run of days playing a daily'] };
+    sort = SORTS[sort] ? sort : 'big_days';
+    const me = GM.getName();
+    app.innerHTML = `<div class="topbar"><a href="#/" class="back">‹</a><h2>📊 Daily stars</h2><span></span></div>
+      <div class="tabs"><a class="tab active" href="#/leaderboard?m=dailies">📊 Daily stars</a><a class="tab" href="#/leaderboard">🏆 Game boards ›</a></div>
+      <div class="seg" id="dsort">${Object.entries(SORTS).map(([k, [l]]) => `<button data-v="${k}" class="${k === sort ? 'on' : ''}">${l}</button>`).join('')}</div>
+      <p class="muted center">${SORTS[sort][1]}. Every player's daily results count, and you don't need a streak.</p>
+      <div id="dboard" class="lb">${GM.lb.enabled ? '<div class="muted">Loading…</div>' : '<div class="muted">The global leaderboard is switched off.</div>'}</div>
+      <h3 class="section-title">📱 You</h3>
+      <div class="dstats">
+        <div><b>${Object.values(GM.dailyLog()).filter(e => e.daily >= 450).length}</b><small>450+ days</small></div>
+        <div><b>${Object.values(GM.dailyLog()).filter(e => e.footle > 0).length}</b><small>Footle wins</small></div>
+        <div><b>${Object.values(GM.dailyLog()).filter(e => e.grid != null).length}</b><small>Grids</small></div>
+        <div><b>${GM.bestStreak()}</b><small>Best streak</small></div></div>`;
+    GM.$$('#dsort [data-v]').forEach(b => b.onclick = () => { location.hash = '#/leaderboard?m=dailies:' + b.dataset.v; });
+    if (!GM.lb.enabled) return;
+    try {
+      const rows = await GM.lb.dailyBoard(sort);
+      GM.$('#dboard').innerHTML = rows.length ? rows.map((r, i) => `<div class="lb-row ${r.name === me ? 'me' : ''}"><span>${i < 3 ? ['🥇', '🥈', '🥉'][i] : i + 1}</span>
+        <span>${GM.esc(r.name)}<small class="muted"> · ${r.days_played} day${r.days_played === 1 ? '' : 's'}${r.current_streak > 1 ? ` · 🔥${r.current_streak}` : ''}</small></span><b>${r[sort]}</b></div>`).join('')
+        : '<div class="muted">No daily results yet. Be the first!</div>';
+    } catch (e) { GM.$('#dboard').innerHTML = '<div class="muted">Couldn’t load the daily board.</div>'; }
   }
 
   /* ---------------------------------------------------------------- player index */

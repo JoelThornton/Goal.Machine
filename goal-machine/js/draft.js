@@ -43,15 +43,18 @@
     mystery: { max: false, mystery: true, weight: p => p.fame, noWild: [] },
   };
   RULES.daily = RULES.ultimate;
+  // Club XI: Ultimate Wildcard with only players who turned out for one club
+  RULES.club = { max: true, weight: () => 1, noWild: ['rotation', 'bus'], club: true };
 
   let S = null; // game state
   let root = null;
 
-  GM.draft = { start, RULES, WILDCARDS, TARGETS, state: () => S, render: () => render(), modeKey: (m, s, h) => keyFor(m, s, h) };
+  GM.draft = { start, RULES, WILDCARDS, TARGETS, state: () => S, render: () => render(), modeKey: (m, s, h, c) => keyFor(m, s, h, c) };
 
   const statSuffix = s => ({ goals: '', assists: 'ast', apps: 'apps' }[s] || '');
-  function keyFor(mode, stat, hard) {
+  function keyFor(mode, stat, hard, club) {
     if (mode === 'daily') return 'daily:' + GM.today();
+    if (mode === 'club') return 'club' + GM.slug(club || '') + statSuffix(stat);
     return (mode === 'treble' || mode === 'mystery' ? mode : mode + statSuffix(stat)) + (hard ? 'h' : '');
   }
 
@@ -72,7 +75,18 @@
     if (mode === 'daily') {
       const done = GM.store.get('daily2:' + GM.today());
       if (done && done.xi) { S = done; S.rules = RULES.daily; S.phase = 'done'; S.readonly = true; render(); return; }
+      // carry on a Daily Ultimate left half-way (saved on every move, so there's nothing to gain by leaving)
+      const saved = GM.store.get(progressKey());
+      if (saved && saved.xi) {
+        S = saved; S.rules = RULES.daily; S.pending = null; S.subbing = false;
+        if (S.phase === 'spinning') S.phase = 'pick';
+        GM.toast('Welcome back – carrying on where you left off');
+        if (S.phase === 'reveal') { completePick(); return; }
+        render(); return;
+      }
     }
+    const club = mode === 'club' ? (opts.club && GM.clubs.includes(opts.club) ? opts.club : GM.favClub()) : null;
+    if (mode === 'club' && !club) { location.hash = '#/settings'; GM.toast('Pick your favourite club first'); return; }
     S = {
       mode, stat, seed, rules: RULES[mode], st: { ...GM.STATS[stat], id: stat },
       target, spin: 0, respins: 0, revealStage: mode === 'mystery' ? 'intro' : null,
@@ -80,18 +94,20 @@
       reels: [], selected: -1, revealed: false, revealNext: false, special: null,
       inv: [], modifier: null, subbing: false, used: [], last: null,
       phase: 'spin', vs: opts.vs, vss: opts.vss, log: [], pending: null, wildUsed: 0, coinWin: false,
-      hard: mode !== 'daily' && !!opts.hard,
+      hard: mode !== 'daily' && !!opts.hard, club,
     };
     render();
   }
 
-  const modeKey = () => keyFor(S.mode, S.stat, S.hard);
+  const modeKey = () => keyFor(S.mode, S.stat, S.hard, S.club);
+  const progressKey = () => 'dailyp:' + GM.today();
+  const distKey = () => S.mode === 'daily' ? 'daily' : modeKey();
   // Hard mode flattens the star bias in the target modes (Shearer ~4x an average player instead of ~16x) but keeps the
   // same targets - big numbers are rarer, so one wrong pick can put the target out of reach.
   const reelWeight = () => (S.hard && !S.rules.max ? p => Math.sqrt(S.rules.weight(p)) : S.rules.weight);
   // what wildcard descriptions talk about: in the Treble a wildcard affects all three numbers
   const wst = () => S.rules.treble ? { ...S.st, label: 'numbers', bigLabel: 'goals' } : S.st;
-  const modeName = () => GM.MODES[S.mode === 'daily' ? 'daily' : (S.rules.treble || S.rules.mystery) ? S.mode : S.mode + statSuffix(S.stat)].name;
+  const modeName = () => S.mode === 'club' ? GM.MODES[modeKey()].name : GM.MODES[S.mode === 'daily' ? 'daily' : (S.rules.treble || S.rules.mystery) ? S.mode : S.mode + statSuffix(S.stat)].name;
   const val = p => p[S.st.key];
   const pv = p => ({ goals: p.goals, assists: p.ast, apps: p.apps });
   const tot = k => S.xi.reduce((t, s) => t + (s.v ? s.v[k] : 0), 0);
@@ -107,7 +123,11 @@
     const r = GM.rng(`${S.seed}|${S.stat}|${S.spin}|${S.respins}|${special || ''}`);
     const open = openPos();
     const used = new Set(S.used.concat(S.xi.filter(s => s.p != null).map(s => s.p)));
-    const pool = GM.players.filter(p => fits(p, open) && !used.has(p.id));
+    let pool = GM.players.filter(p => fits(p, open) && !used.has(p.id));
+    if (S.club) {  // Club XI: only the club's players, unless it has nobody left for the open positions
+      const mine = pool.filter(p => p.clubs.includes(S.club));
+      if (mine.length) pool = mine;
+    }
     const wc = special && WILDCARDS[special];
     const n = (wc && wc.reels) || 3;
     const reels = [];
@@ -252,6 +272,10 @@
     S.selected = i;
     render();
     await GM.sleep(S.reels.some(r => !r.wild) ? 1500 : 700);
+    completePick();
+  }
+
+  function completePick() {
     S.xi.forEach(s => { s.fresh = false; });
     S.spin++;
     S.reels = [];
@@ -344,6 +368,7 @@
     S.phase = 'done';
     const sc = scoreFor(S);
     S.final = sc;
+    if (S.rules.max && !S.readonly) GM.addDist(distKey(), S.stat, sc.t);  // before the score is saved (see GM.dist)
     const xiSlots = S.xi.filter(s => s.p != null).map(s => ({ ...s, player: byId(s.p) }));
     if (GM.collectDraft && !S.readonly) {
       const rating = GM.teamRating(xiSlots);
@@ -354,7 +379,11 @@
       });
       S.collected = { n: S.collected.newPlayers.length, total: S.collected.total, badges: S.collected.fresh.map(x => x.icon + ' ' + x.name) };
     }
-    if (S.mode === 'daily') GM.store.set('daily2:' + GM.today(), { ...S, rules: undefined });
+    if (S.mode === 'daily') {
+      GM.store.set('daily2:' + GM.today(), { ...S, rules: undefined });
+      GM.store.set(progressKey(), null);
+      GM.markDaily('daily', sc.t);
+    }
     render();
     GM.sound.play('fulltime');
     const bull = sc.diff === 0;
@@ -488,8 +517,9 @@
   function render() {
     if (!S) return;
     if (S.phase === 'done') return renderDone();
+    if (S.mode === 'daily' && !S.readonly) GM.store.set(progressKey(), { ...S, rules: undefined });
     if (S.revealStage === 'intro') return mysteryIntro();
-    const icon = GM.MODES[S.mode === 'daily' ? 'daily' : S.mode].icon;
+    const icon = S.mode === 'club' ? '🏟️' : GM.MODES[S.mode === 'daily' ? 'daily' : S.mode].icon;
     const nReels = Math.max(3, S.reels.length);
     const sp = S.special && WILDCARDS[S.special];
     root.innerHTML = `
@@ -545,7 +575,7 @@
   function renderDone() {
     const sc = S.final || scoreFor(S);
     const best = GM.best(S.mode === 'daily' ? 'daily' : modeKey());
-    const icon = GM.MODES[S.mode === 'daily' ? 'daily' : S.mode].icon;
+    const icon = S.mode === 'club' ? '🏟️' : GM.MODES[S.mode === 'daily' ? 'daily' : S.mode].icon;
     const xi = S.xi.filter(s => s.p != null).map(s => ({ ...s, player: byId(s.p) }));
     root.innerHTML = `
       <div class="topbar"><a href="#/" class="back">‹</a><h2>${icon} Full time</h2><span></span></div>
@@ -558,6 +588,7 @@
         ${S.vs ? `<div class="banner">${sc.total > S.vss ? '🎉 You beat' : sc.total == S.vss ? '🤝 You drew with' : '😬 You lost to'} <b>${GM.esc(S.vs)}</b> (${GM.esc(S.vss)})</div>` : ''}
         <div class="muted">Personal best: ${fmt(Math.max(best, sc.total))}</div>
       </div>
+      ${S.rules.max ? GM.distHtml(distKey(), S.stat, sc.t) : ''}
       ${S.collected ? `<a class="collected" href="#/album">📒 ${S.collected.n ? `<b>+${S.collected.n}</b> new player${S.collected.n === 1 ? '' : 's'} for your album` : 'No new players this time'} · ${S.collected.total.toLocaleString()} collected${S.collected.badges.length ? `<br>🏅 ${S.collected.badges.join(' · ')}` : ''} ›</a>` : ''}
       ${GM.report ? GM.report(xi, S.st, S.rules.treble) : ''}
       ${pitchHtml()}
@@ -567,12 +598,12 @@
         <button class="btn ghost" id="share">📤 Share result</button>
         <a class="btn ghost" href="#/leaderboard?m=${encodeURIComponent(modeKey())}">🏆 Leaderboard</a>
       </div>`;
-    const again = GM.$('#again', root); if (again) again.onclick = () => start(root, S.mode, { hard: S.hard, stat: S.rules.mystery ? undefined : S.stat });
+    const again = GM.$('#again', root); if (again) again.onclick = () => start(root, S.mode, { hard: S.hard, stat: S.rules.mystery ? undefined : S.stat, club: S.club });
     GM.$('#share', root).onclick = () => GM.share(resultText(sc));
     GM.$('#challenge', root).onclick = async () => {
       const name = await GM.askName() || 'A friend';
       const m = S.mode === 'daily' ? 'ultimate' : S.mode;
-      const url = `${GM.baseUrl()}#/draft?m=${m}&s=${S.stat}&seed=${encodeURIComponent(S.seed)}${S.hard ? '&h=1' : ''}&vs=${encodeURIComponent(name)}&vss=${sc.total}`;
+      const url = `${GM.baseUrl()}#/draft?m=${m}&s=${S.stat}${S.club ? '&c=' + encodeURIComponent(S.club) : ''}&seed=${encodeURIComponent(S.seed)}${S.hard ? '&h=1' : ''}&vs=${encodeURIComponent(name)}&vss=${sc.total}`;
       GM.share(S.rules.max
         ? `⚽ Goal Machine – my ${modeName()}${S.hard ? ' (Hard)' : ''} XI has ${fmt(sc.t)} PL ${S.st.label}. Same spins, can you beat it?`
         : S.rules.treble || S.rules.mystery ? `⚽ Goal Machine – I scored ${sc.total} in ${modeName()}${S.hard ? ' (Hard)' : ''}. Same spins, can you beat me?`

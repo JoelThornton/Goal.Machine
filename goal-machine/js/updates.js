@@ -4,6 +4,18 @@
 (function () {
   GM.UPDATES = [
     {
+      v: 14, date: '2026-09-25', title: 'Daily games, streaks + your club',
+      items: [
+        '🟩 Footle: a new daily game. Guess the mystery Premier League player in 8 tries, with clues on position, nationality, clubs, debut, apps and goals',
+        '📅 A Today hub with every daily game, your 🔥 streak (Wordle-style) and a 4-week calendar',
+        '💾 Daily games save as you go. Leave half-way and carry on later, then look back at your result until the next day',
+        '📊 Daily stars leaderboard: 450+ goal Daily Ultimates, Footle wins, grids completed and the longest streaks',
+        '📊 Wordle-style spread of your Ultimate scores: how many 800+, 700+, 600+ teams you\'ve built (on the full-time screen and leaderboards)',
+        '🗓️ The daily calendar icon now shows today\'s real date',
+        '🏟️ Pick your favourite club in ⚙️ Settings to unlock a daily Club Footle, a Club XI draft (only your club\'s players) and your club\'s colours around the app',
+      ],
+    },
+    {
       v: 13, date: '2026-09-25', title: 'New look, sound + Head to Head',
       items: [
         '⚔️ Head to Head: pass the phone for a best-of series of random quick games, with the winner lifting the trophy',

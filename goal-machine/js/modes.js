@@ -191,9 +191,22 @@
     const seed = daily ? 'grid:' + GM.today() : GM.newSeed();
     const hard = GM.isHard();
     const g = makeGrid(seed);
-    let guesses = 12;
-    const filled = Array(9).fill(null);
-    const used = new Set();
+    let guesses = 12, ended = false;
+    let filled = Array(9).fill(null);
+    let used = new Set();
+    // the daily grid is saved after every guess and stays viewable once finished, until tomorrow
+    const pk = daily ? 'gridp:' + GM.today() : null;
+    const saved = pk && GM.store.get(pk);
+    if (saved) {
+      guesses = saved.guesses; used = new Set(saved.used); ended = !!saved.ended;
+      filled = saved.filled.map(f => f && { p: GM.players[f.id], pts: f.pts });
+    }
+    if (daily && !saved && GM.dailyResult('grid') != null) {  // played before progress was saved
+      root.innerHTML = `${top('Daily Club Grid', '#️⃣')}<div class="result"><div class="result-score">${GM.dailyResult('grid')}<small>points today</small></div>
+        <p class="muted">New grid in ${GM.untilTomorrow()}</p><a class="btn ghost" href="#/today">📅 Other daily games</a></div>`;
+      return;
+    }
+    const save = () => pk && GM.store.set(pk, { guesses, used: [...used], ended, filled: filled.map(f => f && { id: f.p.id, pts: f.pts }) });
     const head = c => c.club ? `<div class="gh">${GM.clubChip(c.club)}<small>${GM.esc(c.label)}</small></div>`
       : `<div class="gh alt"><span>${c.icon}</span><small>${GM.esc(c.label)}</small></div>`;
     const rarity = (cell, p) => {
@@ -220,6 +233,7 @@
         <div id="gover"></div>`;
       GM.$$('[data-cell]', root).forEach(b => b.onclick = () => ask(+b.dataset.cell));
       const ng = GM.$('#newgrid', root); if (ng) ng.onclick = () => GM.grid(root, false);
+      save();
       if (finished()) end();
     }
     function ask(k) {
@@ -242,11 +256,20 @@
       }, { plain: hard });
       setTimeout(() => inp.focus(), 50);
     }
-    let ended = false;
+    let shown = false;
     function end() {
-      if (ended) return; ended = true;
+      if (shown) return; shown = true;
       const grid = [0, 1, 2].map(i => [0, 1, 2].map(j => filled[i * 3 + j] ? '🟩' : '⬛').join('')).join('\n');
       const txt = `⚽ Goal Machine – ${daily ? 'Daily Club Grid ' + GM.today() : 'Club Grid'}\n${grid}\n${score()} pts`;
+      if (ended) {  // coming back to a finished daily grid: just show the result
+        GM.$('#gover', root).innerHTML = `<div class="result"><div class="result-score">${score()}<small>points · ${filled.filter(Boolean).length}/9 filled</small></div>
+          <div class="actions col"><button class="btn big" id="gshare">📤 Share</button><a class="btn ghost" href="#/today">📅 Other daily games</a></div>
+          <p class="muted center">New grid in ${GM.untilTomorrow()}</p></div>`;
+        GM.$('#gshare', root).onclick = () => GM.share(txt, GM.baseUrl() + '#/dailygrid');
+        return;
+      }
+      ended = true; save();
+      if (daily) GM.markDaily('grid', score());
       if (daily && score() > GM.best('grid')) GM.store.set('best:grid', score());
       gameOver(GM.$('#gover', root), daily ? 'grid:' + GM.today() : hard ? 'gridh' : 'grid', score(), '', () => GM.grid(root, false), txt, { full: filled.every(Boolean) });
     }

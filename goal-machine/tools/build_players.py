@@ -92,6 +92,7 @@ def fpl_display(r):
     return f'{first.split()[0]} {web}'
 
 team_names = {}
+LATEST_MATCH = ''  # date of the newest match in the data - stamps the output so unchanged data gives an identical file
 for sdir in sorted(glob.glob(f'{FPL}/20*')):
     y = int(os.path.basename(sdir)[:4])
     raw = pd.read_csv(f'{sdir}/players_raw.csv')
@@ -112,6 +113,7 @@ for sdir in sorted(glob.glob(f'{FPL}/20*')):
         tn = None
     g = pd.read_csv(f'{sdir}/gws/merged_gw.csv', encoding='latin1', low_memory=False)
     g = g[g.element.isin(el2code)]
+    LATEST_MATCH = max(LATEST_MATCH, str(g.kickoff_time.max())[:10])
     # derive each row's team from fixture: player's team = the other opponent_team seen in that fixture
     fx = g.groupby('fixture').opponent_team.unique().to_dict()
     def own_team(row_fix, opp):
@@ -726,7 +728,7 @@ print('TM teammate links', len(links), 'TM ids', len(tm_id), file=sys.stderr)
 
 def stint_str(st):
     parts = []
-    for c, ys in st.items():
+    for c, ys in sorted(st.items(), key=lambda kv: (min(kv[1]), kv[0])):  # chronological, so builds are reproducible
         ys = sorted(ys)
         runs, start, prev = [], ys[0], ys[0]
         for y in ys[1:] + [None]:
@@ -742,7 +744,7 @@ def stint_str(st):
 clubs = sorted({c for p in out for c in p['clubs']})
 nats = sorted({p['nat'] for p in out if p['nat']})
 compact = dict(
-    generated=pd.Timestamp.now().strftime('%Y-%m-%d'),
+    generated=LATEST_MATCH,
     clubs=clubs, nats=nats,
     # [name, positions 'CM/ST', natIdx(-1 unknown), [clubIdx...], apps, goals, firstSeason, lastSeason, fplCode(0 none),
     #  assists, known club stints 'clubIdx:yy-yy.yy|...' (yy = season - 1992), honours e.g. 'H1B2W1C1P3']

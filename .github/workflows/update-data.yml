@@ -1,0 +1,61 @@
+name: Update player data
+
+# Every Tuesday morning (after the weekend's gameweek) rebuild goal-machine/data/players.js from the latest FPL data,
+# sanity-check it, and publish it if anything changed. Also runnable by hand from the Actions tab.
+on:
+  schedule:
+    - cron: '0 6 * * 2'
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: 'Build and check only - do not publish'
+        type: boolean
+        default: false
+  # changes to the pipeline itself get a dry run on feature branches
+  push:
+    branches: ['claude/**']
+    paths: ['goal-machine/tools/**', '.github/workflows/update-data.yml']
+
+permissions:
+  contents: write
+  pages: write
+
+concurrency: update-data
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.11'
+
+      - run: pip install pandas
+
+      - name: Fetch data sources
+        run: bash goal-machine/tools/fetch_sources.sh "$RUNNER_TEMP/src"
+
+      - name: Build player data
+        run: |
+          cp goal-machine/data/players.js "$RUNNER_TEMP/old.js"
+          SRC="$RUNNER_TEMP/src" OUT=goal-machine/data/players.js FULL="$RUNNER_TEMP/full.json" \
+            python goal-machine/tools/build_players.py
+
+      - name: Sanity check (stops here if the new data looks wrong)
+        run: python goal-machine/tools/check_data.py "$RUNNER_TEMP/old.js" goal-machine/data/players.js
+
+      - name: Publish if changed
+        if: github.ref == 'refs/heads/master' && !inputs.dry_run
+        run: |
+          if git diff --quiet -- goal-machine/data/players.js; then echo "No new matches - nothing to publish"; exit 0; fi
+          (cd goal-machine && python tools/bump_version.py)
+          DATE=$(grep -o '"generated":"[0-9-]*"' goal-machine/data/players.js | cut -d'"' -f4)
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit -am "Update player data (matches up to $DATE)"
+          git push
+          # pushes made with the Actions token don't always start a Pages build, so request one
+          curl -sS -X POST -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" -H "Accept: application/vnd.github+json" \
+            "https://api.github.com/repos/${{ github.repository }}/pages/builds" || true

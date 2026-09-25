@@ -56,6 +56,7 @@
     grid: { name: 'Daily Club Grid', icon: '#️⃣', href: '#/dailygrid', won: v => v != null },
     club: { name: 'Club Footle', icon: '🏟️', href: '#/clubfootle', won: v => v > 0 },
     moneyball: { name: 'Daily Moneyball', icon: '💰', href: '#/moneyball?daily=1', won: v => v != null },
+    chaos: { name: 'Daily CHAOS', icon: '🌪️', href: '#/draft?m=chaos&daily=1', won: v => v != null },
   };
   GM.DAILY_GAMES = GAMES;
   const log = () => store.get('dlog', {});
@@ -113,10 +114,10 @@
     const v = GM.dailyResult(game);
     const inProgress = {
       daily: () => store.get('dailyp:' + GM.today()), grid: () => { const g = store.get('gridp:' + GM.today()); return g && !g.ended; },
-      footle: () => (store.get('footle:' + GM.today()) || {}).guesses, club: () => (store.get('cfootle:' + GM.today() + ':' + GM.slug(GM.favClub())) || {}).guesses,
+      footle: () => (store.get('footle:' + GM.today()) || {}).guesses, chaos: () => store.get('draftp:dchaos:' + GM.today()), club: () => (store.get('cfootle:' + GM.today() + ':' + GM.slug(GM.favClub())) || {}).guesses,
     }[game];
     if (v != null) {
-      const txt = game === 'daily' || game === 'moneyball' ? `✓ ${v} goals` : game === 'grid' ? `✓ ${v} pts` : v > 0 ? `✓ Got it in ${v}` : '✗ Missed';
+      const txt = game === 'daily' || game === 'moneyball' ? `✓ ${v} goals` : game === 'chaos' ? `✓ ${v} points` : game === 'grid' ? `✓ ${v} pts` : v > 0 ? `✓ Got it in ${v}` : '✗ Missed';
       return { done: true, text: txt };
     }
     if (inProgress && inProgress()) return { done: false, text: '▶ In progress' };

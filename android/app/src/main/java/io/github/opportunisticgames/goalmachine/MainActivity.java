@@ -108,6 +108,9 @@ public class MainActivity extends Activity {
             });
         }
         setContentView(frame);
+        if (Build.VERSION.SDK_INT >= 33) {
+            getOnBackInvokedDispatcher().registerOnBackInvokedCallback(android.window.OnBackInvokedDispatcher.PRIORITY_DEFAULT, this::handleBack);
+        }
     }
 
     /** A Goal Machine link (e.g. a friend's challenge) tapped while the app is already open. */
@@ -179,10 +182,20 @@ public class MainActivity extends Activity {
         }
     }
 
+    /** Back (button or swipe) goes to the game first: it closes a pop-up, steps back to the last menu page, or on the
+     *  home screen asks whether to quit (GM.back() in app.js). Only if the page can't answer does Android's usual
+     *  back happen. Android 13+ apps targeting new versions get back through OnBackInvokedCallback, not onBackPressed. */
+    private void handleBack() {
+        web.evaluateJavascript("window.GM && GM.back ? GM.back() : 'native'", result -> {
+            if (result != null && result.contains("handled")) return;
+            if (web.canGoBack()) web.goBack();
+            else finish();
+        });
+    }
+
     @Override
     public void onBackPressed() {
-        if (web.canGoBack()) web.goBack();
-        else super.onBackPressed();
+        handleBack();
     }
 
     /** What the web app can ask of the phone. Adding methods here needs a new APK, so the site checks they exist first. */
@@ -232,6 +245,33 @@ public class MainActivity extends Activity {
             askForNotifications();
         }
 
+        /** How notifications are doing: permission, whether the check is scheduled, and what the last check found. */
+        @JavascriptInterface
+        public String notifyStatus() {
+            return GameCheckService.status(MainActivity.this);
+        }
+
+        /** Sends a sample notification (with the whistle), to test sound and permission. */
+        @JavascriptInterface
+        public void testNotification() {
+            GameCheckService.test(MainActivity.this);
+        }
+
+        /** Checks the server for anything to notify about right now (and shows it even though the game is open). */
+        @JavascriptInterface
+        public void checkNow() {
+            new Thread(() -> {
+                try { GameCheckService.check(MainActivity.this, true); }
+                catch (Exception e) { GameCheckService.note(MainActivity.this, "error: " + e.getClass().getSimpleName(), -1); }
+            }).start();
+        }
+
+        /** Asks for notification permission again (Android only asks once; after that it's the phone's settings). */
+        @JavascriptInterface
+        public void askNotifications() {
+            if (Build.VERSION.SDK_INT >= 33) runOnUiThread(() -> requestPermissions(new String[] { "android.permission.POST_NOTIFICATIONS" }, 1));
+        }
+
         /** Whether notifications are allowed (so the site can offer a button to switch them on). */
         @JavascriptInterface
         public boolean notificationsAllowed() {
@@ -262,6 +302,12 @@ public class MainActivity extends Activity {
                     }
                 } catch (IllegalArgumentException e) { /* not a colour */ }
             });
+        }
+
+        /** Closes the app (after the page has asked "are you sure?"). */
+        @JavascriptInterface
+        public void quit() {
+            runOnUiThread(MainActivity.this::finish);
         }
 
         /** Keeps the screen on (e.g. during a live Draft Duel). */

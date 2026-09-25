@@ -103,6 +103,10 @@
 
   /* ---------------------------------------------------------------- the sound board */
   const SOUNDS = {
+    // CHAOS: a crash for disasters, a siren for storms, a jackpot run for good fortune
+    boom: t => { tone(140, { t, to: 38, glide: 0.45, dur: 0.55, vol: 0.34 }); noise({ t, dur: 0.45, freq: 500, vol: 0.2 }); },
+    siren: t => { tone(700, { t, to: 1400, glide: 0.3, dur: 0.32, type: 'sawtooth', lp: 2600, vol: 0.05 }); tone(1400, { t: t + 0.32, to: 700, glide: 0.3, dur: 0.32, type: 'sawtooth', lp: 2600, vol: 0.05 }); },
+    jackpot: t => [72, 76, 79, 84, 88, 91].forEach((n, i) => tone(midi(n), { t: t + i * 0.06, dur: 0.18, type: 'square', lp: 3000, vol: 0.06 })),
     tap: t => tone(1100, { t, to: 800, dur: 0.05, vol: 0.06 }),
     tick: t => { tone(2100, { t, type: 'triangle', dur: 0.025, vol: 0.04 }); noise({ t, dur: 0.02, type: 'highpass', freq: 5000, vol: 0.015 }); },
     land: t => { tone(170, { t, to: 55, dur: 0.2, vol: 0.4 }); noise({ t, dur: 0.07, type: 'lowpass', freq: 900, vol: 0.18 }); },
@@ -139,6 +143,7 @@
     Dm: [[50, 53, 57], 38], Bb: [[53, 58, 62], 46], D: [[54, 57, 62], 50], B: [[54, 59, 63], 47],
     Cmaj7: [[55, 59, 60, 64], 48], Am7: [[55, 57, 60, 64], 45], Fmaj7: [[53, 57, 60, 64], 41], G7: [[53, 55, 59, 62], 43],
     Dm7: [[53, 57, 60, 62], 38], Em7: [[55, 59, 62, 64], 40], E7: [[52, 56, 59, 62], 40],
+    Cm: [[51, 55, 60], 48], Ab: [[51, 56, 60], 44], Eb: [[51, 55, 58], 51], Fm: [[53, 56, 60], 41], Db: [[53, 56, 61], 49],
   };
   const _ = null;
   const TRACKS = {
@@ -210,12 +215,29 @@
       ],
     },
   };
+  // Ultimate Wildcard CHAOS: 'Mayhem', 150 bpm in C minor - a wobbling bass, police sirens, a cheeky chromatic hook
+  TRACKS.chaos = {
+    bpm: 150, inst: { bassType: 'sawtooth', bassLp: 600, stabVol: 0.03, arpVol: 0.022, arpType: 'sawtooth', leadSaw: 1 },
+    tunes: {
+      hook: [[72, _, 75, _, 79, 78, 79, _], [72, _, 75, _, 80, 79, 80, _], [84, _, 82, _, 80, _, 79, _], [75, 76, 77, 78, 79, _, _, _],
+        [72, _, 75, _, 79, 78, 79, _], [72, _, 75, _, 80, 79, 80, _], [84, 86, 87, _, 86, 84, 82, _], [79, _, 83, _, 86, _, _, _]],
+    },
+    song: [
+      { bars: 4, chords: ['Cm', 'Cm', 'Ab', 'Bb'], hats: 16, bass: 'wobble', siren: 1, intro: 1 },
+      { bars: 8, chords: ['Cm', 'Ab', 'Eb', 'Bb'], kick: 1, clap: 1, hats: 16, bass: 'wobble', stab: 1, arp: 1 },
+      { bars: 8, chords: ['Cm', 'Ab', 'Eb', 'Bb'], kick: 1, clap: 1, hats: 16, open: 1, bass: 'drive', stab: 1, tune: 'hook', fill: 1 },
+      { bars: 4, chords: ['Fm', 'Db', 'Eb', 'G'], pad: 1, bass: 'long', siren: 1, roll: 1 },
+      { bars: 8, chords: ['Cm', 'Ab', 'Eb', 'Bb'], kick: 1, clap: 1, hats: 16, open: 1, bass: 'wobble', stab: 1, arp: 1, tune: 'hook', siren: 1, fill: 1 },
+      { bars: 4, chords: ['Ab', 'Bb', 'Cm', 'G'], kick: 1, hats: 16, bass: 'drive', roll: 1 },
+    ],
+  };
   // which track plays where
   const SCENES = {
     anthem: ['', 'today', 'leaderboard', 'album', 'players', 'updates', 'settings', 'about', 'credits'],
     matchday: ['draft', 'daily', 'moneyball', 'window'],
     puzzle: ['footle', 'clubfootle', 'grid', 'dailygrid', 'whoami', 'tally'],
     derby: ['h2h', 'h2hplay', 'hilo', 'hopper', 'online', 'auction'],
+    chaos: ['chaos'],
   };
   const trackFor = path => Object.keys(SCENES).find(k => SCENES[k].includes(path)) || 'anthem';
   let scene = 'anthem';
@@ -273,6 +295,10 @@
         if (sec.bass === 'drive' && b % 2 === 0) inst.bass(t, b % 8 === 6 ? root + 12 : root, 1.2);
         if (sec.bass === 'walk' && b % 4 === 0) inst.bass(t, root + [0, 4, 7, 9][b / 4], 3.6);  // a walking line up the chord
         if (sec.bass === 'long' && b === 0) inst.bass(t, root, 15);
+        // wobble: every 16th, the filter opening and closing like a dubstep bass
+        if (sec.bass === 'wobble') tone(midi(b % 8 === 6 ? root + 12 : root), { t, dur: step * 0.95, type: 'sawtooth', lp: [260, 700, 1600, 700][b % 4] * (b >= 8 ? 1.3 : 1), vol: 0.13, dest: out });
+        // a police siren sweeping up every other bar
+        if (sec.siren && b === 0 && bar % 2 === 0) tone(midi(79), { t, to: midi(91), glide: step * 6, dur: step * 7, type: 'sawtooth', lp: 3200, vol: 0.016, dest: out });
         if (sec.stab && (I.keys ? b === 0 || b === 10 : b === 2 || b === 6 || b === 10 || b === 13)) inst.stab(t, ch);
         if (sec.arp && !sec.intro) {
           const pat = ARPS[(pass + Math.floor(barAll / 4)) % ARPS.length], notes = ch.concat(ch[0] + 12);

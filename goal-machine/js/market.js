@@ -119,6 +119,7 @@
     const stat = daily ? 'goals' : q.s, seed = daily ? 'mb:' + day : GM.newSeed();
     const S = { xi: newXi(), budget: MB_BUDGET, round: 0, used: new Set() };
     const title = daily ? 'Daily Moneyball' : 'Moneyball';
+    GM.leaveGuard = () => location.hash.startsWith('#/moneyball') && S.round > 0 && openPos(S.xi).length > 0;
     function offers() {
       const rng = GM.rng(`${seed}|mb|${S.round}`), poss = openPos(S.xi), left = poss.length;
       const cap = S.budget - (left - 1) * MB_RESERVE, out = [];
@@ -169,6 +170,7 @@
     const stat = q.s, seed = GM.newSeed();
     const S = { xi: newXi(), budget: TW_BUDGET, w: 0, bought: 0, sold: 0, used: new Set(), seen: new Set(), market: [], history: [] };
     const lbl = GM.STATS[stat].label;
+    GM.leaveGuard = () => location.hash.startsWith('#/window') && S.xi.some(x => x.k) && !S.finished;
     function openWindow() {
       const rng = GM.rng(`${seed}|tw|${S.w}`), poss = openPos(S.xi), all = FORMATION.slice(), m = [];
       const add = p => { if (p && !m.some(x => x.p === p)) m.push({ p, pr: price(p, seed) }); };
@@ -229,6 +231,7 @@
       });
     }
     function closeWindow() {
+      if (S.w === 2) S.finished = true;
       if (S.w === 2) return finishSolo(root, { mode: 'window' + statSuffix(stat), xi: S.xi, stat, title: 'Transfer Window', icon: '🔄', lines: `${money(S.budget)} left`, again: () => GM.transferWindow(root, { s: stat }) });
       // the report on how your signings have done
       const fresh = S.xi.filter(s => s.k && !S.seen.has(s.k));

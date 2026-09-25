@@ -29,7 +29,8 @@
   }
 
   // bottom tab bar: shown on the menus, hidden mid-game so the pitch gets the whole screen
-  const TABS = [['', '⚽', 'Play'], ['today', '<i class="cal-slot"></i>', 'Today'], ['leaderboard', '🏆', 'Ranks'], ['album', '📒', 'Album'], ['players', '📖', 'Players']];
+  // the Players index lives in the Album and on the home screen; Online gets the tab (with a badge for games waiting on you)
+  const TABS = [['', '⚽', 'Play'], ['today', '<i class="cal-slot"></i>', 'Today'], ['online', '🌐<i class="online-badge" hidden></i>', 'Online'], ['leaderboard', '🏆', 'Ranks'], ['album', '📒', 'Album']];
   const MENU_PAGES = ['', 'today', 'leaderboard', 'album', 'players', 'updates', 'settings', 'about', 'h2h', 'credits'];
   const tabbar = document.createElement('nav');
   tabbar.className = 'tabbar';
@@ -37,20 +38,67 @@
   document.body.appendChild(tabbar);
   tabbar.addEventListener('click', () => GM.buzz(8));
 
+  // Back button / swipe in the Android app (MainActivity asks GM.back() first). A pop-up closes; a game or sub-page
+  // goes to the last menu page you were on; the home screen asks before quitting. Returns 'handled' or 'native'.
+  const menuTrail = [];
+  GM.back = function () {
+    const open = GM.$$('.modal-wrap');
+    if (open.length) { open[open.length - 1].click(); open[open.length - 1].remove(); return 'handled'; }
+    const { path } = parseHash();
+    if (!path) {
+      GM.confirm('Leave Goal Machine?', 'Quit', 'Stay').then(ok => { if (ok) GM.app('quit'); });
+      return 'handled';
+    }
+    if (GM.leaveGuard && GM.leaveGuard()) {  // mid-way through a market game: check first
+      GM.confirm('Leave this game? Your signings so far will be lost.', 'Leave', 'Keep playing').then(ok => { if (ok) { GM.leaveGuard = null; GM.back(); } });
+      return 'handled';
+    }
+    // the last menu page that isn't this one (Play, Today, Ranks, Album, Players, Settings…), or home
+    while (menuTrail.length && menuTrail[menuTrail.length - 1] === location.hash) menuTrail.pop();
+    location.hash = menuTrail.pop() || '#/';
+    return 'handled';
+  };
+
+  // the ‹ in the top bar asks too, while a market game is half-way
+  document.addEventListener('click', e => {
+    const a = e.target.closest('a.back');
+    if (!a || !GM.leaveGuard || !GM.leaveGuard()) return;
+    e.preventDefault();
+    GM.confirm('Leave this game? Your signings so far will be lost.', 'Leave', 'Keep playing').then(ok => { if (ok) { GM.leaveGuard = null; location.hash = a.getAttribute('href'); } });
+  }, true);
+
+  GM.NEW_MODES = ['chaos', 'moneyball', 'window', 'auction'];
   function route() {
     const { path, q } = parseHash();
+    const tried = path === 'draft' ? q.m : path;
+    if (GM.NEW_MODES.includes(tried)) GM.store.set('tried:' + tried, 1);
+    if (MENU_PAGES.includes(path)) {  // remember menu pages for the back button
+      if (menuTrail[menuTrail.length - 1] !== (location.hash || '#/')) menuTrail.push(location.hash || '#/');
+      if (menuTrail.length > 30) menuTrail.shift();
+    }
     window.scrollTo(0, 0);
     GM.$$('.modal-wrap').forEach(m => m.remove());
     app.className = 'page-' + (path || 'home');
-    const menu = MENU_PAGES.includes(path);
+    const menu = MENU_PAGES.includes(path) || (path === 'online' && !q.room && !q.join);
     document.body.classList.toggle('has-tabs', menu);
     tabbar.hidden = !menu;
     GM.$$('[data-tab]', tabbar).forEach(a => a.classList.toggle('on', a.dataset.tab === path));
-    GM.sound.scene(path);  // each game area has its own music
+    if (menu && GM.account()) {  // the Online tab's badge: games waiting on you (checked at most every 30 s)
+      const n = GM.store.get('onlineWaiting', 0), b = GM.$('.online-badge', tabbar);
+      b.textContent = n; b.hidden = !n;
+      if (GM.online && GM.online.check) GM.online.check();
+    }
+    GM.sound.scene(path === 'draft' && q.m === 'chaos' ? 'chaos' : path);  // each game area has its own music (CHAOS has Mayhem)
+    const chaos = path === 'draft' && q.m === 'chaos';
+    if (chaos !== document.body.classList.contains('chaos-mode')) {
+      document.body.classList.toggle('chaos-mode', chaos);
+      // CHAOS always sits on the dark look (its neon needs it); leaving puts your own look back
+      if (chaos) { document.documentElement.dataset.theme = 'dark'; GM.app('setBars', '#12001f', false); } else GM.applyTheme();
+    }
     GM.$('.cal-slot', tabbar).innerHTML = GM.calIcon();  // stays right past midnight
     switch (path) {
-      case 'draft': return GM.draft.start(app, ['target', 'treble', 'mystery', 'club', 'classic', 'classicwild', 'ultimatepure', 'extreme', 'purist'].includes(q.m) ? q.m : 'ultimate',
-        { stat: q.s, seed: q.seed, vs: q.vs, vss: q.vss ? +q.vss : undefined, hard: q.seed ? q.h === '1' : GM.isHard(), club: q.c });
+      case 'draft': return GM.draft.start(app, ['target', 'treble', 'mystery', 'club', 'classic', 'classicwild', 'ultimatepure', 'extreme', 'purist', 'chaos'].includes(q.m) ? q.m : 'ultimate',
+        { stat: q.s, seed: q.seed, vs: q.vs, vss: q.vss ? +q.vss : undefined, hard: q.seed ? q.h === '1' : GM.isHard(), club: q.c, daily: q.daily === '1' });
       case 'today': return GM.todayPage(app);
       case 'online': return GM.onlinePage(app, q);
       case 'footle': return GM.footle(app, false);
@@ -87,8 +135,12 @@
       const st = GM.STATS[s], best = m === 'club' ? GM.best(GM.draft.modeKey(m, s, false, club)) : pb(GM.draft.modeKey(m, s, false));
       return `<a class="stat-btn" href="#/draft?m=${m}&s=${s}${m === 'club' ? '&c=' + encodeURIComponent(club) : ''}"><i class="sb-ico">${st.icon}</i>${label || st.name}${best ? `<small>PB ${best.toLocaleString()}</small>` : ''}</a>`;
     };
-    const tile = (href, cls, icon, title, sub, best, extra = '') =>
-      `<a class="tile ${cls}" href="${href}"><span class="tile-icon">${icon}</span>${best ? `<span class="tile-pb">PB ${best.toLocaleString()}</span>` : ''}<b>${title}</b><small>${sub}</small>${extra}</a>`;
+    // NEW on the newest modes until you've opened them
+    const newTag = k => (GM.NEW_MODES.includes(k) && !GM.store.get('tried:' + k) ? '<span class="new-tag">NEW</span>' : '');
+    const tile = (href, cls, icon, title, sub, best, extra = '') => {
+      const k = href.replace(/^#\/(draft\?m=)?/, '').replace(/[?&].*$/, '');
+      return `<a class="tile ${cls}" href="${href}"><span class="tile-icon">${icon}</span>${best ? `<span class="tile-pb">PB ${best.toLocaleString()}</span>` : newTag(k)}<b>${title}</b><small>${sub}</small>${extra}</a>`;
+    };
     const album = GM.albumSummary();
     // The main event: pick the player pool and whether wildcards are on - six modes in two small switches (remembered)
     const POOLS = {
@@ -130,6 +182,9 @@
           <span class="variant wild-switch" role="group" aria-label="Wildcards"><button data-wild="1" class="${wild ? 'on' : ''}">🃏 Wildcards on</button><button data-wild="0" class="${wild ? '' : 'on'}">🚫 No wildcards</button></span>
           <span class="stat-pick">${statBtn(ult, 'goals')}${statBtn(ult, 'assists')}${statBtn(ult, 'apps')}</span></span>
       </div>
+      <div class="chaos-card">${newTag('chaos')}<div class="chaos-head"><span>🌪️</span><div><b>Ultimate Wildcard CHAOS</b><small>Bonus points for chemistry, titles and loyalty. Wildcard storms, red cards, All In… anything can happen.</small></div></div>
+        <div class="stat-row">${Object.keys(GM.STATS).map(s => statBtn('chaos', s)).join('')}</div>
+        <a class="chaos-daily" href="#/draft?m=chaos&daily=1">📅 <b>Daily CHAOS</b><span>${GM.dailyStatus('chaos').text || 'Same chaos for everyone today · one go'}</span>${GM.streak('chaos') ? `<i>🔥 ${GM.streak('chaos')}</i>` : ''}</a></div>
       <a class="h2h-banner" href="${waiting ? '#/online' : '#/h2h'}"><span>⚔️</span><span><b>Head to Head</b><small>${waiting ? `🌐 ${waiting} online game${waiting > 1 ? 's' : ''} waiting for your move` : h2h ? `${GM.esc(h2h.names[0])} v ${GM.esc(h2h.names[1])}: tap to carry on` : 'Pass the phone, or play your mates online'}</small></span><span>🏆</span><i class="online-badge" ${waiting ? '' : 'hidden'}>${waiting}</i></a>
       <h3 class="section-title"><a href="#/today">Today${streak ? ` <span class="streak-pill">🔥 ${streak}</span>` : ''}<span class="more">All dailies ›</span></a></h3>
       <div class="tiles">
@@ -167,6 +222,7 @@
       <a class="tile t-purple wide album-tile" href="#/album"><span class="tile-icon">📒</span><b>Album & badges</b>
         <small>${album.players.toLocaleString()}/${GM.players.length.toLocaleString()} players · ${album.badges}/${album.totalBadges} badges${album.purist ? ` · 💎 ${album.purist.toLocaleString()} purist` : ''}</small>
         <span class="bar"><i style="width:${(100 * album.players / GM.players.length).toFixed(1)}%"></i></span></a>
+      <a class="tile t-navy wide" href="#/players"><span class="tile-icon">📖</span><b>Player index</b><small>All ${GM.allPlayers ? GM.allPlayers.length.toLocaleString() : '5,000+'} Premier League players, and how often you've signed them</small></a>
       <button class="btn ghost share-game" id="share-game">📣 Share Goal Machine with your mates</button>
       <footer class="muted center">Playing as <a href="#/settings">${GM.account() ? '🔒 ' : ''}${GM.esc(GM.getName() || 'no name yet')}</a> · <a href="#/updates">v${GM.versionLabel}</a></footer>`;
     GM.$$('[data-hard]').forEach(b => b.onclick = () => { GM.setHard(b.dataset.hard === '1'); home(); });
@@ -204,7 +260,12 @@
       <section class="settings">
         <div class="setting"><b>Account</b>${GM.account()
           ? `<small>Your leaderboard name is <b>🔒 ${GM.esc(GM.account().name)}</b>. It's yours alone: only this device can post scores with it.</small>
-            <div class="setting-btns"><button class="btn ghost small" id="s-move">📲 Move to another phone</button><button class="btn ghost small" id="s-name">✏️ New name</button></div>`
+            <div class="pic-row">${GM.userPic(GM.account().name, 'lg')}<div><b>Profile picture</b><small>Friends and opponents see it in online games and your weekly league</small>
+              <div class="setting-btns"><label class="btn small">📷 Choose a photo<input type="file" id="s-pic" accept="image/*" hidden></label><button class="btn ghost small" id="s-picdel">Remove</button></div></div></div>
+            <div class="setting-btns"><button class="btn ghost small" id="s-move">📲 Move to another phone</button><button class="btn ghost small" id="s-name">✏️ New name</button></div>
+            <div class="setting-btns"><button class="btn ghost small" id="s-backup">☁️ Back up now</button><button class="btn ghost small" id="s-restore">⤵️ Restore a backup</button></div>
+            <small>${GM.store.get('backupAt', 0) ? `Last backup: ${new Date(GM.store.get('backupAt')).toLocaleString(undefined, { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}. ` : ''}Your album, stats, streaks and scores back up automatically after games.</small>
+            <button class="btn ghost small danger" id="s-delete">🗑️ Delete my account</button>`
           : `<small>${GM.getName() ? `You play as “${GM.esc(GM.getName())}”, but it isn't claimed yet.` : 'No leaderboard name yet.'} Claim a unique name so nobody else can post scores as you.</small>
             <div class="setting-btns"><button class="btn small" id="s-name">🔒 Claim a name</button><button class="btn ghost small" id="s-code">🔑 I have a transfer code</button></div>`}</div>
         <div class="setting"><b>Appearance</b><small>Auto follows your phone's light or dark setting. Club paints the game in your favourite club's colours</small>${seg('s-theme', GM.THEMES, GM.getTheme())}</div>
@@ -215,13 +276,15 @@
         <div class="setting"><b>Music</b><small id="s-bg-about"></small>${seg('s-bg', { off: '🔇 Off', music: '🎹 Game', tunes: '🎧 Soundtrack' }, snd.bg)}
           <label class="vol">🔈<input type="range" id="s-bgvol" min="0" max="1" step="0.05" value="${snd.bgVol}">🔊</label>
           <div class="now-playing" id="s-now" hidden><span></span><button class="btn ghost small" id="s-skip">⏭ Next song</button></div></div>
-        ${GM.app('notificationsAllowed') !== undefined ? `<div class="setting"><b>Notifications</b><small>A whistle when a friend challenges you, it's your move, or a game finishes</small>
-          <div class="setting-btns"><span class="muted">${GM.app('notificationsAllowed') ? '🔔 On' : '🔕 Off'}</span><button class="btn ghost small" id="s-notif">Change in phone settings</button></div></div>` : ''}
+        ${GM.app('notificationsAllowed') !== undefined ? `<div class="setting"><b>Notifications</b><small>A whistle when a friend challenges you, it's your move, or a game finishes. The app checks about every 15 minutes while it's closed.</small>
+          <div id="s-nstatus" class="nstatus"></div>
+          <div class="setting-btns"><button class="btn ghost small" id="s-ntest">🔔 Send a test</button><button class="btn ghost small" id="s-ncheck">🔄 Check now</button><button class="btn ghost small" id="s-notif">⚙️ Phone settings</button></div></div>` : ''}
         <div class="setting"><b>Difficulty</b><small>Hard shows names and positions only, with fewer stars on the reels</small>${seg('s-hard', { false: '🙂 Normal', true: '🥵 Hard' }, GM.isHard())}</div>
         <div class="setting"><b>Vibration</b><small>A little buzz on taps, hops and wins (phones only)</small>${seg('s-buzz', { true: '📳 On', false: '🔕 Off' }, GM.store.get('buzz', true))}</div>
       </section>
       <section class="settings links">
         <a href="#" id="s-share">📣 Share Goal Machine with a friend<span>›</span></a>
+        <a href="#" id="s-howto">❓ How Goal Machine works<span>›</span></a>
         <a href="#/updates">📰 Updates & version history ${GM.hasUnseenUpdate() ? '<i class="new-dot inline"></i>' : ''}<span>›</span></a>
         <a href="#/about">ℹ️ About the data<span>›</span></a>
         ${build == null ? `<a href="${GM.APK_URL}">🤖 Android app (APK)<span>›</span></a>` : ''}
@@ -232,6 +295,33 @@
       fn(b.dataset.v); GM.buzz(); GM.$$('#' + id + ' button').forEach(x => x.classList.toggle('on', x === b));
     });
     const nb = GM.$('#s-notif'); if (nb) nb.onclick = () => GM.app('openNotificationSettings');
+    // notification health, from the app (build 16+): permission, the 15-minute check, and what it last found
+    const nstatus = () => {
+      const el = GM.$('#s-nstatus'); if (!el) return;
+      let st = null; try { st = JSON.parse(GM.app('notifyStatus') || 'null'); } catch (e) { }
+      const allowed = GM.app('notificationsAllowed');
+      if (!st) { el.innerHTML = `<span>${allowed ? '🔔 Allowed' : '🔕 Not allowed'}</span><span class="muted">Update the app to see more</span>`; return; }
+      const ago = st.lastRun ? Math.round((Date.now() - st.lastRun) / 60000) : null;
+      el.innerHTML = `<span>${st.allowed && st.enabled ? '✅ Allowed' : '❌ Not allowed – tap Phone settings'}</span>
+        <span>${st.scheduled ? '✅ Checking every ~15 min' : GM.account() ? '⏳ Starts when you open the Online tab' : '🔒 Claim a name on the Online tab first'}</span>
+        <span>${ago == null ? 'No check yet' : `Last check ${ago < 1 ? 'just now' : ago + ' min ago'}: ${GM.esc(st.lastResult)}${st.lastCount >= 0 ? ` · ${st.lastCount} waiting` : ''}`}</span>`;
+    };
+    nstatus();
+    const nt = GM.$('#s-ntest');
+    if (nt) nt.onclick = () => {
+      if (GM.app('notificationsAllowed') === false) { GM.app('askNotifications'); GM.app('openNotificationSettings'); return; }
+      if (typeof (window.AndroidApp || {}).testNotification !== 'function') { GM.toast('Update the app to send a test'); return; }
+      GM.app('testNotification');
+      GM.toast('🔔 Sent – check your notifications');
+    };
+    const nc = GM.$('#s-ncheck');
+    if (nc) nc.onclick = () => {
+      if (GM.online && GM.online.check) { GM.online._checked = 0; GM.online.check(); }  // makes sure the app knows who you are
+      if (typeof (window.AndroidApp || {}).checkNow !== 'function') { GM.toast('Update the app for this'); return; }
+      GM.app('checkNow'); GM.toast('🔄 Checking…');
+      setTimeout(nstatus, 2500); setTimeout(nstatus, 6000);
+    };
+    GM.$('#s-howto').onclick = e => { e.preventDefault(); GM.welcome(); };
     GM.$('#s-share').onclick = e => { e.preventDefault(); GM.shareGame(); };
     wire('s-theme', v => { GM.setTheme(v); if (v === 'club' && !GM.favClub()) GM.toast('🏟️ Pick your favourite club below to see its colours'); });
     wire('s-hard', v => GM.setHard(v === 'true'));
@@ -267,6 +357,42 @@
         <div class="row"><button class="btn ghost" data-close>Done</button><button class="btn" id="copycode">📋 Copy</button></div>`);
       GM.$('#copycode', m.el).onclick = async () => { try { await navigator.clipboard.writeText(code); GM.toast('Copied'); } catch (e) { GM.toast('Press and hold the code to copy it'); } };
     };
+    const pf = GM.$('#s-pic');
+    if (pf) pf.onchange = async () => {
+      const f = pf.files && pf.files[0]; if (!f) return;
+      let img;
+      try { img = await GM.shrinkPhoto(f); } catch (e) { GM.toast('That file isn’t a photo I can read'); return; }
+      const r = await GM.setMyPic(img);
+      GM.toast(r === 'ok' ? '📷 Looking good!' : r === 'offline' ? 'Couldn’t reach the server – try again' : 'Couldn’t use that photo');
+      settings();
+    };
+    const pd = GM.$('#s-picdel');
+    if (pd) pd.onclick = async () => { if ((await GM.setMyPic(null)) === 'ok') { GM.pics[GM.account().name.toLowerCase()] = null; settings(); } };
+    const bk = GM.$('#s-backup');
+    if (bk) bk.onclick = async () => {
+      const r = await GM.backup.save(false);
+      GM.toast(r === 'ok' ? '☁️ Backed up' : r === 'too_big' ? 'Your data is too big to back up' : 'Couldn’t reach the server – try again');
+      if (r === 'ok') settings();
+    };
+    const rs = GM.$('#s-restore'); if (rs) rs.onclick = () => offerRestore(false);
+    const del = GM.$('#s-delete');
+    if (del) del.onclick = async () => {
+      if (!await GM.confirm(`🗑️ Delete “${GM.esc(GM.getName())}”? Your name, leaderboard scores, friends, online games and backup are removed from our server for good. Your album stays on this phone.`, 'Delete', 'Cancel')) return;
+      const a = GM.account();
+      try {
+        const r = await GM.lb.rpc('delete_account', { p_user: a.name, p_key: a.key });
+        if (r !== 'deleted') throw new Error(r);
+        GM.store.set('account', null); GM.store.set('name', ''); GM.store.set('backupAt', 0);
+        GM.toast('Your account has been deleted');
+        settings();
+      } catch (e) { GM.toast('Couldn’t reach the server – try again'); }
+    };
+    async function offerRestore(afterMove) {
+      const b = await GM.backup.fetch();
+      if (!b || b.none) { if (!afterMove) GM.toast('No backup found for this name yet'); return; }
+      const when = new Date(b.updated).toLocaleString(undefined, { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+      if (await GM.confirm(`⤵️ Restore your backup from ${when}? It replaces the album, stats and scores on this phone.`, 'Restore', 'Not now')) GM.backup.restore(b.data);
+    }
     const cd = GM.$('#s-code');
     if (cd) cd.onclick = async () => {
       const code = await GM.prompt('Paste your transfer code', '', 'from Settings on your old phone', 200);
@@ -274,6 +400,7 @@
       const r = await GM.useTransferCode(code);
       GM.toast(r === 'ok' ? `🔒 Welcome back, ${GM.esc(GM.getName())}` : r === 'offline' ? 'Couldn’t reach the leaderboard – try again' : 'That code doesn’t match any account');
       settings();
+      if (r === 'ok') offerRestore(true);
     };
   }
 
@@ -282,12 +409,12 @@
     if (m && m.startsWith('dailies')) return dailyBoard(m.split(':')[1]);
     const hard = m ? /^[a-z]+h$/.test(m) && GM.MODES[m] != null : GM.isHard();
     const club = GM.favClub();
-    const tabs = ['ultimate', 'ultimateast', 'ultimateapps', 'ultimatepure', 'classicwild', 'classic', 'extreme', 'purist', 'daily:' + GM.today(), 'footle:' + GM.today(), 'target', 'targetast', 'targetapps', 'treble', 'mystery', 'hopper', 'hilo', 'whoami', 'grid:' + GM.today(), 'grid', 'tally', 'mbdaily:' + GM.today(), 'moneyball', 'window']
+    const tabs = ['ultimate', 'ultimateast', 'ultimateapps', 'chaos', 'chaosast', 'chaosapps', 'ultimatepure', 'classicwild', 'classic', 'extreme', 'purist', 'daily:' + GM.today(), 'footle:' + GM.today(), 'target', 'targetast', 'targetapps', 'treble', 'mystery', 'hopper', 'hilo', 'whoami', 'grid:' + GM.today(), 'grid', 'tally', 'mbdaily:' + GM.today(), 'moneyball', 'window', 'dchaos:' + GM.today()]
       .concat(club ? ['club' + GM.slug(club)] : [])
       .map(k => hard && GM.HARD_MODES.includes(k) ? k + 'h' : k);
     m = m && tabs.includes(m) ? m : tabs[0];
     const flip = hard ? m.replace(/h$/, '') : (GM.HARD_MODES.includes(m) ? m + 'h' : m);
-    const label = k => k.startsWith('daily:') ? GM.calIcon() + ' Daily Ultimate' : k.startsWith('grid:') ? '#️⃣ Grid today' : k.startsWith('footle:') ? '🟩 Footle today' : k.startsWith('mbdaily:') ? '💰 Moneyball today' : `${GM.MODES[k].icon} ${GM.MODES[k].name.replace(' (Hard)', '')}`;
+    const label = k => k.startsWith('daily:') ? GM.calIcon() + ' Daily Ultimate' : k.startsWith('grid:') ? '#️⃣ Grid today' : k.startsWith('footle:') ? '🟩 Footle today' : k.startsWith('mbdaily:') ? '💰 Moneyball today' : k.startsWith('dchaos:') ? '🌪️ CHAOS today' : `${GM.MODES[k].icon} ${GM.MODES[k].name.replace(' (Hard)', '')}`;
     const local = GM.store.get('hist:' + m, []);
     app.innerHTML = `<div class="topbar"><a href="#/" class="back">‹</a><h2>🏆 Leaderboards</h2><span></span></div>
       <div class="hard-toggle small"><a class="${hard ? '' : 'on'}" href="#/leaderboard?m=${encodeURIComponent(hard ? flip : m)}">🙂 Normal</a><a class="${hard ? 'on' : ''}" href="#/leaderboard?m=${encodeURIComponent(hard ? m : flip)}">🥵 Hard</a></div>
@@ -351,8 +478,9 @@
       const q = GM.fold(GM.$('#pq').value), c = GM.$('#pc').value, s = GM.$('#ps').value, min = +GM.$('#pa').value;
       let list = pool.filter(p => p.apps >= min && (!q || p.key.includes(q)) && (!c || p.clubs.includes(c)));
       list.sort(s === 'name' ? (a, b) => a.name.localeCompare(b.name) : s === 'first' ? (a, b) => b.first - a.first : (a, b) => b[s] - a[s] || b.apps - a.apps);
+      const picks = GM.store.get('picks', { p: {} }).p;
       GM.$('#plist').innerHTML = `<div class="muted">${list.length.toLocaleString()} players${pool === GM.players && min < 50 ? ' · loading everyone else…' : list.length > 150 ? ' · showing the top 150, search to find anyone' : ''}</div>` + list.slice(0, 150).map(p =>
-        `<div class="prow">${GM.avatar(p)}<div><b>${GM.esc(p.name)}</b><small>${GM.flag(p.nat)} ${p.poss.join('/')} · ${GM.era(p)}</small><div class="chips">${p.clubs.map(x => GM.clubChip(x)).join('')}</div></div><span class="num">${p.apps}<small>apps</small></span><span class="num">${s === 'ast' ? p.ast : p.goals}<small>${s === 'ast' ? 'assists' : 'goals'}</small></span></div>`).join('');
+        `<div class="prow">${GM.avatar(p)}<div><b>${GM.esc(p.name)}${(picks[p.pk] || [])[1] ? ` <i class="signed">✍️×${picks[p.pk][1]}</i>` : ''}</b><small>${GM.flag(p.nat)} ${p.poss.join('/')} · ${GM.era(p)}</small><div class="chips">${p.clubs.map(x => GM.clubChip(x)).join('')}</div></div><span class="num">${p.apps}<small>apps</small></span><span class="num">${s === 'ast' ? p.ast : p.goals}<small>${s === 'ast' ? 'assists' : 'goals'}</small></span></div>`).join('');
     };
     ['#pq', '#pc', '#ps', '#pa'].forEach(s => GM.$(s).addEventListener('input', draw));
     draw();
@@ -397,7 +525,28 @@
   // loading screen off, then (once per release) what's new
   const splash = document.getElementById('splash');
   if (splash) { splash.classList.add('gone'); setTimeout(() => splash.remove(), 500); }
-  if (!parseHash().path) setTimeout(GM.maybeShowWhatsNew, 600);
+  if (!parseHash().path) setTimeout(() => (GM.store.get('welcomed') || GM.store.get('played', 0) ? GM.maybeShowWhatsNew() : GM.welcome()), 600);
+
+  // First time here: three quick cards on how it all works (also under Settings → How Goal Machine works)
+  GM.welcome = function () {
+    GM.store.set('welcomed', 1);
+    GM.store.set('seenVersion', GM.UPDATES[0].v);
+    const cards = [
+      ['⚽', 'Build the XI', 'Spin the reels and sign real Premier League players, one per spin, until your XI is full. Their goals, assists or appearances stay hidden until you sign them. Biggest total wins.'],
+      ['🎮', 'Loads of ways to play', '<b>Main event</b>: pick your player pool and wildcards. <b>🌪️ CHAOS</b>: bonus points and madness. <b>📅 Today</b>: daily puzzles with streaks. <b>💰 Transfer market</b>: budgets and bargains. Plus targets and quick games.'],
+      ['🌐', 'Play your mates', 'Claim a name on the <b>Online</b> tab to challenge friends, take turns whenever suits you and fight it out in a weekly league. Every player you sign goes in your <b>📒 Album</b>.'],
+    ];
+    let i = 0;
+    const m = GM.modal('<div class="welcome"></div>');
+    const show = () => {
+      const [icon, title, text] = cards[i];
+      GM.$('.welcome', m.el).innerHTML = `<div class="wl-icon">${icon}</div><h3>${title}</h3><p>${text}</p>
+        <div class="wl-dots">${cards.map((_, k) => `<i class="${k === i ? 'on' : ''}"></i>`).join('')}</div>
+        <div class="row">${i < cards.length - 1 ? '<button class="btn ghost" data-close>Skip</button><button class="btn" id="wlnext">Next ➜</button>' : '<button class="btn big" data-close>Let’s play ⚽</button>'}</div>`;
+      const n = GM.$('#wlnext', m.el); if (n) n.onclick = () => { i++; show(); GM.sound.play('tap'); };
+    };
+    show();
+  };
 
   if ('serviceWorker' in navigator && location.protocol === 'https:') {
     // when a new version's service worker takes over, reload once so the new files are used straight away

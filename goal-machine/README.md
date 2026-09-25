@@ -10,6 +10,10 @@ Live: `https://opportunisticgames.github.io/goal-machine/` (a free site by Oppor
 | Mode | What it is |
 | --- | --- |
 | 👑 Ultimate Wildcard | The main game. Build the XI with the biggest total of PL **goals**, **assists** or **appearances** (you choose). Every 50+ app player is equally likely, so you have to find the stars among the journeymen. Your score is the total |
+| ⚡ Extreme Ultimate | Ultimate Wildcard with every one of the 5,157 players to play in the PL (1+ apps), all equally likely |
+| 💎 Purist | Every PL player, equally likely, no wildcards. Fills its own **Purist collection** (a switch on the Album page) |
+| ⚽ Classic | The original: hit 500 goals / 350 assists / 3,750 apps exactly, with no wildcards (a switch on the Target card) |
+| 🌐 Online | **Draft Duel** (take turns picking from one set of reels, and a player your rival signs is gone) or **Live Race** (both play the same spins at once), via a 5-letter room code |
 | 📅 Daily Ultimate | Ultimate Wildcard (goals) with the same spins for everyone that day and one attempt |
 | 🎯 Target | Hit the number: **500 goals**, **350 assists** or **3,750 apps**. The reels lean towards well-known players. Closeness scores up to 1,000 points, and hitting it exactly adds a +500 bullseye bonus |
 | 🏆 The Treble | One XI, three targets: **400 goals, 300 assists and 3,300 apps**. Up to 333 points per stat. All three within 3% wins the Treble (+500), and two within 3% is the Double (+150) |
@@ -101,6 +105,12 @@ Faces are tried in this order, and if one won't load the next is used, falling b
 4. A freely licensed Wikimedia Commons photo, credited on the in-game **Photo credits** page (reached from About)
 
 The **Find player photos** workflow runs `fetch_photos.py` weekly. It only looks up players without an FPL photo and retries misses every 60 days.
+
+**Fair spins:** every spin has a fixed, seeded running order of players drawn from the whole field, and the reels are the first ones who fit your open positions. So on a challenge link or daily, everyone sees the same players on the same spin wherever their positions allow, and identical decisions always give identical games.
+
+**Accounts:** a leaderboard name is claimed once. The device keeps a random key, the server stores only its hash (`players` table), and scores go through the `submit_score` function, which checks it. Settings → Account gives a transfer code for moving to a new phone.
+
+**Google Play:** see [`android/store/README.md`](../android/store/README.md) for the checklist, listing text and the answers for the Play Console forms.
 
 ## Global leaderboard
 

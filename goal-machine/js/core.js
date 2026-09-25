@@ -390,6 +390,36 @@ GM.useTransferCode = async function (code) {
   return r === 'taken' ? 'wrong_code' : r;
 };
 
+/* ------------------------------------------------------------------ ☁️ backup */
+// Everything the game keeps on this phone (album, pick stats, streaks, scores, settings…) can be backed up under your
+// account and restored on another phone. The account key itself is never included.
+GM.backup = {
+  keys: () => Object.keys(localStorage).filter(k => k.startsWith('gm:') && !/^gm:(account|backupAt|racep:|auction:local)/.test(k)),
+  async save(auto) {
+    const a = GM.account();
+    if (!a || !GM.lb.enabled) return 'no_account';
+    if (auto && Date.now() - GM.store.get('backupAt', 0) < 6 * 3600e3) return 'recent';  // auto backups: at most every 6 hours
+    const data = {};
+    GM.backup.keys().forEach(k => { data[k] = localStorage.getItem(k); });
+    try {
+      const r = await GM.lb.rpc('save_backup', { p_user: a.name, p_key: a.key, p_data: data });
+      if (r === 'ok') GM.store.set('backupAt', Date.now());
+      return r;
+    } catch (e) { return 'offline'; }
+  },
+  async fetch() {
+    const a = GM.account();
+    if (!a) return null;
+    try { return await GM.lb.rpc('load_backup', { p_user: a.name, p_key: a.key }); } catch (e) { return null; }
+  },
+  restore(data) {
+    GM.backup.keys().forEach(k => localStorage.removeItem(k));
+    Object.entries(data || {}).forEach(([k, v]) => { if (k.startsWith('gm:') && k !== 'gm:account') localStorage.setItem(k, v); });
+    GM.store.set('backupAt', Date.now());
+    location.reload();
+  },
+};
+
 /* ------------------------------------------------------------------ modal / toast */
 GM.toast = function (msg, ms = 2200) {
   const t = document.createElement('div');
@@ -586,6 +616,7 @@ GM.recordScore = async function (mode, score, meta = {}) {
   const isBest = score > GM.best(mode);
   if (isBest) GM.store.set('best:' + mode, score);
   GM.store.set('played', GM.store.get('played', 0) + 1);
+  GM.backup.save(true);
   if (GM.lb.enabled && score > 0) {
     const name = await GM.askName();
     if (name) GM.lb.submit(mode, score, name, meta).catch(() => GM.toast('Could not reach the global leaderboard'));

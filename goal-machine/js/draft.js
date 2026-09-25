@@ -105,8 +105,10 @@
         .catch(() => { root.innerHTML += '<p class="center">Couldn’t load the player list. Check your connection and try again.</p>'; });
       return;
     }
-    const seed = mode === 'daily' ? 'daily:' + GM.today() : (opts.seed || GM.newSeed());
-    let stat = mode === 'daily' ? 'goals' : (GM.STATS[opts.stat] ? opts.stat : 'goals');
+    // Daily CHAOS: the same chaos for everyone today, goals, one go
+    const dailyChaos = mode === 'chaos' && !!opts.daily && !opts.seed;
+    const seed = mode === 'daily' ? 'daily:' + GM.today() : dailyChaos ? 'dchaos:' + GM.today() : (opts.seed || GM.newSeed());
+    let stat = mode === 'daily' || dailyChaos ? 'goals' : (GM.STATS[opts.stat] ? opts.stat : 'goals');
     let target = RULES[mode] && !RULES[mode].max ? TARGETS[stat] : null;
     if (mode === 'treble') { stat = 'goals'; target = null; }
     if (mode === 'mystery') {
@@ -129,6 +131,29 @@
         render(); return;
       }
     }
+    if (dailyChaos) {
+      const done = GM.store.get('dchaos2:' + GM.today());
+      if (done && done.xi) { S = done; S.rules = RULES.chaos; S.phase = 'done'; S.readonly = true; render(); return; }
+    }
+    // any other draft left half-way: the Daily CHAOS carries straight on, the rest ask
+    if (!opts.online && mode !== 'daily') {
+      const key = 'draftp:' + (dailyChaos ? 'dchaos:' + GM.today() : keyFor(mode, stat, !!opts.hard, mode === 'club' ? (opts.club || GM.favClub()) : null));
+      const saved = GM.store.get(key);
+      if (saved && saved.xi && saved.phase !== 'done' && (!opts.seed || saved.seed === opts.seed) && saved.xi.some(x => x.p != null)) {
+        const resume = () => {
+          S = saved; S.rules = RULES[S.mode]; S.pending = null; S.subbing = false;
+          if (S.phase === 'spinning') S.phase = 'pick';
+          if (S.phase === 'reveal') { completePick(); return; }
+          render();
+        };
+        if (dailyChaos || opts.seed) { resume(); GM.toast('Welcome back – carrying on where you left off'); return; }
+        setTimeout(() => {
+          const n = saved.xi.filter(x => x.p != null).length;
+          GM.confirm(`You left a game of ${GM.esc((GM.MODES[key.slice(7)] || GM.MODES[key.slice(7).replace(/h$/, '')] || { name: 'this' }).name)} half-way (${n}/11 signed). Carry on?`, '▶ Carry on', '🆕 New game')
+            .then(ok => { if (ok && location.hash.includes('m=' + mode)) resume(); else GM.store.set(key, null); });
+        }, 150);
+      }
+    }
     if (opts.online) {
       // an online race carries on where you left it (saved after every signing), so leaving never costs you the game
       const saved = GM.store.get('racep:' + opts.online.code);
@@ -149,14 +174,16 @@
       reels: [], selected: -1, revealed: false, revealNext: false, special: null,
       inv: [], modifier: null, subbing: false, used: [], last: null,
       phase: 'spin', vs: opts.vs, vss: opts.vss, log: [], pending: null, wildUsed: 0, coinWin: false, bonus: [], hot: 0, event: null, meter: 0, unleash: 0, golden: false, masked: false, chaosCount: 0,
-      hard: mode !== 'daily' && !!opts.hard, club,
+      hard: mode !== 'daily' && !dailyChaos && !!opts.hard, club, dailyChaos, day: GM.today(),
       online: opts.online ? { ...opts.online, ms: 0, lastT: Date.now() } : null,  // Live Race: { code, seat, opp } + time taken
     };
     if (S.online) root.className = 'page-draft page-online';
     render();
   }
 
-  const modeKey = () => keyFor(S.mode, S.stat, S.hard, S.club);
+  const modeKey = () => (S.dailyChaos ? 'dchaos:' + S.day : keyFor(S.mode, S.stat, S.hard, S.club));
+  // where a half-finished draft is kept (the Daily Ultimate has its own; online races save with the race)
+  const saveKey = () => (S.mode === 'daily' ? progressKey() : S.online ? null : 'draftp:' + modeKey());
   const progressKey = () => 'dailyp:' + GM.today();
   const distKey = () => S.mode === 'daily' ? 'daily' : modeKey();
   // Hard mode flattens the star bias in the target modes (Shearer ~4x an average player instead of ~16x) but keeps the
@@ -164,7 +191,7 @@
   const reelWeight = () => (S.hard && (!S.rules.max || S.rules.fame) ? p => Math.sqrt(S.rules.weight(p)) : S.rules.weight);
   // what wildcard descriptions talk about: in the Treble a wildcard affects all three numbers
   const wst = () => S.rules.treble ? { ...S.st, label: 'numbers', bigLabel: 'goals' } : S.st;
-  const modeName = () => S.mode === 'club' ? GM.MODES[modeKey()].name : GM.MODES[S.mode === 'daily' ? 'daily' : (S.rules.treble || S.rules.mystery) ? S.mode : S.mode + statSuffix(S.stat)].name;
+  const modeName = () => S.dailyChaos ? 'Daily CHAOS' : S.mode === 'club' ? GM.MODES[modeKey()].name : GM.MODES[S.mode === 'daily' ? 'daily' : (S.rules.treble || S.rules.mystery) ? S.mode : S.mode + statSuffix(S.stat)].name;
   const val = p => p[S.st.key];
   const pv = p => ({ goals: p.goals, assists: p.ast, apps: p.apps });
   const tot = k => S.xi.reduce((t, s) => t + (s.v ? s.v[k] : 0), 0);
@@ -606,6 +633,11 @@
       });
       S.collected = { n: S.collected.newPlayers.length, total: S.collected.total, badges: S.collected.fresh.map(x => x.icon + ' ' + x.name), book: S.collected.book };
     }
+    if (saveKey() && !S.readonly) GM.store.set(saveKey(), null);
+    if (S.dailyChaos && !S.readonly) {
+      GM.store.set('dchaos2:' + S.day, { ...S, rules: undefined });
+      GM.markDaily('chaos', sc.total, S.day);
+    }
     if (S.mode === 'daily') {
       GM.store.set('daily2:' + GM.today(), { ...S, rules: undefined });
       GM.store.set(progressKey(), null);
@@ -750,7 +782,7 @@
   function render() {
     if (!S) return;
     if (S.phase === 'done') return renderDone();
-    if (S.mode === 'daily' && !S.readonly) GM.store.set(progressKey(), { ...S, rules: undefined });
+    if (!S.readonly && saveKey()) GM.store.set(saveKey(), { ...S, rules: undefined });  // saved on every move
     if (S.revealStage === 'intro') return mysteryIntro();
     const icon = S.mode === 'club' ? '🏟️' : GM.MODES[S.mode === 'daily' ? 'daily' : S.mode].icon;
     const nReels = Math.max(3, S.reels.length);
@@ -831,7 +863,7 @@
       ${GM.report ? GM.report(xi, S.st, S.rules.treble) : ''}
       ${pitchHtml()}
       <div class="actions col">
-        ${S.online ? `<div id="race-result"></div><a class="btn big" href="#/online?room=${S.online.code}&v=1">🆚 Compare teams & match points</a>` : S.mode !== 'daily' ? `<button class="btn big" id="again">🔁 Play again</button>` : `<div class="muted">New Daily Ultimate tomorrow</div>`}
+        ${S.online ? `<div id="race-result"></div><a class="btn big" href="#/online?room=${S.online.code}&v=1">🆚 Compare teams & match points</a>` : S.mode !== 'daily' && !S.dailyChaos ? `<button class="btn big" id="again">🔁 Play again</button>` : `<div class="muted">New Daily ${S.dailyChaos ? 'CHAOS' : 'Ultimate'} tomorrow</div>`}
         <button class="btn" id="challenge">⚔️ Challenge a friend (same spins)</button>
         <button class="btn ghost" id="share">📤 Share result</button>
         <button class="btn ghost" id="sharepic">🖼️ Share a picture of your XI</button>

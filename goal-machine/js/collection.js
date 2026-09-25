@@ -229,7 +229,7 @@
     const main = load();
 
     root.innerHTML = `<div class="topbar"><a href="#/" class="back">‹</a><h2>${purist ? '💎 Purist collection' : '📒 Album'}</h2><span></span></div>
-      <div class="hard-toggle small"><a class="${purist ? '' : 'on'}" href="#/album">📒 Album</a><a class="${purist ? 'on' : ''}" href="#/album?b=purist">💎 Purist</a></div>
+      <div class="hard-toggle small"><a class="${purist ? '' : 'on'}" href="#/album">📒 Album</a><a class="${purist ? 'on' : ''}" href="#/album?b=purist">💎 Purist</a><a href="#/players">📖 Players</a></div>
       <div class="album-head">
         <div><b>${fmt(ids.length)}</b><small>of ${fmt(list.length)} players</small></div>
         <div>${purist ? `<b>${list.length ? (100 * ids.length / list.length).toFixed(1) : 0}%</b><small>of every PL player</small>` : `<b>${Object.keys(main.ach).length}</b><small>of ${A.length} badges</small>`}</div>

@@ -17,6 +17,8 @@
   const PICK_SECONDS = 15;
   const other = s => (s === 'host' ? 'guest' : 'host');
   const esc = GM.esc, fmt = n => Math.round(n).toLocaleString();
+  // modes in the weekly friends league
+  const LEAGUE = [['ultimate', '👑 Ultimate'], ['chaos', '🌪️ CHAOS'], ['dchaos', '📅 Daily CHAOS'], ['daily', '📅 Daily Ultimate'], ['mbdaily', '💰 Daily Moneyball'], ['moneyball', '💰 Moneyball']];
   const KIND = { duel: { icon: '🤝', name: 'Draft Duel' }, scout: { icon: '🕵️', name: 'Scout Duel' }, race: { icon: '🏁', name: 'Live Race' }, auction: { icon: '🔨', name: 'Auction' } };
   const gk = g => (g.variant === 'scout' ? 'scout' : g.kind);  // a Scout Duel is a Draft Duel with hidden names
   const rpc = (f, a) => GM.lb.rpc(f, a);
@@ -61,6 +63,9 @@
     root.innerHTML = `${top('Online')}
       <div class="online-me"><span>Playing as <b>🔒 ${esc(me())}</b></span><button class="btn small" id="onew">⚔️ New game</button></div>
       <div id="olists"><p class="muted center">Loading your games…</p></div>
+      <h3 class="section-title">🏆 This week's league<span class="more" id="lgreset"></span></h3>
+      <div class="seg wrap league-modes" id="lgmode">${LEAGUE.map(([k, l]) => `<button data-v="${k}" class="${k === GM.store.get('leagueMode', 'ultimate') ? 'on' : ''}">${l}</button>`).join('')}</div>
+      <div id="league" class="league"><p class="muted center">Loading…</p></div>
       <h3 class="section-title">Friends</h3>
       <div id="ofriends" class="friends"></div>
       <div class="join-row"><input class="input" id="ofriend" maxlength="20" placeholder="Add a friend by name" autocomplete="off"><button class="btn" id="oadd">➕ Add</button></div>
@@ -68,6 +73,21 @@
       <div class="join-row"><input class="input" id="ocode" maxlength="5" placeholder="ABCDE" autocapitalize="characters"><button class="btn" id="ojoin">Join</button></div>
       <p class="muted center"><a href="#/h2h">📱 Play on one phone instead (pass it round)</a></p>`;
     GM.$('#onew').onclick = () => newGame();
+    // the league: you and your friends' best this week (Monday to Sunday); dailies add up every day's score
+    const loadLeague = async () => {
+      const mode = GM.store.get('leagueMode', 'ultimate'), el = GM.$('#league');
+      const mon = new Date(); mon.setUTCHours(0, 0, 0, 0); mon.setUTCDate(mon.getUTCDate() - ((mon.getUTCDay() + 6) % 7) + 7);
+      const days = Math.ceil((mon - Date.now()) / 864e5), rs = GM.$('#lgreset'); if (rs) rs.textContent = `resets in ${days} day${days === 1 ? '' : 's'}`;
+      let rows;
+      try { rows = await rpc('friends_week', { ...auth(), p_mode: mode }); } catch (e) { if (el) el.innerHTML = '<p class="muted center">Couldn’t load the league</p>'; return; }
+      if (!el) return;
+      const daily = ['daily', 'dchaos', 'mbdaily'].includes(mode);
+      el.innerHTML = (rows || []).length > 1 ? `<ol>${rows.map((r, i) => `<li class="${r.me ? 'me' : ''} ${r.score ? '' : 'none'}"><span class="lg-pos">${r.score ? ['🥇', '🥈', '🥉'][i] || i + 1 : '–'}</span>
+          <b>${esc(r.name)}${r.me ? ' (you)' : ''}</b><span class="lg-score">${r.score ? fmt(r.score) : 'not played'}${daily && r.games ? `<small>${r.games} day${r.games > 1 ? 's' : ''}</small>` : ''}</span></li>`).join('')}</ol>`
+        : '<p class="muted center">Add some friends and the league fills up with their best scores this week.</p>';
+    };
+    GM.$$('#lgmode button').forEach(b => b.onclick = () => { GM.store.set('leagueMode', b.dataset.v); GM.$$('#lgmode button').forEach(x => x.classList.toggle('on', x === b)); loadLeague(); });
+    loadLeague();
     GM.$('#ojoin').onclick = () => { const c = GM.$('#ocode').value.trim().toUpperCase(); if (c) join(root, c); };
     GM.$('#oadd').onclick = async () => {
       const n = GM.$('#ofriend').value.trim(); if (!n) return;
@@ -523,10 +543,12 @@
     // the Android app checks every 15 minutes and notifies; the server's app_inbox decides what about (build 12+)
     GM.app('watchGames', a.name, GM.lb.cfg.supabaseUrl, GM.lb.cfg.supabaseAnonKey);
     const lastCheck = GM.online._checked || 0;
-    if (Date.now() - lastCheck < 30000) return;
+    if (Date.now() - lastCheck < 30000) return GM.online._pending;  // a check just ran (or is running): share it
     GM.online._checked = Date.now();
-    let list;
-    try { list = await rpc('online_waiting', { p_user: a.name }); } catch (e) { return; }
+    let list, done;
+    GM.online._pending = new Promise(r => { done = r; });
+    try { list = await rpc('online_waiting', { p_user: a.name }); } catch (e) { done(); return; }
+    setTimeout(done, 0);
     list = list || [];
     GM.online.setWaiting(list.length);
     const seen = GM.store.get('onlineSeen', []), fresh = list.filter(g => !seen.includes(g.code));

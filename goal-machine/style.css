@@ -910,3 +910,17 @@ body.chaos-mode .result-score { color: #ffe600; text-shadow: 0 0 20px rgba(255, 
 body.chaos-mode .reel { background: linear-gradient(160deg, #3a0f5f, #1d0433); color: #fff4fe; }
 body.chaos-mode .reel .reel-name { color: #fff; } body.chaos-mode .reel .reel-meta, body.chaos-mode .reel small { color: #d9a8ff; }
 body.chaos-mode .reel .reel-goals { background: rgba(0, 0, 0, .35); color: #ffe600; }
+.tabbar a > span { position: relative; }
+.tabbar .online-badge { position: absolute; top: -6px; right: -12px; min-width: 18px; height: 18px; line-height: 18px; font-size: .65rem; padding: 0 5px; }
+.btn.danger { color: var(--bad); border-color: color-mix(in srgb, var(--bad) 50%, transparent); margin-top: 8px; }
+.chaos-daily { display: grid; grid-template-columns: auto 1fr auto; gap: 2px 8px; align-items: center; margin-top: 10px; padding: 9px 12px; border-radius: 14px; text-decoration: none; color: #fff; background: rgba(0, 0, 0, .28); border: 1px dashed rgba(255, 230, 0, .6); }
+.chaos-daily b { font: 700 1rem Oswald, sans-serif; letter-spacing: 1px; text-transform: uppercase; } .chaos-daily span { grid-column: 2; font-size: .75rem; opacity: .85; } .chaos-daily i { grid-row: 1 / span 2; grid-column: 3; font-style: normal; font-weight: 800; }
+.league-modes button { font-size: .75rem; padding: 6px 8px; }
+.league ol { list-style: none; margin: 8px 0; padding: 0; display: grid; gap: 5px; }
+.league li { display: grid; grid-template-columns: 2em 1fr auto; align-items: center; gap: 8px; padding: 8px 12px; border-radius: 12px; background: var(--panel); box-shadow: 0 2px 0 var(--edge); }
+.league li.me { outline: 2px solid var(--accent); } .league li.none { opacity: .55; }
+.league .lg-pos { font-weight: 800; text-align: center; } .league .lg-score { font: 700 1.1rem Oswald, sans-serif; text-align: right; } .league .lg-score small { display: block; font: 600 .65rem Inter, sans-serif; color: var(--muted); }
+.new-tag { position: absolute; top: 8px; right: 8px; z-index: 2; padding: 2px 7px; border-radius: 8px; background: #ff2bd6; color: #fff; font: 800 .62rem Inter, sans-serif; letter-spacing: 1px; box-shadow: 0 2px 0 rgba(0,0,0,.25); animation: pop .5s; }
+.chaos-card { position: relative; }
+.welcome { text-align: center; } .welcome .wl-icon { font-size: 3.4rem; animation: pop .4s; } .welcome p { line-height: 1.5; }
+.wl-dots { display: flex; justify-content: center; gap: 6px; margin: 10px 0; } .wl-dots i { width: 8px; height: 8px; border-radius: 50%; background: var(--line); } .wl-dots i.on { background: var(--accent); width: 20px; border-radius: 4px; }

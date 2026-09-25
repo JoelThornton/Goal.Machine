@@ -7,10 +7,15 @@
 (function () {
   GM.UPDATES = [
     {
-      v: 17, label: '4.2', date: '2026-09-26', app: 15, title: 'CHAOS, your picks + separate Dream XIs',
+      v: 17, label: '4.2', date: '2026-09-26', app: 15, title: 'CHAOS, the Online tab + your picks',
       items: [
-        '🌪️ Ultimate Wildcard CHAOS: bonus points for chemistry, squad rating, PL titles, Hall of Famers, one-club men, journeymen and veterans, plus random events (red cards, injuries, the taxman, derby days, TV money), wildcard storms and new cards like 🎰 All In and 🔥 Hot Streak',
-        '📊 Your picks: your most-signed players, the ones you always snub and the clubs you sign from (in the Album), and ✍️ signing counts in the Players tab',
+        '🌪️ Ultimate Wildcard CHAOS, with its own neon look and its own music (Mayhem): bonus points for chemistry, squad rating, PL titles, Hall of Famers, one-club men, journeymen and veterans, random events (red cards, injuries, VAR, golden goals, masked men, mystery boxes…), wildcard storms, a CHAOS meter that unleashes double points, and new cards like 🎰 All In',
+        '📅 Daily CHAOS: the same chaos for everyone, once a day, with a streak and a daily leaderboard',
+        '🌐 Online gets its own tab (the Player index moves to the Album and the home screen), with a weekly league against your friends',
+        '☁️ Back up your album, stats and streaks to your account (it happens automatically after games) and restore them on a new phone, or delete your account from Settings',
+        '▶️ Leave a draft half-way and carry on where you left off; Moneyball and Transfer Window check before you leave',
+        '👋 A quick welcome for new players, and NEW tags on modes you haven’t tried yet',
+        '📊 Your picks: your most-signed players, the ones you always snub and the clubs you sign from (in the Album), and ✍️ signing counts in the Player index',
         '⭐ Separate Dream XIs: a player joins your goals, assists or appearances XI only when you sign him in that kind of game, and shows how many times you’ve had him',
         '🏟️ Club XI now uses everyone who played for your club in the Premier League, not just those with 50+ appearances',
         '↩️ In the Android app, back (button or swipe) goes to your last menu page instead of closing the app, and asks before quitting from the home screen',

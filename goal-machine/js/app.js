@@ -62,6 +62,9 @@
       case 'grid': return GM.grid(app, false);
       case 'dailygrid': return GM.grid(app, true);
       case 'tally': return GM.tally(app);
+      case 'moneyball': return GM.moneyball(app, q);
+      case 'window': return GM.transferWindow(app, q);
+      case 'auction': return GM.auction(app, q);
       case 'leaderboard': return leaderboard(q.m);
       case 'players': return playerIndex();
       case 'album': return GM.album(app, GM.STATS[q.s] ? q.s : 'goals', q.b === 'purist' ? 'purist' : 'album');
@@ -141,6 +144,13 @@
       <div class="tiles">
         ${tile('#/draft?m=treble', 't-gold', '🏆', 'The Treble', '400 goals, 300 assists AND 3,300 apps', pb('treble'))}
         ${tile('#/draft?m=mystery', 't-magenta', '🎲', 'Mystery Target', 'Secret number. Follow the thermometer.', pb('mystery'))}
+      </div>
+      <h3 class="section-title">Transfer market</h3>
+      <div class="tiles">
+        ${dtile('moneyball', 't-gold', 'Same market for everyone')}
+        ${tile('#/moneyball', 't-green', '💰', 'Moneyball', '£200m, prices by reputation. Find the bargains.', pb('moneyball'))}
+        ${tile('#/window', 't-blue', '🔄', 'Transfer Window', 'Buy, see who flops, sell, go again', pb('window'))}
+        ${tile('#/auction', 't-magenta', '🔨', 'Auction', 'Secret bids against a mate', 0)}
       </div>
       <h3 class="section-title">Quick games</h3>
       <div class="tiles">
@@ -272,12 +282,12 @@
     if (m && m.startsWith('dailies')) return dailyBoard(m.split(':')[1]);
     const hard = m ? /^[a-z]+h$/.test(m) && GM.MODES[m] != null : GM.isHard();
     const club = GM.favClub();
-    const tabs = ['ultimate', 'ultimateast', 'ultimateapps', 'ultimatepure', 'classicwild', 'classic', 'extreme', 'purist', 'daily:' + GM.today(), 'footle:' + GM.today(), 'target', 'targetast', 'targetapps', 'treble', 'mystery', 'hopper', 'hilo', 'whoami', 'grid:' + GM.today(), 'grid', 'tally']
+    const tabs = ['ultimate', 'ultimateast', 'ultimateapps', 'ultimatepure', 'classicwild', 'classic', 'extreme', 'purist', 'daily:' + GM.today(), 'footle:' + GM.today(), 'target', 'targetast', 'targetapps', 'treble', 'mystery', 'hopper', 'hilo', 'whoami', 'grid:' + GM.today(), 'grid', 'tally', 'mbdaily:' + GM.today(), 'moneyball', 'window']
       .concat(club ? ['club' + GM.slug(club)] : [])
       .map(k => hard && GM.HARD_MODES.includes(k) ? k + 'h' : k);
     m = m && tabs.includes(m) ? m : tabs[0];
     const flip = hard ? m.replace(/h$/, '') : (GM.HARD_MODES.includes(m) ? m + 'h' : m);
-    const label = k => k.startsWith('daily:') ? GM.calIcon() + ' Daily Ultimate' : k.startsWith('grid:') ? '#️⃣ Grid today' : k.startsWith('footle:') ? '🟩 Footle today' : `${GM.MODES[k].icon} ${GM.MODES[k].name.replace(' (Hard)', '')}`;
+    const label = k => k.startsWith('daily:') ? GM.calIcon() + ' Daily Ultimate' : k.startsWith('grid:') ? '#️⃣ Grid today' : k.startsWith('footle:') ? '🟩 Footle today' : k.startsWith('mbdaily:') ? '💰 Moneyball today' : `${GM.MODES[k].icon} ${GM.MODES[k].name.replace(' (Hard)', '')}`;
     const local = GM.store.get('hist:' + m, []);
     app.innerHTML = `<div class="topbar"><a href="#/" class="back">‹</a><h2>🏆 Leaderboards</h2><span></span></div>
       <div class="hard-toggle small"><a class="${hard ? '' : 'on'}" href="#/leaderboard?m=${encodeURIComponent(hard ? flip : m)}">🙂 Normal</a><a class="${hard ? 'on' : ''}" href="#/leaderboard?m=${encodeURIComponent(hard ? m : flip)}">🥵 Hard</a></div>

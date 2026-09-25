@@ -809,3 +809,33 @@ h2, h3 { letter-spacing: .3px; }
 .ver:not(.major) { background: var(--panel2); color: var(--text); box-shadow: 0 3px 0 var(--edge); }
 .ver.major { background: linear-gradient(135deg, var(--accent2), var(--accent)); }
 .section-title.era { margin-top: 18px; }
+
+/* v16 transfer market: Moneyball, Transfer Window, Auction */
+.duel-cards.mk4 { grid-template-columns: 1fr 1fr; }
+.duel-cards.mk4 .duel-card, .duel-cards.mk4 .duel-card:nth-child(4) { grid-column: auto; }
+.mk-card { padding-bottom: 8px; }
+.mk-price { margin-top: 4px; padding: 3px 10px; border-radius: 10px; background: #0a2a1f; color: #c8ff3d; font: 800 .9rem Inter, sans-serif; }
+.mk-card:disabled .mk-price { background: var(--inset); color: var(--muted); }
+.mk-card:disabled { opacity: .6; }
+.mk-budget { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; margin: 8px 0; }
+.mk-budget > div { display: grid; text-align: center; padding: 8px 4px; border-radius: 12px; background: var(--panel); box-shadow: 0 3px 0 var(--edge); }
+.mk-budget small { font-size: .66rem; color: var(--muted); text-transform: uppercase; letter-spacing: .5px; } .mk-budget b { font: 700 1.25rem Oswald, sans-serif; }
+.mk-squad { display: grid; gap: 4px; }
+.mk-row { display: grid; grid-template-columns: auto 1fr auto auto auto; align-items: center; gap: 6px; padding: 6px 8px; border-radius: 10px; background: var(--panel); font-size: .82rem; min-width: 0; }
+.mk-row b { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; } .mk-row.empty { background: var(--inset); opacity: .7; }
+.mk-row .mk-paid { color: var(--muted); font-size: .75rem; } .mk-row i { font-style: normal; font-weight: 800; color: var(--hi); min-width: 1.5em; text-align: right; }
+.mk-row .btn { padding: 4px 8px; font-size: .72rem; }
+.cmp .mk-row { grid-template-columns: auto 1fr auto; font-size: .72rem; padding: 4px 6px; } .cmp .mk-row .mk-paid { display: none; }
+.mk-news { display: grid; gap: 4px; font-size: .8rem; padding: 6px 2px; }
+.mk-lot { display: grid; grid-template-columns: auto 1fr; gap: 12px; align-items: center; padding: 12px; margin: 8px 0; border-radius: 16px; background: var(--panel); box-shadow: 0 3px 0 var(--edge); }
+.mk-lot > div { display: grid; gap: 3px; min-width: 0; } .mk-lot small { color: var(--muted); font-size: .72rem; } .mk-lot b { font: 700 1.3rem Oswald, sans-serif; }
+.mk-guide { justify-self: start; margin-top: 2px; padding: 2px 8px; border-radius: 8px; background: var(--inset); font-weight: 700; font-size: .8rem; }
+.mk-bid { display: grid; gap: 6px; justify-items: center; margin: 8px 0; }
+.mk-bid-amt { font: 700 2.2rem Oswald, sans-serif; } .mk-bid-amt input { width: 3.2em; font: inherit; text-align: center; border: 0; border-bottom: 3px solid var(--accent); background: transparent; color: var(--text); }
+.mk-bid input[type=range] { width: 100%; accent-color: var(--accent); height: 30px; }
+.mk-cover { text-align: center; padding: 24px 12px; border-radius: 18px; background: var(--panel); margin: 10px 0; box-shadow: 0 3px 0 var(--edge); }
+.mk-sold small { display: block; opacity: .75; font-size: .75rem; }
+.join-row.names .input { text-transform: none; letter-spacing: 0; font: 600 1rem Inter, sans-serif; }
+.stat-row { display: flex; gap: 8px; margin: 12px 0; } .stat-row .stat-btn { color: var(--text); background: var(--panel); border-color: var(--line); padding: 14px 6px; }
+.duel-turn > b { font-weight: 800; }
+.mk-lot .avatar, .mk-card .avatar { box-shadow: 0 0 0 1px var(--line); }

@@ -7,10 +7,12 @@
 (function () {
   GM.UPDATES = [
     {
-      v: 16, label: '4.1', date: '2026-09-25', app: 13, title: 'Friends, challenges + match points',
+      v: 16, label: '4.1', date: '2026-09-25', app: 13, title: 'Friends, the transfer market + match points',
       items: [
         '👥 Online games now belong to your 🔒 name: add friends, challenge them, take your turn whenever suits you, and pick your games back up on any phone',
         '🕵️ Scout Duel: a Draft Duel on scouting reports. No names, just a few clues on each player (the same for both of you), plus Scout, Blindfold and Swap cards to play once each',
+        '💰 The transfer market: players are priced by reputation, not output, and tallies stay hidden. Moneyball (plus a Daily Moneyball), Transfer Window (buy, see who flops, sell) and Auction (secret bids, pass the phone or online)',
+        '🖼️ Share a picture of your XI from the full-time screen and online games',
         '🔔 “Your move” alerts on the home screen, and notifications with a referee’s whistle in the Android app when a friend challenges you, it’s your pick or a game finishes',
         '📜 Every online game is kept: look back at finished games, both teams side by side, and your win-draw-loss record against each friend',
         '🏁 Live Race match points: 50 for the bigger total, 30 for the better squad rating and 20 for the quicker XI. Once you’ve finished, watch your friend’s XI fill up',

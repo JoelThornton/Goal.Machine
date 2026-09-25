@@ -17,7 +17,7 @@
   const PICK_SECONDS = 15;
   const other = s => (s === 'host' ? 'guest' : 'host');
   const esc = GM.esc, fmt = n => Math.round(n).toLocaleString();
-  const KIND = { duel: { icon: '🤝', name: 'Draft Duel' }, scout: { icon: '🕵️', name: 'Scout Duel' }, race: { icon: '🏁', name: 'Live Race' } };
+  const KIND = { duel: { icon: '🤝', name: 'Draft Duel' }, scout: { icon: '🕵️', name: 'Scout Duel' }, race: { icon: '🏁', name: 'Live Race' }, auction: { icon: '🔨', name: 'Auction' } };
   const gk = g => (g.variant === 'scout' ? 'scout' : g.kind);  // a Scout Duel is a Draft Duel with hidden names
   const rpc = (f, a) => GM.lb.rpc(f, a);
   const auth = () => { const a = GM.account(); return a ? { p_user: a.name, p_key: a.key } : null; };
@@ -36,7 +36,9 @@
     const w = g.result.winner, mine = g.result[seat], theirs = g.result[other(seat)];
     return { icon: w === 'draw' ? '🤝' : w === seat ? '🏆' : '😬', text: w === 'draw' ? 'Drew' : w === seat ? 'Won' : 'Lost', score: `${fmt(mine)}–${fmt(theirs)}`, resigned: g.result.resigned };
   };
-  const myMove = (g, seat) => g.status !== 'done' && (g.kind === 'duel' ? g.turn === seat : !((g.sums || g.race || {})[seat] || {}).done);
+  const myMove = (g, seat) => g.status !== 'done' && (g.kind === 'duel' ? g.turn === seat
+    : g.kind === 'auction' ? (g.turn === 'both' || g.turn === seat) && !(g.bids_in || []).includes(seat)
+    : !((g.sums || g.race || {})[seat] || {}).done);
 
   // Everything online needs a claimed name: that's what lets you pick up your games on any phone
   async function needAccount(root, why, q) {
@@ -90,6 +92,7 @@
         const sub = o ? `${o.icon} ${o.text} ${o.score}${o.resigned ? ` (${o.resigned === seat ? 'you' : 'they'} resigned)` : ''}`
           : !opp ? `Waiting for someone to join · code <b>${g.code}</b>`
           : g.kind === 'duel' ? (g.turn === seat ? '👉 Your pick' : `⏳ ${esc(opp)}’s pick`)
+          : g.kind === 'auction' ? (myMove(g, seat) ? '👉 Your bid' : `⏳ Waiting for ${esc(opp)}’s bid`)
           : `You ${(s[seat] || {}).done ? '✓ done' : `${(s[seat] || {}).n || 0}/11`} · ${esc(opp)} ${(s[other(seat)] || {}).done ? '✓ done' : `${(s[other(seat)] || {}).n || 0}/11`}`;
         return `<a class="og-row ${o ? 'res-' + o.text.toLowerCase() : ''}" href="#/online?room=${g.code}"><span class="og-icon">${k.icon}</span>
           <span class="og-main"><b>${opp ? esc(opp) : 'Open invite'}</b><small>${k.name} · ${st.icon} ${st.name}</small><small class="og-sub">${sub}</small></span>
@@ -121,6 +124,7 @@
       const desc = () => { GM.$('#nkdesc', m.el).textContent = kind === 'duel'
         ? 'Take turns picking from the same five players each spin. The better XI wins 60 points, the better squad rating 40.'
         : kind === 'scout' ? 'A Draft Duel on scouting reports: no names, just a few clues on each player. Scout, blindfold and swap cards to play once each.'
+        : kind === 'auction' ? '£200m each and one player per lot. Bid in secret: the higher bid signs him. Tallies stay hidden until full time. 60 points for the bigger total, 40 for the better squad rating.'
         : 'You both build an Ultimate XI on the same spins, whenever you like. 50 points for the bigger total, 30 for the better squad rating, 20 for the quicker XI.'; };
       desc();
       const seg = (id, set) => GM.$$(`#${id} button`, m.el).forEach(b => b.onclick = () => { set(b.dataset.v); GM.$$(`#${id} button`, m.el).forEach(x => x.classList.toggle('on', x === b)); desc(); });
@@ -165,10 +169,11 @@
       if (!r) { stopPoll(); root.innerHTML = top('Online', '#/online') + '<p class="muted center">This game has gone. Unanswered invites are cleared after two weeks.</p>'; return; }
       const seat = seatOf(r);
       if (!seat) { root.innerHTML = top('Online', '#/online') + `<p class="muted center">This game is between ${esc(r.host)} and ${esc(r.guest || '…')}.</p>`; stopPoll(); return; }
-      const sig = JSON.stringify([r.guest, r.moves.length, r.race, r.status, r.turn, r.kind === 'duel' ? Math.floor(r.now - ((r.seen || {})[other(seat)] || 0)) > 10 : 0]);
+      const sig = JSON.stringify([r.guest, r.moves.length, r.race, r.status, r.turn, r.bids_in, r.kind === 'duel' ? Math.floor(r.now - ((r.seen || {})[other(seat)] || 0)) > 10 : 0]);
       if (sig === last) return;
       last = sig;
       if (r.kind === 'race') race(root, r, seat, q);
+      else if (r.kind === 'auction') GM.market.auctionOnline(root, r, seat, { rpc, auth, summary, top: (t, back) => top(t, back), inviteBar, wireInvite, resignButton, refresh: () => GM.online.refresh && GM.online.refresh() });
       else duel(root, r, seat);
       if (r.status === 'done' || r.status === 'declined') { over = true; clearInterval(poll); poll = null; }
     };
@@ -246,7 +251,7 @@
   /* ---------------------------------------------------------------- the comparison (both games) */
   function summary(root, r, seat) {
     const them = other(seat), opp = r[them] || 'Waiting…', st = GM.STATS[r.stat];
-    const duelXi = r.kind === 'duel' ? duelState(r).xi : null;
+    const duelXi = r.kind === 'duel' ? duelState(r).xi : r.kind === 'auction' ? GM.market.auctionState(r.seed, r.moves).xi : null;
     const team = s => {
       if (duelXi) return duelXi[s].map(x => { const p = x.k && GM.byPk.get(x.k); return { pos: x.pos, p, v: p ? p[st.key] : null }; });
       const sum = r.race[s] || {};

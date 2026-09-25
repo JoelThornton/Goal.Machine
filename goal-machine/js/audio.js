@@ -213,9 +213,9 @@
   // which track plays where
   const SCENES = {
     anthem: ['', 'today', 'leaderboard', 'album', 'players', 'updates', 'settings', 'about', 'credits'],
-    matchday: ['draft', 'daily'],
+    matchday: ['draft', 'daily', 'moneyball', 'window'],
     puzzle: ['footle', 'clubfootle', 'grid', 'dailygrid', 'whoami', 'tally'],
-    derby: ['h2h', 'h2hplay', 'hilo', 'hopper', 'online'],
+    derby: ['h2h', 'h2hplay', 'hilo', 'hopper', 'online', 'auction'],
   };
   const trackFor = path => Object.keys(SCENES).find(k => SCENES[k].includes(path)) || 'anthem';
   let scene = 'anthem';

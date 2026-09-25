@@ -518,6 +518,8 @@ GM.MODES = {
   whoami: { name: 'Who Am I?', icon: '🕵️' },
   grid: { name: 'Club Grid', icon: '#️⃣' },
   tally: { name: 'Guess the Tally', icon: '🔢' },
+  moneyball: { name: 'Moneyball', icon: '💰' }, moneyballast: { name: 'Moneyball – Assists', icon: '💰' }, moneyballapps: { name: 'Moneyball – Apps', icon: '💰' },
+  window: { name: 'Transfer Window', icon: '🔄' }, windowast: { name: 'Transfer Window – Assists', icon: '🔄' }, windowapps: { name: 'Transfer Window – Apps', icon: '🔄' },
 };
 
 // Hard mode: games show names + positions only (no clubs, years, apps, nationality); Who Am I? saves the

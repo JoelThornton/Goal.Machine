@@ -7,6 +7,13 @@ import android.content.res.Configuration;
 import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
+import android.provider.Settings;
+import android.util.Base64;
+import android.view.WindowInsetsController;
+import android.view.WindowManager;
+import android.webkit.ValueCallback;
+import java.io.File;
+import java.io.FileOutputStream;
 import android.view.WindowInsets;
 import android.widget.FrameLayout;
 import android.webkit.JavascriptInterface;
@@ -33,7 +40,11 @@ public class MainActivity extends Activity {
         + "padding:14px 28px;font-size:17px;font-weight:bold'>Try again</button></body></html>";
 
     private WebView web;
+    private FrameLayout frame;
     private String failedUrl = URL;
+    private ValueCallback<Uri[]> fileCallback;
+    /** Whether the game is on screen: notifications are skipped then, as the page shows the same thing. */
+    static volatile boolean visible = false;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -47,7 +58,21 @@ public class MainActivity extends Activity {
         s.setDatabaseEnabled(true);
         s.setMediaPlaybackRequiresUserGesture(false);
 
-        web.setWebChromeClient(new WebChromeClient());
+        web.setWebChromeClient(new WebChromeClient() {
+            // lets <input type="file"> work (e.g. picking a photo), for features that may want it later
+            @Override
+            public boolean onShowFileChooser(WebView view, ValueCallback<Uri[]> callback, FileChooserParams params) {
+                if (fileCallback != null) fileCallback.onReceiveValue(null);
+                fileCallback = callback;
+                try {
+                    startActivityForResult(params.createIntent(), 7);
+                } catch (ActivityNotFoundException e) {
+                    fileCallback = null;
+                    return false;
+                }
+                return true;
+            }
+        });
         web.setWebViewClient(new WebViewClient() {
             @Override
             public boolean shouldOverrideUrlLoading(WebView view, WebResourceRequest request) {
@@ -72,7 +97,7 @@ public class MainActivity extends Activity {
         else web.loadUrl(URL);
         // Android 15+ draws apps edge to edge, under the status and navigation bars. Keep the page clear of them by
         // padding a frame around the WebView by the system bar (and camera cut-out) sizes; the green shows behind.
-        FrameLayout frame = new FrameLayout(this);
+        frame = new FrameLayout(this);
         frame.setBackgroundColor(0xFF07261D);
         frame.addView(web, new FrameLayout.LayoutParams(FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.MATCH_PARENT));
         if (Build.VERSION.SDK_INT >= 30) {
@@ -126,13 +151,32 @@ public class MainActivity extends Activity {
     @Override
     protected void onPause() {
         super.onPause();
+        visible = false;
         web.onPause();
     }
 
     @Override
     protected void onResume() {
         super.onResume();
+        visible = true;
         web.onResume();
+    }
+
+    @Override
+    protected void onActivityResult(int requestCode, int resultCode, Intent data) {
+        super.onActivityResult(requestCode, resultCode, data);
+        if (requestCode == 7 && fileCallback != null) {
+            fileCallback.onReceiveValue(WebChromeClient.FileChooserParams.parseResult(resultCode, data));
+            fileCallback = null;
+        }
+    }
+
+    private void askForNotifications() {
+        if (Build.VERSION.SDK_INT >= 33 && checkSelfPermission("android.permission.POST_NOTIFICATIONS") != android.content.pm.PackageManager.PERMISSION_GRANTED
+            && !getSharedPreferences(GameCheckService.PREFS, MODE_PRIVATE).getBoolean("asked", false)) {
+            getSharedPreferences(GameCheckService.PREFS, MODE_PRIVATE).edit().putBoolean("asked", true).apply();
+            runOnUiThread(() -> requestPermissions(new String[] { "android.permission.POST_NOTIFICATIONS" }, 1));
+        }
     }
 
     @Override
@@ -170,15 +214,80 @@ public class MainActivity extends Activity {
             return isNight();
         }
 
-        /** Turns on "your move" notifications for this player's online games (checked every ~15 minutes). The first
-         *  time, Android 13+ asks whether the app may send notifications. */
+        /** Turns on notifications for this player (checked every ~15 minutes). The first time, Android 13+ asks
+         *  whether the app may send them. */
         @JavascriptInterface
         public void watchGames(String user, String url, String key) {
-            GameCheckService.watch(MainActivity.this, user, url, key);
-            if (Build.VERSION.SDK_INT >= 33 && checkSelfPermission("android.permission.POST_NOTIFICATIONS") != android.content.pm.PackageManager.PERMISSION_GRANTED
-                && !getSharedPreferences(GameCheckService.PREFS, MODE_PRIVATE).getBoolean("asked", false)) {
-                getSharedPreferences(GameCheckService.PREFS, MODE_PRIVATE).edit().putBoolean("asked", true).apply();
-                runOnUiThread(() -> requestPermissions(new String[] { "android.permission.POST_NOTIFICATIONS" }, 1));
+            try {
+                setInbox(new org.json.JSONObject().put("url", url).put("key", key).put("rpc", "app_inbox")
+                    .put("args", new org.json.JSONObject().put("p_user", user)).toString());
+            } catch (org.json.JSONException e) { /* can't happen */ }
+        }
+
+        /** The general form: {url, key, rpc, args}. The server function returns [{id, title, body, link}], so the
+         *  site can change what gets notified without a new APK. */
+        @JavascriptInterface
+        public void setInbox(String configJson) {
+            GameCheckService.configure(MainActivity.this, configJson);
+            askForNotifications();
+        }
+
+        /** Whether notifications are allowed (so the site can offer a button to switch them on). */
+        @JavascriptInterface
+        public boolean notificationsAllowed() {
+            return Build.VERSION.SDK_INT < 33 || checkSelfPermission("android.permission.POST_NOTIFICATIONS") == android.content.pm.PackageManager.PERMISSION_GRANTED;
+        }
+
+        /** Opens this app's notification settings. */
+        @JavascriptInterface
+        public void openNotificationSettings() {
+            Intent i = Build.VERSION.SDK_INT >= 26
+                ? new Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS).putExtra(Settings.EXTRA_APP_PACKAGE, getPackageName())
+                : new Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.parse("package:" + getPackageName()));
+            startActivity(i.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK));
+        }
+
+        /** Colours the strips behind the status and navigation bars to match the page (e.g. the light look or a club's
+         *  colours), with dark icons on light colours. */
+        @JavascriptInterface
+        public void setBars(String hex, boolean darkIcons) {
+            runOnUiThread(() -> {
+                try {
+                    int c = android.graphics.Color.parseColor(hex);
+                    frame.setBackgroundColor(c);
+                    web.setBackgroundColor(c);
+                    if (Build.VERSION.SDK_INT >= 30) {
+                        int bits = WindowInsetsController.APPEARANCE_LIGHT_STATUS_BARS | WindowInsetsController.APPEARANCE_LIGHT_NAVIGATION_BARS;
+                        getWindow().getInsetsController().setSystemBarsAppearance(darkIcons ? bits : 0, bits);
+                    }
+                } catch (IllegalArgumentException e) { /* not a colour */ }
+            });
+        }
+
+        /** Keeps the screen on (e.g. during a live Draft Duel). */
+        @JavascriptInterface
+        public void keepAwake(boolean on) {
+            runOnUiThread(() -> {
+                if (on) getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
+                else getWindow().clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
+            });
+        }
+
+        /** Shares a picture (a PNG as a data: URL or base64), e.g. an image of your XI, through the share sheet. */
+        @JavascriptInterface
+        public void shareImage(String png, String text) {
+            try {
+                String b64 = png.contains(",") ? png.substring(png.indexOf(',') + 1) : png;
+                File dir = new File(getCacheDir(), "share");
+                if (!dir.exists()) dir.mkdirs();
+                File f = new File(dir, "goal-machine.png");
+                try (FileOutputStream o = new FileOutputStream(f)) { o.write(Base64.decode(b64, Base64.DEFAULT)); }
+                Uri uri = Uri.parse("content://" + getPackageName() + ".share/goal-machine.png");
+                Intent send = new Intent(Intent.ACTION_SEND).setType("image/png").putExtra(Intent.EXTRA_STREAM, uri)
+                    .putExtra(Intent.EXTRA_TEXT, text == null ? "" : text).addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
+                startActivity(Intent.createChooser(send, "Share"));
+            } catch (Exception e) {
+                share(text);
             }
         }
 

@@ -1,0 +1,29 @@
+name: Add songs
+
+# Upload .mp3 files on GitHub (into goal-machine/music, or anywhere by mistake) and this moves them into the music
+# folder and adds them to the Soundtrack playlist, so they play in the game straight away.
+on:
+  push:
+    branches: [master]
+    paths: ['**.mp3', '**.MP3']
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  add:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - run: python3 goal-machine/tools/add_songs.py
+      - name: Publish if changed
+        run: |
+          git add -A goal-machine/music
+          if git diff --cached --quiet && git diff --quiet; then echo "Playlist already up to date"; exit 0; fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit -am "Add new songs to the Soundtrack playlist"
+          git push
+          curl -sS -X POST -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" -H "Accept: application/vnd.github+json" \
+            "https://api.github.com/repos/${{ github.repository }}/pages/builds" || true

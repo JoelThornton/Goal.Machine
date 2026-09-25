@@ -205,6 +205,8 @@
         <div class="setting"><b>Music</b><small id="s-bg-about"></small>${seg('s-bg', { off: '🔇 Off', music: '🎹 Game', tunes: '🎧 Soundtrack' }, snd.bg)}
           <label class="vol">🔈<input type="range" id="s-bgvol" min="0" max="1" step="0.05" value="${snd.bgVol}">🔊</label>
           <div class="now-playing" id="s-now" hidden><span></span><button class="btn ghost small" id="s-skip">⏭ Next song</button></div></div>
+        ${GM.app('notificationsAllowed') !== undefined ? `<div class="setting"><b>Notifications</b><small>A whistle when a friend challenges you, it's your move, or a game finishes</small>
+          <div class="setting-btns"><span class="muted">${GM.app('notificationsAllowed') ? '🔔 On' : '🔕 Off'}</span><button class="btn ghost small" id="s-notif">Change in phone settings</button></div></div>` : ''}
         <div class="setting"><b>Difficulty</b><small>Hard shows names and positions only, with fewer stars on the reels</small>${seg('s-hard', { false: '🙂 Normal', true: '🥵 Hard' }, GM.isHard())}</div>
         <div class="setting"><b>Vibration</b><small>A little buzz on taps, hops and wins (phones only)</small>${seg('s-buzz', { true: '📳 On', false: '🔕 Off' }, GM.store.get('buzz', true))}</div>
       </section>
@@ -219,6 +221,7 @@
     const wire = (id, fn) => GM.$$('#' + id + ' [data-v]').forEach(b => b.onclick = () => {
       fn(b.dataset.v); GM.buzz(); GM.$$('#' + id + ' button').forEach(x => x.classList.toggle('on', x === b));
     });
+    const nb = GM.$('#s-notif'); if (nb) nb.onclick = () => GM.app('openNotificationSettings');
     GM.$('#s-share').onclick = e => { e.preventDefault(); GM.shareGame(); };
     wire('s-theme', v => { GM.setTheme(v); if (v === 'club' && !GM.favClub()) GM.toast('🏟️ Pick your favourite club below to see its colours'); });
     wire('s-hard', v => GM.setHard(v === 'true'));

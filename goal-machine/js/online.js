@@ -22,7 +22,7 @@
   const auth = () => { const a = GM.account(); return a ? { p_user: a.name, p_key: a.key } : null; };
   const me = () => (GM.account() || {}).name || '';
   let poll = null, timer = null;
-  const stopPoll = () => { clearInterval(poll); poll = null; clearInterval(timer); timer = null; };
+  const stopPoll = () => { clearInterval(poll); poll = null; clearInterval(timer); timer = null; GM.app('keepAwake', false); };
   window.addEventListener('hashchange', () => { if (!location.hash.startsWith('#/online')) stopPoll(); });
   const top = (t, back = '#/') => `<div class="topbar"><a href="${back}" class="back">‹</a><h2>🌐 ${t}</h2><span></span></div>`;
   const seatOf = g => (g.host === me() ? 'host' : g.guest === me() ? 'guest' : null);
@@ -344,6 +344,7 @@
     const stat = GM.STATS[r.stat], my = st.xi[you], myOpen = st.open(you);
     const mineNow = st.turn === you;
     const live = opp && r.seen && r.now - (r.seen[them] || 0) < 10;
+    GM.app('keepAwake', !!live);  // don't let the screen sleep mid-duel
     const fits = p => p.poss.some(x => myOpen.includes(x));
     const card = k => {
       const p = GM.byPk.get(k), by = st.takenNow[k], ok = fits(p), can = mineNow && !by && ok;
@@ -430,9 +431,8 @@
   GM.online.check = async function () {
     const a = GM.account();
     if (!a || !GM.lb.enabled) return;
-    if (window.AndroidApp && typeof AndroidApp.watchGames === 'function') {  // the app checks every 15 minutes and notifies
-      try { AndroidApp.watchGames(a.name, GM.lb.cfg.supabaseUrl, GM.lb.cfg.supabaseAnonKey); } catch (e) { }
-    }
+    // the Android app checks every 15 minutes and notifies; the server's app_inbox decides what about (build 12+)
+    GM.app('watchGames', a.name, GM.lb.cfg.supabaseUrl, GM.lb.cfg.supabaseAnonKey);
     const lastCheck = GM.online._checked || 0;
     if (Date.now() - lastCheck < 30000) return;
     GM.online._checked = Date.now();

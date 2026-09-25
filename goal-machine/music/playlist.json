@@ -1,7 +1,22 @@
 {
-  "about": "The Soundtrack music option. To add a song: put the .mp3 in this folder and add a line below (file, title, artist). Only add music you're licensed to use in the game.",
+  "about": "The Soundtrack music option. To add a song: put the .mp3 in this folder and add a line below (file, title, artist). Epidemic Sound files named 'ES_Title - Artist.mp3' can be added by running: python3 tools/add_songs.py. Only add music you're licensed to use in the game.",
   "tracks": [
-    { "file": "soul-searching.mp3", "title": "Soul Searching (Karriem Riggins Rework)", "artist": "Katori Walker" },
-    { "file": "empty-space.mp3", "title": "Empty Space", "artist": "Susan Bear" }
+    {"file": "soul-searching.mp3", "title": "Soul Searching (Karriem Riggins Rework)", "artist": "Katori Walker"},
+    {"file": "empty-space.mp3", "title": "Empty Space", "artist": "Susan Bear"},
+    {"file": "ES_Always for You - Mr. Steve, The Music Man.mp3", "title": "Always for You", "artist": "Mr. Steve, The Music Man"},
+    {"file": "ES_Casino - Bankston.mp3", "title": "Casino", "artist": "Bankston"},
+    {"file": "ES_Cloud - Onoe Caponoe.mp3", "title": "Cloud", "artist": "Onoe Caponoe"},
+    {"file": "ES_Follow - Cackie Jhen.mp3", "title": "Follow", "artist": "Cackie Jhen"},
+    {"file": "ES_G Town - Onoe Caponoe.mp3", "title": "G Town", "artist": "Onoe Caponoe"},
+    {"file": "ES_GHOST - Mattias Tell.mp3", "title": "GHOST", "artist": "Mattias Tell"},
+    {"file": "ES_Paranoia Cloud - First Timer.mp3", "title": "Paranoia Cloud", "artist": "First Timer"},
+    {"file": "ES_Redemption (Clean Version) - Jevon Ives.mp3", "title": "Redemption (Clean Version)", "artist": "Jevon Ives"},
+    {"file": "ES_SON DEL GTO - Loreana.mp3", "title": "SON DEL GTO", "artist": "Loreana"},
+    {"file": "ES_Take 2 (Harrison First Rework) - Mushkilla.mp3", "title": "Take 2 (Harrison First Rework)", "artist": "Mushkilla"},
+    {"file": "ES_Tornado Baby - SONTALK.mp3", "title": "Tornado Baby", "artist": "SONTALK"},
+    {"file": "ES_Trapdoor - Onoe Caponoe.mp3", "title": "Trapdoor", "artist": "Onoe Caponoe"},
+    {"file": "ES_Trigger Finger - King Sis.mp3", "title": "Trigger Finger", "artist": "King Sis"},
+    {"file": "ES_Try Again - mr..mp3", "title": "Try Again", "artist": "mr."},
+    {"file": "ES_We Stay - SONTALK.mp3", "title": "We Stay", "artist": "SONTALK"}
   ]
 }

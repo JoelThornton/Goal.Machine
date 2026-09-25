@@ -4,7 +4,7 @@
 (function () {
   GM.UPDATES = [
     {
-      v: 16, date: '2026-09-25', app: 12, title: 'Friends, challenges + match points',
+      v: 16, date: '2026-09-25', app: 13, title: 'Friends, challenges + match points',
       items: [
         '👥 Online games now belong to your 🔒 name: add friends, challenge them, take your turn whenever suits you, and pick your games back up on any phone',
         '🔔 “Your move” alerts on the home screen, and notifications in the Android app when a friend challenges you or it’s your pick',

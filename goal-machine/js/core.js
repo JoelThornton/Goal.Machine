@@ -439,7 +439,7 @@ GM.shareGame = () => GM.share('⚽ Goal Machine: spin the reels and build the bi
 GM.APK_URL = 'https://github.com/OpportunisticGames/opportunisticgames.github.io/releases/latest/download/goal-machine.apk';
 // Oldest Android app build that doesn't need replacing. Raise it after an app change players should pick up; older
 // apps then show an update link. Builds before AndroidApp.version() existed always count as out of date.
-GM.APP_MIN_BUILD = 12;  // build 12: notifications for online games and the phone's dark mode
+GM.APP_MIN_BUILD = 13;  // build 13: notifications (with a whistle) and the phone's dark mode
 // Which app we're in: 'play' (Google Play), 'sideload' (the GitHub APK) or 'web'. The Play version never offers APK
 // downloads (Play doesn't allow apps to update themselves) and skips photos we don't have the rights to.
 GM.channel = (() => { try { return window.AndroidApp && typeof window.AndroidApp.channel === 'function' ? window.AndroidApp.channel() : window.AndroidApp ? 'sideload' : 'web'; } catch (e) { return 'web'; } })();
@@ -544,6 +544,22 @@ GM.applyTheme = function () {
   root.classList.toggle('club-theme', t === 'club');
   const meta = document.querySelector('meta[name="theme-color"]');
   if (meta) meta.content = t === 'club' ? getComputedStyle(root).getPropertyValue('--bg2').trim() || '#0b3d2e' : dark ? '#0b3d2e' : '#eef2ee';
+  GM.app('setBars', GM.barColour(), !dark);  // the app's status/navigation bar strips match (build 13+)
+};
+// Calls an Android app feature if this app build has it (older builds just skip it), so the site never breaks
+GM.app = function (fn, ...args) {
+  try { if (window.AndroidApp && typeof AndroidApp[fn] === 'function') return AndroidApp[fn](...args); } catch (e) { }
+  return undefined;
+};
+// the page background as a plain #rrggbb (the Club look mixes it with color-mix, so read the painted colour)
+GM.barColour = function () {
+  const probe = document.createElement('i');
+  probe.style.cssText = 'position:absolute;visibility:hidden;background:var(--bg)';
+  (document.body || document.documentElement).appendChild(probe);
+  const c = getComputedStyle(probe).backgroundColor, m = c.match(/[\d.]+/g) || [7, 38, 29];
+  probe.remove();
+  const scale = c.startsWith('color(') ? 255 : 1;  // color-mix results come back as color(srgb r g b) with 0-1 values
+  return '#' + m.slice(0, 3).map(x => Math.min(255, Math.round(+x * scale)).toString(16).padStart(2, '0')).join('');
 };
 GM.setTheme = t => { GM.store.set('theme', t); GM.applyTheme(); };
 if (window.matchMedia) window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => GM.getTheme() === 'auto' && GM.applyTheme());

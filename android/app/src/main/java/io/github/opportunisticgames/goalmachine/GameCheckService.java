@@ -12,6 +12,7 @@ import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
+import android.media.AudioAttributes;
 import android.net.Uri;
 import android.os.Build;
 
@@ -27,17 +28,18 @@ import java.nio.charset.StandardCharsets;
 import java.util.HashSet;
 import java.util.Set;
 
-/** Every ~15 minutes, asks the game server whether any online games are waiting on this player (a new challenge or
- *  their pick) and shows a notification for each new one. Tapping it opens that game. */
+/** Every ~15 minutes, asks the game server what this player should be told about and shows a notification (with a
+ *  referee's whistle) for each new item. The server decides everything - which function to call, the title, text and
+ *  the link a tap opens - so new kinds of notification never need a new APK. Tapping one opens that page in the app. */
 public class GameCheckService extends JobService {
     private static final int JOB_ID = 4242;
-    private static final String CHANNEL = "your_move";
+    private static final String CHANNEL = "moves_whistle";
     static final String PREFS = "online";
 
-    /** Remembers who to check for and makes sure the periodic check is scheduled. */
-    static void watch(Context ctx, String user, String url, String key) {
+    /** Remembers what to ask the server ({url, key, rpc, args}) and makes sure the periodic check is scheduled. */
+    static void configure(Context ctx, String configJson) {
         SharedPreferences p = ctx.getSharedPreferences(PREFS, MODE_PRIVATE);
-        p.edit().putString("user", user).putString("url", url).putString("key", key).apply();
+        p.edit().putString("config", configJson).apply();
         JobScheduler js = (JobScheduler) ctx.getSystemService(Context.JOB_SCHEDULER_SERVICE);
         if (js == null || js.getPendingJob(JOB_ID) != null) return;
         js.schedule(new JobInfo.Builder(JOB_ID, new ComponentName(ctx, GameCheckService.class))
@@ -61,12 +63,29 @@ public class GameCheckService extends JobService {
         return true;
     }
 
+    static void channel(Context ctx) {
+        if (Build.VERSION.SDK_INT < 26) return;
+        NotificationManager nm = (NotificationManager) ctx.getSystemService(Context.NOTIFICATION_SERVICE);
+        NotificationChannel ch = new NotificationChannel(CHANNEL, "Your move", NotificationManager.IMPORTANCE_HIGH);
+        ch.setDescription("Challenges, your turn in online games and results");
+        ch.setSound(whistle(ctx), new AudioAttributes.Builder().setUsage(AudioAttributes.USAGE_NOTIFICATION)
+            .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION).build());
+        ch.enableVibration(true);
+        ch.setVibrationPattern(new long[] { 0, 120, 80, 260 });
+        nm.createNotificationChannel(ch);
+    }
+
+    static Uri whistle(Context ctx) {
+        return Uri.parse("android.resource://" + ctx.getPackageName() + "/" + R.raw.whistle);
+    }
+
     static void check(Context ctx) throws Exception {
         SharedPreferences p = ctx.getSharedPreferences(PREFS, MODE_PRIVATE);
-        String user = p.getString("user", ""), url = p.getString("url", ""), key = p.getString("key", "");
-        if (user.isEmpty() || !url.startsWith("https://")) return;
+        JSONObject cfg = new JSONObject(p.getString("config", "{}"));
+        String url = cfg.optString("url"), key = cfg.optString("key"), rpc = cfg.optString("rpc", "app_inbox");
+        if (!url.startsWith("https://") || !rpc.matches("[a-z_]+")) return;
         if (Build.VERSION.SDK_INT >= 33 && ctx.checkSelfPermission("android.permission.POST_NOTIFICATIONS") != android.content.pm.PackageManager.PERMISSION_GRANTED) return;
-        HttpURLConnection c = (HttpURLConnection) new URL(url + "/rest/v1/rpc/online_waiting").openConnection();
+        HttpURLConnection c = (HttpURLConnection) new URL(url + "/rest/v1/rpc/" + rpc).openConnection();
         c.setRequestMethod("POST");
         c.setConnectTimeout(15000);
         c.setReadTimeout(15000);
@@ -75,7 +94,7 @@ public class GameCheckService extends JobService {
         c.setRequestProperty("apikey", key);
         if (key.startsWith("eyJ")) c.setRequestProperty("Authorization", "Bearer " + key);
         try (OutputStream o = c.getOutputStream()) {
-            o.write(new JSONObject().put("p_user", user).toString().getBytes(StandardCharsets.UTF_8));
+            o.write(cfg.optJSONObject("args") != null ? cfg.getJSONObject("args").toString().getBytes(StandardCharsets.UTF_8) : "{}".getBytes(StandardCharsets.UTF_8));
         }
         if (c.getResponseCode() != 200) return;
         ByteArrayOutputStream buf = new ByteArrayOutputStream();
@@ -83,28 +102,28 @@ public class GameCheckService extends JobService {
             byte[] b = new byte[4096];
             for (int n; (n = in.read(b)) > 0; ) buf.write(b, 0, n);
         }
-        JSONArray games = new JSONArray(buf.toString("UTF-8"));
-        // notify once per waiting turn: the game code plus when it last changed
+        JSONArray items = new JSONArray(buf.toString("UTF-8"));
+        // each item is shown once (by id); anything that turns up while the game is open counts as seen
         Set<String> seen = new HashSet<>(p.getStringSet("seen", new HashSet<>())), now = new HashSet<>();
         NotificationManager nm = (NotificationManager) ctx.getSystemService(Context.NOTIFICATION_SERVICE);
-        if (Build.VERSION.SDK_INT >= 26) {
-            nm.createNotificationChannel(new NotificationChannel(CHANNEL, "Your move", NotificationManager.IMPORTANCE_DEFAULT));
-        }
-        for (int i = 0; i < games.length(); i++) {
-            JSONObject g = games.getJSONObject(i);
-            String code = g.optString("code"), id = code + "@" + g.optLong("updated");
+        channel(ctx);
+        for (int i = 0; i < items.length(); i++) {
+            JSONObject g = items.getJSONObject(i);
+            String id = g.optString("id");
             now.add(id);
-            if (seen.contains(id)) continue;
-            String opp = g.optString("opp", "Someone"), kind = "duel".equals(g.optString("kind")) ? "Draft Duel" : "Live Race";
-            Intent open = new Intent(Intent.ACTION_VIEW, Uri.parse("https://opportunisticgames.github.io/goal-machine/#/online?room=" + code), ctx, MainActivity.class);
-            PendingIntent pi = PendingIntent.getActivity(ctx, code.hashCode(), open, PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
+            if (seen.contains(id) || MainActivity.visible) continue;  // no need to buzz while they're playing
+            String link = g.optString("link", "https://opportunisticgames.github.io/goal-machine/");
+            Intent open = new Intent(Intent.ACTION_VIEW, Uri.parse(link), ctx, MainActivity.class);
+            PendingIntent pi = PendingIntent.getActivity(ctx, id.hashCode(), open, PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
             Notification.Builder nb = Build.VERSION.SDK_INT >= 26 ? new Notification.Builder(ctx, CHANNEL) : new Notification.Builder(ctx);
             nb.setSmallIcon(R.drawable.ic_stat_ball)
-                .setContentTitle("⚔️ Your move against " + opp)
-                .setContentText("duel".equals(g.optString("kind")) ? "It's your pick in your Draft Duel" : "Build your XI in your Live Race")
+                .setColor(0xFF16803C)
+                .setContentTitle(g.optString("title", "Goal Machine"))
+                .setContentText(g.optString("body", ""))
                 .setContentIntent(pi)
                 .setAutoCancel(true);
-            nm.notify(code.hashCode(), nb.build());
+            if (Build.VERSION.SDK_INT < 26) nb.setSound(whistle(ctx)).setVibrate(new long[] { 0, 120, 80, 260 }).setPriority(Notification.PRIORITY_HIGH);
+            nm.notify(id.hashCode(), nb.build());
         }
         p.edit().putStringSet("seen", now).apply();
     }

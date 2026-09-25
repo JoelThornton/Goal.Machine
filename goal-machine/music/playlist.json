@@ -1,0 +1,7 @@
+{
+  "about": "The Soundtrack music option. To add a song: put the .mp3 in this folder and add a line below (file, title, artist). Only add music you're licensed to use in the game.",
+  "tracks": [
+    { "file": "soul-searching.mp3", "title": "Soul Searching (Karriem Riggins Rework)", "artist": "Katori Walker" },
+    { "file": "empty-space.mp3", "title": "Empty Space", "artist": "Susan Bear" }
+  ]
+}

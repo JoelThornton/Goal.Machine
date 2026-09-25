@@ -551,6 +551,11 @@ h2, h3 { letter-spacing: .3px; }
 .vol { display: flex; align-items: center; gap: 8px; font-size: .9rem; }
 .vol input { flex: 1; accent-color: var(--accent); height: 28px; }
 :root[data-theme="light"] .vol input { accent-color: #16803c; }
+.now-playing { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-top: 8px; font-size: .9rem; }
+.now-playing[hidden] { display: none; }
+.now-playing span { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.now-playing small { display: block; opacity: .7; }
+.now-playing .btn { flex: none; }
 .prow.credit { grid-template-columns: 34px 1fr; text-decoration: none; color: var(--text); }
 
 /* ================================================================ v14: dailies, Footle, favourite club */

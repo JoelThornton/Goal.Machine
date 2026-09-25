@@ -12,6 +12,7 @@ self.addEventListener('activate', e => {
 self.addEventListener('fetch', e => {
   const url = new URL(e.request.url);
   if (e.request.method !== 'GET' || url.origin !== location.origin) return;
+  if (url.pathname.includes('/music/') && !url.pathname.endsWith('.json')) return;  // songs stream straight from the network (partial responses can't be cached)
   e.respondWith(
     // 'no-cache' makes the browser check with GitHub Pages every time (cheap 304s), so a new deploy shows up at once
     fetch(e.request, { cache: 'no-cache' }).then(res => {

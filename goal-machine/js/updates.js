@@ -12,6 +12,7 @@
         '💎 Extreme Purist (every PL player, no wildcards) fills its own Purist collection',
         '🔒 Accounts: claim a unique leaderboard name, and move it to a new phone with a transfer code',
         '🎵 Four music tracks: Anthem, Matchday, Thinking Cap and Derby, each for its own part of the game',
+        '🎧 Soundtrack: switch the music to real songs on shuffle in ⚙️ Settings, with a skip button',
         '📸 Faces are centred in the circles, player names on the pitch are easier to read, and the draft fits on one screen',
         '👎 The full-time report\'s \'one bad thing\' is a real weakness now, and Dave Watson is no longer a goalkeeper',
       ],

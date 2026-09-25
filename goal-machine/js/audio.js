@@ -300,13 +300,56 @@
     bgNodes.forEach(n => { try { n.stop(); } catch (e) { } });
     bgNodes = []; bgMode = 'off';
   }
+  /* Soundtrack: real recorded songs from music/playlist.json, shuffled, instead of the made-up tracks.
+     To add a song, drop the .mp3 into music/ and add a line to playlist.json; nothing else needs changing. */
+  const tunes = { list: null, order: [], i: -1, el: null, on: false, loading: null };
+  function loadTunes() {
+    return tunes.loading || (tunes.loading = fetch('music/playlist.json', { cache: 'no-cache' }).then(r => r.json())
+      .then(j => { tunes.list = (j.tracks || []).filter(t => t.file); })
+      .catch(() => { tunes.list = []; tunes.loading = null; }));
+  }
+  function shuffled(n, avoid) {
+    const a = [...Array(n).keys()];
+    for (let i = n - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; }
+    if (n > 1 && a[0] === avoid) a.push(a.shift());  // don't play the same song twice in a row
+    return a;
+  }
+  function tuneVolume() { if (tunes.el) tunes.el.volume = Math.min(1, GM.sound.settings().bgVol * 0.7); }
+  function nextTune(announce = true) {
+    if (!tunes.list || !tunes.list.length) return;
+    if (!tunes.order.length) tunes.order = shuffled(tunes.list.length, tunes.i);
+    tunes.i = tunes.order.shift();
+    const t = tunes.list[tunes.i];
+    if (!tunes.el) {
+      tunes.el = new Audio();
+      tunes.el.preload = 'auto';
+      tunes.el.onended = () => nextTune();
+      tunes.el.onerror = () => { if (tunes.on) setTimeout(() => nextTune(false), 1500); };
+    }
+    tunes.el.src = 'music/' + encodeURIComponent(t.file);
+    tuneVolume();
+    if (tunes.on) tunes.el.play().catch(() => { });
+    if (announce && tunes.on) GM.toast(`🎧 ${GM.esc(t.title)}${t.artist ? ' · ' + GM.esc(t.artist) : ''}`, 2600);
+    document.dispatchEvent(new CustomEvent('gm-tune'));
+  }
+  async function startTunes() {
+    tunes.on = true;
+    if (!tunes.list) await loadTunes();
+    if (!tunes.on) return;
+    if (!tunes.el || !tunes.el.src) nextTune();
+    else { tuneVolume(); tunes.el.play().catch(() => { }); }
+  }
+  function stopTunes() { tunes.on = false; if (tunes.el) tunes.el.pause(); }
+
   function syncBg() {
     if (!live) return;
-    const want = document.hidden || GM.sound.settings().bg !== 'music' ? 'off' : scene;
+    const bg = GM.sound.settings().bg;
+    const want = document.hidden || bg === 'off' ? 'off' : bg === 'tunes' ? 'tunes' : scene;
     if (want === bgMode) return;
-    stopBg();
+    stopBg(); stopTunes();
     X = live;
-    if (want !== 'off') startMusic(want);
+    if (want === 'tunes') startTunes();
+    else if (want !== 'off') startMusic(want);
     bgMode = want;
   }
 
@@ -326,14 +369,19 @@
     const s = GM.sound.settings();
     live.sfx.gain.value = s.sfx ? s.sfxVol : 0;
     live.bg.gain.setTargetAtTime(s.bgVol * 0.8, live.ctx.currentTime, 0.1);
+    tuneVolume();
   }
 
   GM.sound = {
-    settings: () => ({ sfx: store.get('sfx', true), sfxVol: store.get('sfxVol', 0.7), bg: store.get('bg', 'off') === 'music' ? 'music' : 'off', bgVol: store.get('bgVol', 0.5) }),
+    settings: () => ({ sfx: store.get('sfx', true), sfxVol: store.get('sfxVol', 0.7), bg: ['music', 'tunes'].includes(store.get('bg', 'off')) ? store.get('bg') : 'off', bgVol: store.get('bgVol', 0.5) }),
     set(k, v) { store.set(k, v); applyVolumes(); syncBg(); },
     // the router calls this on every page change; the music follows the game area
     scene(path) { const t = trackFor(path); if (t !== scene) { scene = t; syncBg(); } },
     TRACKS: Object.keys(TRACKS),
+    // the Soundtrack song playing now (or next), and a skip button for Settings
+    nowPlaying: () => (tunes.list && tunes.i >= 0 ? tunes.list[tunes.i] : null),
+    skipTune() { if (bgMode === 'tunes') nextTune(); },
+    tuneList: () => loadTunes().then(() => tunes.list),
     play(name, arg) {
       if (!live || !store.get('sfx', true) || document.hidden) return;
       if (live.ctx.state !== 'running') return;
@@ -361,7 +409,7 @@
   ['pointerdown', 'keydown'].forEach(e => document.addEventListener(e, unlock, { capture: true, passive: true }));
   document.addEventListener('visibilitychange', () => {
     if (!live) return;
-    if (document.hidden) { live.ctx.suspend(); stopBg(); }
+    if (document.hidden) { live.ctx.suspend(); stopBg(); stopTunes(); }
     else { live.ctx.resume(); syncBg(); }
   });
   // a soft click on buttons and tiles (sounds tied to specific actions play on top)

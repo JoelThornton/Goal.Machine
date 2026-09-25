@@ -196,8 +196,9 @@
           <select class="input" id="s-club"><option value="">None</option>${GM.clubOptions().map(c => `<option ${c === GM.favClub() ? 'selected' : ''}>${GM.esc(c)}</option>`).join('')}</select></div>
         <div class="setting"><b>Sound effects</b><small>Whistles, reels, the crowd and the goal horn</small>${seg('s-sfx', { true: '🔊 On', false: '🔇 Off' }, snd.sfx)}
           <label class="vol">🔈<input type="range" id="s-sfxvol" min="0" max="1" step="0.05" value="${snd.sfxVol}">🔊</label></div>
-        <div class="setting"><b>Music</b><small>Each area has its own track: Anthem on the menus, Matchday for team builders, Thinking Cap for puzzles and Derby for head-to-heads</small>${seg('s-bg', { off: '🔇 Off', music: '🎵 On' }, snd.bg)}
-          <label class="vol">🔈<input type="range" id="s-bgvol" min="0" max="1" step="0.05" value="${snd.bgVol}">🔊</label></div>
+        <div class="setting"><b>Music</b><small id="s-bg-about"></small>${seg('s-bg', { off: '🔇 Off', music: '🎹 Game', tunes: '🎧 Soundtrack' }, snd.bg)}
+          <label class="vol">🔈<input type="range" id="s-bgvol" min="0" max="1" step="0.05" value="${snd.bgVol}">🔊</label>
+          <div class="now-playing" id="s-now" hidden><span></span><button class="btn ghost small" id="s-skip">⏭ Next song</button></div></div>
         <div class="setting"><b>Difficulty</b><small>Hard shows names and positions only, with fewer stars on the reels</small>${seg('s-hard', { false: '🙂 Normal', true: '🥵 Hard' }, GM.isHard())}</div>
         <div class="setting"><b>Vibration</b><small>A little buzz on taps, hops and wins (phones only)</small>${seg('s-buzz', { true: '📳 On', false: '🔕 Off' }, GM.store.get('buzz', true))}</div>
       </section>
@@ -216,7 +217,17 @@
     wire('s-buzz', v => GM.store.set('buzz', v === 'true'));
     GM.$('#s-club').onchange = e => { GM.setFavClub(e.target.value); GM.sound.play('whistle'); if (e.target.value) GM.toast(`🏟️ Welcome, ${GM.esc(GM.clubShort(e.target.value))} fan!`); };
     wire('s-sfx', v => { GM.sound.set('sfx', v === 'true'); GM.sound.play('whistle'); });
-    wire('s-bg', v => GM.sound.set('bg', v));
+    const bgInfo = () => {
+      const v = GM.sound.settings().bg, t = GM.sound.nowPlaying();
+      GM.$('#s-bg-about').textContent = v === 'tunes' ? 'Real songs on shuffle, the same wherever you are in the game'
+        : 'Made for the game: Anthem on the menus, Matchday for team builders, Thinking Cap for puzzles and Derby for head-to-heads';
+      GM.$('#s-now').hidden = v !== 'tunes';
+      GM.$('#s-now span').innerHTML = t ? `🎧 <b>${GM.esc(t.title)}</b>${t.artist ? `<small>${GM.esc(t.artist)}</small>` : ''}` : '🎧 Tap anywhere to start';
+    };
+    bgInfo();
+    document.addEventListener('gm-tune', () => { if (GM.$('#s-now')) bgInfo(); });
+    wire('s-bg', v => { GM.sound.set('bg', v); bgInfo(); });
+    GM.$('#s-skip').onclick = () => GM.sound.skipTune();
     GM.$('#s-sfxvol').onchange = e => { GM.sound.set('sfxVol', +e.target.value); GM.sound.play('good'); };
     GM.$('#s-bgvol').oninput = e => GM.sound.set('bgVol', +e.target.value);
     GM.$('#s-name').onclick = async () => {
@@ -331,9 +342,14 @@
       <p>Only Premier League appearances and goals count – no cups, Europe or Championship seasons.</p>
       <p>📸 Player photos come from the Premier League, Transfermarkt and Wikimedia Commons (<a href="#/credits">photo credits</a>). Players without a photo show their initials in their club colours.</p>
       ${GM.playSafe ? '' : `<p>📲 Android app: <a href="${GM.APK_URL}">download the latest APK</a>. Game updates arrive automatically in the app.</p>`}
+      <p>🎧 Soundtrack music from <a href="https://www.epidemicsound.com/">Epidemic Sound</a>: <span id="tune-credits">the songs in the playlist</span>.</p>
       <p>🔐 <a href="privacy.html">Privacy policy</a></p>
       <p>This is a fan-made game inspired by FourFourTwo’s 442GOALS and is not affiliated with the Premier League or FourFourTwo.</p>
       </div>`;
+    GM.sound.tuneList().then(list => {
+      const el = GM.$('#tune-credits');
+      if (el && list && list.length) el.innerHTML = list.map(t => `“${GM.esc(t.title)}”${t.artist ? ' by ' + GM.esc(t.artist) : ''}`).join(', ');
+    });
   }
 
   // Wikimedia Commons photos are freely licensed but need crediting

@@ -189,6 +189,31 @@ GM.store = {
   set(k, v) { try { localStorage.setItem('gm:' + k, JSON.stringify(v)); } catch (e) { /* private mode */ } },
 };
 
+// Moving house: the old address (joelthornton.github.io/goal-machine/) forwards players here with their saved scores,
+// album and settings packed into the link (#import=…). Merge them in, keeping the better of anything both sides have.
+(function importFromOldAddress() {
+  const m = location.hash.match(/^#import=([^&]*)(?:&r=(.*))?$/);
+  if (!m) return;
+  try {
+    const data = JSON.parse(decodeURIComponent(escape(atob(m[1]))));
+    const get = k => { try { return JSON.parse(localStorage.getItem(k)); } catch (e) { return null; } };
+    for (const [k, raw] of Object.entries(data)) {
+      if (!k.startsWith('gm:')) continue;
+      const cur = get(k);
+      let v; try { v = JSON.parse(raw); } catch (e) { continue; }
+      if (cur == null) v = v;
+      else if (k.startsWith('gm:best:')) v = Math.max(+cur || 0, +v || 0);
+      else if (k.startsWith('gm:hist:') && Array.isArray(cur) && Array.isArray(v)) v = cur.concat(v).sort((a, b) => b.s - a.s).slice(0, 20);
+      else if (k === 'gm:album' && cur && v) {
+        v = { players: { ...v.players, ...cur.players }, ach: { ...v.ach, ...cur.ach }, days: [...new Set([...(v.days || []), ...(cur.days || [])])].slice(-60) };
+      } else if (k === 'gm:played') v = (+cur || 0) + (+v || 0);
+      else continue; // keep what's already here for settings, names etc.
+      localStorage.setItem(k, JSON.stringify(v));
+    }
+  } catch (e) { /* bad or truncated link - just carry on */ }
+  history.replaceState(null, '', location.pathname + location.search + (m[2] ? decodeURIComponent(m[2]) : '#/'));
+})();
+
 GM.getName = () => GM.store.get('name', '');
 GM.askName = async function () {
   let n = GM.getName();
@@ -236,7 +261,7 @@ GM.share = async function (text, url) {
   try { await navigator.clipboard.writeText(full); GM.toast('Copied to clipboard 📋'); }
   catch (e) { GM.modal(`<h3>Copy this</h3><textarea class="input" rows="5">${GM.esc(full)}</textarea><div class="row"><button class="btn" data-close>Done</button></div>`); }
 };
-GM.APK_URL = 'https://github.com/JoelThornton/JoelThornton.github.io/releases/latest/download/goal-machine.apk';
+GM.APK_URL = 'https://github.com/OpportunisticGames/opportunisticgames.github.io/releases/latest/download/goal-machine.apk';
 GM.baseUrl = () => location.href.split('#')[0].split('?')[0];
 
 /* ------------------------------------------------------------------ player search (autocomplete) */

@@ -36,7 +36,7 @@ jobs:
           path: goal-machine.apk
 
       # On master, publish/refresh the "Goal Machine for Android" release so this link always has the newest APK:
-      # https://github.com/JoelThornton/JoelThornton.github.io/releases/latest/download/goal-machine.apk
+      # https://github.com/OpportunisticGames/opportunisticgames.github.io/releases/latest/download/goal-machine.apk
       - name: Publish release
         if: github.ref == 'refs/heads/master'
         uses: softprops/action-gh-release@v2

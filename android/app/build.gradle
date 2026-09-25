@@ -6,11 +6,11 @@ plugins {
 def buildNumber = (System.getenv('GITHUB_RUN_NUMBER') ?: '1').toInteger()
 
 android {
-    namespace 'io.github.joelthornton.goalmachine'
+    namespace 'io.github.opportunisticgames.goalmachine'
     compileSdk 34
 
     defaultConfig {
-        applicationId 'io.github.joelthornton.goalmachine'
+        applicationId 'io.github.opportunisticgames.goalmachine'
         minSdk 24
         targetSdk 34
         versionCode buildNumber

@@ -154,7 +154,7 @@
       <a class="tile t-purple wide album-tile" href="#/album"><span class="tile-icon">📒</span><b>Album & badges</b>
         <small>${album.players.toLocaleString()}/${GM.players.length.toLocaleString()} players · ${album.badges}/${album.totalBadges} badges${album.purist ? ` · 💎 ${album.purist.toLocaleString()} purist` : ''}</small>
         <span class="bar"><i style="width:${(100 * album.players / GM.players.length).toFixed(1)}%"></i></span></a>
-      <footer class="muted center">Playing as <a href="#" id="rename">${GM.esc(GM.getName() || 'no name yet')}</a> · <a href="#/updates">v${GM.VERSION}</a></footer>`;
+      <footer class="muted center">Playing as <a href="#/settings">${GM.account() ? '🔒 ' : ''}${GM.esc(GM.getName() || 'no name yet')}</a> · <a href="#/updates">v${GM.VERSION}</a></footer>`;
     GM.$$('[data-hard]').forEach(b => b.onclick = () => { GM.setHard(b.dataset.hard === '1'); home(); });
     GM.$$('[data-ult]').forEach(b => b.onclick = () => { GM.store.set('ultVariant', b.dataset.ult); home(); });
     GM.$$('[data-tgt]').forEach(b => b.onclick = () => { GM.store.set('tgtVariant', b.dataset.tgt); home(); });
@@ -175,11 +175,6 @@
     // hide the bar entirely on desktop until Chrome actually offers an install
     const bar = GM.$('.install-bar'); if (bar && ib && !installEvt) bar.hidden = true;
     window.addEventListener('beforeinstallprompt', () => { const b2 = GM.$('.install-bar'); if (b2 && !installHidden()) b2.hidden = false; }, { once: true });
-    GM.$('#rename').onclick = async e => {
-      e.preventDefault();
-      const n = await GM.prompt('Your leaderboard name', GM.getName(), 'e.g. Joel');
-      if (n != null && n.trim()) { GM.store.set('name', n.trim().slice(0, 20)); home(); }
-    };
   }
 
   /* ---------------------------------------------------------------- settings */
@@ -188,6 +183,11 @@
     const build = GM.appBuild(), snd = GM.sound.settings();
     app.innerHTML = `<div class="topbar"><a href="#/" class="back">‹</a><h2>⚙️ Settings</h2><span></span></div>
       <section class="settings">
+        <div class="setting"><b>Account</b>${GM.account()
+          ? `<small>Your leaderboard name is <b>🔒 ${GM.esc(GM.account().name)}</b>. It's yours alone: only this device can post scores with it.</small>
+            <div class="setting-btns"><button class="btn ghost small" id="s-move">📲 Move to another phone</button><button class="btn ghost small" id="s-name">✏️ New name</button></div>`
+          : `<small>${GM.getName() ? `You play as “${GM.esc(GM.getName())}”, but it isn't claimed yet.` : 'No leaderboard name yet.'} Claim a unique name so nobody else can post scores as you.</small>
+            <div class="setting-btns"><button class="btn small" id="s-name">🔒 Claim a name</button><button class="btn ghost small" id="s-code">🔑 I have a transfer code</button></div>`}</div>
         <div class="setting"><b>Appearance</b><small>Auto follows your phone's light or dark setting</small>${seg('s-theme', GM.THEMES, GM.getTheme())}</div>
         <div class="setting"><b>Favourite club</b><small>Unlocks Club Footle and Club XI, and brings your club's colours to the app</small>
           <select class="input" id="s-club"><option value="">None</option>${GM.clubOptions().map(c => `<option ${c === GM.favClub() ? 'selected' : ''}>${GM.esc(c)}</option>`).join('')}</select></div>
@@ -197,7 +197,6 @@
           <label class="vol">🔈<input type="range" id="s-bgvol" min="0" max="1" step="0.05" value="${snd.bgVol}">🔊</label></div>
         <div class="setting"><b>Difficulty</b><small>Hard shows names and positions only, with fewer stars on the reels</small>${seg('s-hard', { false: '🙂 Normal', true: '🥵 Hard' }, GM.isHard())}</div>
         <div class="setting"><b>Vibration</b><small>A little buzz on taps, hops and wins (phones only)</small>${seg('s-buzz', { true: '📳 On', false: '🔕 Off' }, GM.store.get('buzz', true))}</div>
-        <div class="setting"><b>Leaderboard name</b><small>${GM.esc(GM.getName() || 'Not set yet')}</small><button class="btn ghost small" id="s-name">✏️ Change name</button></div>
       </section>
       <section class="settings links">
         <a href="#/updates">📰 Updates & version history ${GM.hasUnseenUpdate() ? '<i class="new-dot inline"></i>' : ''}<span>›</span></a>
@@ -217,8 +216,28 @@
     GM.$('#s-sfxvol').onchange = e => { GM.sound.set('sfxVol', +e.target.value); GM.sound.play('good'); };
     GM.$('#s-bgvol').oninput = e => GM.sound.set('bgVol', +e.target.value);
     GM.$('#s-name').onclick = async () => {
-      const n = await GM.prompt('Your leaderboard name', GM.getName(), 'e.g. Joel');
-      if (n != null && n.trim()) { GM.store.set('name', n.trim().slice(0, 20)); settings(); }
+      if (GM.account()) {  // a new name gets its own entry; scores already posted stay under the old one
+        GM.store.set('account', { ...GM.account(), name: '' });
+        const n = await GM.accountModal('Pick a new name. Scores you have already posted stay under your old one.');
+        if (!n) GM.store.set('account', { ...GM.account(), name: GM.store.get('name', '') });
+      } else await GM.askName();
+      settings();
+    };
+    const mv = GM.$('#s-move');
+    if (mv) mv.onclick = () => {
+      const code = GM.transferCode();
+      const m = GM.modal(`<h3>📲 Move to another phone</h3><p>On the new phone, open ⚙️ Settings → Account → <b>I have a transfer code</b> and paste this code:</p>
+        <div class="code-box">${code}</div><p class="muted">Keep it private: anyone with this code can post scores as you.</p>
+        <div class="row"><button class="btn ghost" data-close>Done</button><button class="btn" id="copycode">📋 Copy</button></div>`);
+      GM.$('#copycode', m.el).onclick = async () => { try { await navigator.clipboard.writeText(code); GM.toast('Copied'); } catch (e) { GM.toast('Press and hold the code to copy it'); } };
+    };
+    const cd = GM.$('#s-code');
+    if (cd) cd.onclick = async () => {
+      const code = await GM.prompt('Paste your transfer code', '', 'from Settings on your old phone', 200);
+      if (!code) return;
+      const r = await GM.useTransferCode(code);
+      GM.toast(r === 'ok' ? `🔒 Welcome back, ${GM.esc(GM.getName())}` : r === 'offline' ? 'Couldn’t reach the leaderboard – try again' : 'That code doesn’t match any account');
+      settings();
     };
   }
 

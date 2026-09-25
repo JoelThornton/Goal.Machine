@@ -697,3 +697,7 @@ h2, h3 { letter-spacing: .3px; }
 .target-tile .variant button.on { color: #85222a; }
 .tile .variant { position: relative; z-index: 1; }
 .loading-all { padding: 40px 10px; display: grid; gap: 12px; justify-items: center; }
+.setting-btns { display: flex; flex-wrap: wrap; gap: 8px; }
+.code-box { font: 700 1rem ui-monospace, monospace; word-break: break-all; background: var(--inset); border-radius: 12px; padding: 12px; user-select: all; text-align: center; }
+.claim { display: grid; gap: 6px; }
+.claim-msg.ok { color: var(--good); font-weight: 700; } .claim-msg.no { color: var(--bad); font-weight: 700; }

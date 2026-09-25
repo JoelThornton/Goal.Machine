@@ -314,14 +314,72 @@ GM.store = {
   history.replaceState(null, '', location.pathname + location.search + (m[2] ? decodeURIComponent(m[2]) : '#/'));
 })();
 
-GM.getName = () => GM.store.get('name', '');
+/* ------------------------------------------------------------------ accounts
+   A leaderboard name is claimed once and then belongs to this device: the device keeps a random secret key, and the
+   server (claim_name / submit_score in Supabase) only stores its hash and only accepts scores for a name with its key.
+   A transfer code (name + key) moves the account to another phone. */
+GM.account = () => GM.store.get('account', null);
+GM.getName = () => (GM.account() || {}).name || GM.store.get('name', '');
+GM.newKey = () => [...crypto.getRandomValues(new Uint8Array(16))].map(b => b.toString(16).padStart(2, '0')).join('');
+GM.NAME_RULE = /^[A-Za-z0-9][A-Za-z0-9 _.-]{1,18}[A-Za-z0-9]$/;
+/** Claims a name for this device (or confirms it's already ours). Resolves 'ok', 'taken', 'bad_name' or 'offline'. */
+GM.claimName = async function (name, key) {
+  name = name.trim();
+  if (!GM.NAME_RULE.test(name)) return 'bad_name';
+  if (!GM.lb.enabled) { GM.store.set('name', name); return 'ok'; }
+  const acc = GM.account();
+  key = key || (acc && acc.key) || GM.newKey();
+  let res;
+  try { res = await GM.lb.rpc('claim_name', { p_username: name, p_key: key }); } catch (e) { return 'offline'; }
+  if (res === 'ok') { GM.store.set('account', { name, key }); GM.store.set('name', name); }
+  return res;
+};
+/** The name to post scores under: claims one first if needed (asking if there isn't one). Null if the player skips. */
 GM.askName = async function () {
-  let n = GM.getName();
-  if (n) return n;
-  n = await GM.prompt('Pick a name for the leaderboard', '', 'e.g. Joel');
-  n = (n || '').trim().slice(0, 20);
-  if (n) GM.store.set('name', n);
-  return n;
+  const acc = GM.account();
+  if (acc || !GM.lb.enabled) return GM.getName() || (await GM.accountModal());
+  const legacy = GM.store.get('name', '');
+  if (legacy && (await GM.claimName(legacy)) === 'ok') return legacy;  // keep the name they already use, if it's free
+  return GM.accountModal(legacy ? `Someone already has the name “${legacy}” on the leaderboard. Pick another – it'll be yours alone.` : '');
+};
+GM.accountModal = function (note = '') {
+  return new Promise(res => {
+    const m = GM.modal(`<h3>🔒 Claim your leaderboard name</h3>
+      <p class="muted">${note ? GM.esc(note) : 'Names are unique: once you claim one, only you can post scores with it.'}</p>
+      <form class="claim"><input class="input" maxlength="20" placeholder="e.g. Joel" value="${GM.esc(GM.store.get('name', ''))}" autocomplete="off">
+        <small class="claim-msg muted">3–20 letters, numbers, spaces, dots, dashes or underscores</small>
+        <div class="row"><button type="button" class="btn ghost" data-close>Not now</button><button class="btn">Claim</button></div></form>
+      <p class="muted center"><a href="#/settings" data-close>Moving from another phone? Use a transfer code in ⚙️ Settings</a></p>`, { onClose: () => res(null) });
+    const f = m.el.querySelector('form'), inp = f.querySelector('input'), msg = f.querySelector('.claim-msg');
+    let t = null;
+    inp.oninput = () => {
+      clearTimeout(t);
+      const v = inp.value.trim();
+      if (!GM.NAME_RULE.test(v)) { msg.textContent = '3–20 letters, numbers, spaces, dots, dashes or underscores'; msg.className = 'claim-msg muted'; return; }
+      t = setTimeout(async () => {
+        try {
+          const ok = await GM.lb.rpc('name_available', { p_username: v });
+          msg.textContent = ok ? `✓ “${v}” is free` : `✗ “${v}” is taken`; msg.className = 'claim-msg ' + (ok ? 'ok' : 'no');
+        } catch (e) { }
+      }, 350);
+    };
+    f.onsubmit = async e => {
+      e.preventDefault();
+      const v = inp.value.trim(), r = await GM.claimName(v);
+      if (r === 'ok') { m.el.parentNode.remove(); GM.toast(`🔒 “${GM.esc(v)}” is yours`); res(v); return; }
+      msg.className = 'claim-msg no';
+      msg.textContent = r === 'taken' ? `✗ “${v}” is taken – try another` : r === 'offline' ? 'Couldn’t reach the leaderboard – try again in a bit' : '3–20 letters, numbers, spaces, dots, dashes or underscores';
+    };
+    setTimeout(() => inp.focus(), 50);
+  });
+};
+GM.transferCode = () => { const a = GM.account(); return a ? btoa(unescape(encodeURIComponent(a.name + '\n' + a.key))).replace(/=+$/, '') : ''; };
+GM.useTransferCode = async function (code) {
+  let name, key;
+  try { [name, key] = decodeURIComponent(escape(atob(code.trim()))).split('\n'); } catch (e) { return 'bad_code'; }
+  if (!name || !key) return 'bad_code';
+  const r = await GM.claimName(name, key);
+  return r === 'taken' ? 'wrong_code' : r;
 };
 
 /* ------------------------------------------------------------------ modal / toast */
@@ -341,9 +399,9 @@ GM.modal = function (html, { onClose } = {}) {
   document.body.appendChild(wrap);
   return { el: wrap.firstChild, close };
 };
-GM.prompt = function (title, value = '', placeholder = '') {
+GM.prompt = function (title, value = '', placeholder = '', max = 20) {
   return new Promise(res => {
-    const m = GM.modal(`<h3>${GM.esc(title)}</h3><form><input class="input" maxlength="20" value="${GM.esc(value)}" placeholder="${GM.esc(placeholder)}" autofocus>
+    const m = GM.modal(`<h3>${GM.esc(title)}</h3><form><input class="input" maxlength="${max}" value="${GM.esc(value)}" placeholder="${GM.esc(placeholder)}" autofocus>
       <div class="row"><button type="button" class="btn ghost" data-close>Skip</button><button class="btn">Save</button></div></form>`, { onClose: () => res(null) });
     const f = m.el.querySelector('form');
     f.onsubmit = e => { e.preventDefault(); const v = f.querySelector('input').value; m.el.parentNode.remove(); res(v); };
@@ -489,12 +547,17 @@ GM.lb = {
     if (k.startsWith('eyJ')) h.Authorization = 'Bearer ' + k; // legacy JWT anon keys
     return h;
   },
-  async submit(mode, score, name, meta) {
-    const r = await fetch(`${this.cfg.supabaseUrl}/rest/v1/scores`, {
-      method: 'POST', headers: { ...this.headers(), Prefer: 'return=minimal' },
-      body: JSON.stringify({ mode, score, name, meta }),
-    });
+  async rpc(fn, args) {
+    const r = await fetch(`${this.cfg.supabaseUrl}/rest/v1/rpc/${fn}`, { method: 'POST', headers: this.headers(), body: JSON.stringify(args) });
     if (!r.ok) throw new Error(await r.text());
+    return r.json();
+  },
+  // scores go through submit_score, which checks this device holds the name's key
+  async submit(mode, score, name, meta) {
+    const acc = GM.account();
+    if (!acc) throw new Error('no account');
+    const res = await this.rpc('submit_score', { p_username: acc.name, p_key: acc.key, p_mode: mode, p_score: score, p_meta: meta || null });
+    if (res !== 'ok') throw new Error(res);
   },
   async top(mode, limit = 25) {
     const r = await fetch(`${this.cfg.supabaseUrl}/rest/v1/best_scores?select=name,score,created_at&mode=eq.${encodeURIComponent(mode)}&order=score.desc,created_at.asc&limit=${limit}`,

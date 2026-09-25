@@ -690,3 +690,10 @@ h2, h3 { letter-spacing: .3px; }
 .avatar img.ph-pl { height: 130%; object-position: top; }
 .avatar img.ph-x { height: 100%; object-position: 50% 18%; }
 .avatar img.fitted { inset: auto; object-fit: fill; max-width: none; }
+/* version switches inside the Ultimate and Target cards */
+.variant { display: flex; gap: 4px; margin-top: 10px; padding: 3px; border-radius: 12px; background: rgba(0,0,0,.22); }
+.variant button { flex: 1; border: 0; background: transparent; color: rgba(255,255,255,.8); padding: 7px 4px; border-radius: 9px; font: 800 .78rem Inter, sans-serif; cursor: pointer; white-space: nowrap; }
+.variant button.on { background: #fff; color: #1d1147; box-shadow: 0 2px 0 rgba(0,0,0,.25); }
+.target-tile .variant button.on { color: #85222a; }
+.tile .variant { position: relative; z-index: 1; }
+.loading-all { padding: 40px 10px; display: grid; gap: 12px; justify-items: center; }

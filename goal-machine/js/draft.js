@@ -43,6 +43,11 @@
     mystery: { max: false, mystery: true, weight: p => p.fame, noWild: [] },
   };
   RULES.daily = RULES.ultimate;
+  // Classic: the original - hit the number with no wildcards
+  RULES.classic = { max: false, weight: p => p.fame, noWild: [], wild: false };
+  // Every player to have played in the PL (1+ apps), all equally likely: Extreme has wildcards, Purist has none
+  RULES.extreme = { max: true, weight: () => 1, noWild: ['rotation', 'bus'], all: true };
+  RULES.purist = { max: true, weight: () => 1, noWild: [], wild: false, all: true };
   // Club XI: Ultimate Wildcard with only players who turned out for one club
   RULES.club = { max: true, weight: () => 1, noWild: ['rotation', 'bus'], club: true };
 
@@ -61,6 +66,13 @@
   function start(el, mode, opts = {}) {
     root = el;
     if (!RULES[mode]) mode = 'ultimate';
+    if (RULES[mode].all && !GM.allPlayers) {  // fetch every PL player first
+      root.innerHTML = `<div class="topbar"><a href="#/" class="back">‹</a><h2>${GM.MODES[mode].icon} ${GM.MODES[mode].name}</h2><span></span></div>
+        <div class="loading-all"><div class="splash-bar"><i></i></div><p class="muted">Loading every Premier League player…</p></div>`;
+      GM.loadAll().then(() => { if (root === el && location.hash.includes('m=' + mode)) start(el, mode, opts); })
+        .catch(() => { root.innerHTML += '<p class="center">Couldn’t load the player list. Check your connection and try again.</p>'; });
+      return;
+    }
     const seed = mode === 'daily' ? 'daily:' + GM.today() : (opts.seed || GM.newSeed());
     let stat = mode === 'daily' ? 'goals' : (GM.STATS[opts.stat] ? opts.stat : 'goals');
     let target = RULES[mode] && !RULES[mode].max ? TARGETS[stat] : null;
@@ -113,7 +125,9 @@
   const tot = k => S.xi.reduce((t, s) => t + (s.v ? s.v[k] : 0), 0);
   const total = () => tot(S.stat);
   const openPos = () => [...new Set(S.xi.filter(s => s.p == null).map(s => s.pos))];
-  const byId = id => GM.players[id];
+  // Extreme and Purist draw from every PL player; everything else from the 50+ app list
+  const PL = () => (S && S.rules && S.rules.all ? GM.allPlayers : GM.players);
+  const byId = id => PL()[id];
   const fits = (p, open) => p.poss.some(x => open.includes(x));
   const emptySlots = () => S.xi.filter(s => s.p == null).length;
   const fmt = n => n.toLocaleString();
@@ -147,9 +161,9 @@
     const wc = special && WILDCARDS[special];
     const n = (wc && wc.reels) || 3;
     // the field: everyone (or the club's players in Club XI, or a wildcard's theme), as long as it still has someone who fits
-    let field = GM.players, fkey = 'all';
+    let field = PL(), fkey = S.rules.all ? 'every' : 'all';
     if (S.club) {
-      const mine = GM.players.filter(p => p.clubs.includes(S.club));
+      const mine = PL().filter(p => p.clubs.includes(S.club));
       if (mine.some(ok)) { field = mine; fkey = 'club:' + S.club; }
     }
     if (wc && wc.filter) {
@@ -159,7 +173,7 @@
     const draw = sampler(`${fkey}|${S.mode}|${S.hard ? 'h' : ''}`, field, reelWeight());
     // wildcard: reel 1 or 2 on 28% of spins each, decided by the spin number only
     let wildAt = -1, wild = null;
-    if (!special && S.spin >= 1) {
+    if (!special && S.spin >= 1 && S.rules.wild !== false) {
       if (rw() < 0.28) wildAt = 0; else if (rw() < 0.28) wildAt = 1;
       const types = Object.keys(WILDCARDS).filter(t => !S.rules.noWild.includes(t));
       wild = rw.weighted(types, t => WILDCARDS[t].w);
@@ -202,7 +216,7 @@
 
   async function animateReels() {
     const cards = GM.$$('.reel', root);
-    const names = GM.players;
+    const names = PL();
     const stops = cards.map((c, i) => 500 + i * 250);
     const t0 = performance.now();
     let frame = 0;
@@ -403,7 +417,7 @@
         rating: rating.score, pairs: rating.pairs.length, wildUsed: S.wildUsed, coinWin: S.coinWin,
         bull: sc.diff === 0, closeness: sc.closeness != null ? sc.closeness : null, treble: !!(sc.hits && sc.hits.length === 3),
       });
-      S.collected = { n: S.collected.newPlayers.length, total: S.collected.total, badges: S.collected.fresh.map(x => x.icon + ' ' + x.name) };
+      S.collected = { n: S.collected.newPlayers.length, total: S.collected.total, badges: S.collected.fresh.map(x => x.icon + ' ' + x.name), book: S.collected.book };
     }
     if (S.mode === 'daily') {
       GM.store.set('daily2:' + GM.today(), { ...S, rules: undefined });
@@ -553,9 +567,9 @@
       ${S.vs ? `<div class="banner">⚔️ Beat <b>${GM.esc(S.vs)}</b>’s score of <b>${GM.esc(S.vss)}</b></div>` : ''}
       ${counterHtml()}
       ${pitchHtml()}
-      <div class="inv"><span class="inv-label">Wildcards ${S.inv.length}/3</span>${S.inv.length ? S.inv.map((w, k) =>
+      ${S.rules.wild === false ? '' : `<div class="inv"><span class="inv-label">Wildcards ${S.inv.length}/3</span>${S.inv.length ? S.inv.map((w, k) =>
       `<button class="wild-btn ${S.subbing === k ? 'active' : ''}" data-w="${k}" title="${GM.esc(WILDCARDS[w].desc(wst()))}">${WILDCARDS[w].icon}<small>${WILDCARDS[w].name}</small></button>`).join('')
-        : '<span class="muted">none yet · they turn up on the reels</span>'}${S.subbing !== false ? '<button class="btn small ghost" id="cancel-sub">Cancel</button>' : ''}</div>
+        : '<span class="muted">none yet · they turn up on the reels</span>'}${S.subbing !== false ? '<button class="btn small ghost" id="cancel-sub">Cancel</button>' : ''}</div>`}
       ${sp && S.phase !== 'spin' ? `<div class="special-banner">${sp.icon} ${sp.name}</div>` : ''}
       ${S.phase === 'spin' ? `<div class="spin-zone"><button class="btn big spin" id="spin">🎰 SPIN</button></div>` : `<div class="reels">${Array.from({ length: nReels }, (_, i) => {
           const x = S.reels[i];
@@ -614,7 +628,7 @@
         <div class="muted">Personal best: ${fmt(Math.max(best, sc.total))}</div>
       </div>
       ${S.rules.max ? GM.distHtml(distKey(), S.stat, sc.t) : ''}
-      ${S.collected ? `<a class="collected" href="#/album">📒 ${S.collected.n ? `<b>+${S.collected.n}</b> new player${S.collected.n === 1 ? '' : 's'} for your album` : 'No new players this time'} · ${S.collected.total.toLocaleString()} collected${S.collected.badges.length ? `<br>🏅 ${S.collected.badges.join(' · ')}` : ''} ›</a>` : ''}
+      ${S.collected ? `<a class="collected" href="#/album${S.collected.book === 'purist' ? '?b=purist' : ''}">📒 ${S.collected.n ? `<b>+${S.collected.n}</b> new player${S.collected.n === 1 ? '' : 's'} for your album` : 'No new players this time'} · ${S.collected.total.toLocaleString()} collected${S.collected.badges.length ? `<br>🏅 ${S.collected.badges.join(' · ')}` : ''} ›</a>` : ''}
       ${GM.report ? GM.report(xi, S.st, S.rules.treble) : ''}
       ${pitchHtml()}
       <div class="actions col">

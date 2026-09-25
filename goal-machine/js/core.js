@@ -11,24 +11,12 @@ GM.fold = function (s) {
     .replace(/[^a-z0-9 ]/g, ' ').replace(/\s+/g, ' ').trim();
 };
 
-(function () {
-  const D = window.PL_DATA;
-  GM.dataDate = D.generated;
-  GM.players = D.players.map((r, i) => ({
-    id: i, name: r[0], poss: r[1].split('/'), nat: r[2] >= 0 ? D.nats[r[2]] : null,
-    clubs: r[3].map(c => D.clubs[c]), apps: r[4], goals: r[5], first: r[6], last: r[7], code: r[8], ast: r[9] || 0,
-    stints: parseStints(r[10] || ''), hon: parseHon(r[11] || ''), tm: r[12] || '',
-  }));
-  // extra faces found by tools/fetch_photos.py, keyed "name|first season"
-  const PH = window.GM_PHOTOS || {};
-  GM.players.forEach(p => { p.photo = PH[p.name + '|' + p.first] || null; });
-  // teammate pairs from Transfermarkt (index pairs, flattened)
-  GM.links = new Set();
-  for (let k = 0; k < (D.links || []).length; k += 2) GM.links.add(D.links[k] + ',' + D.links[k + 1]);
-  function parseStints(s) {
+/** Turns a data file (players.js, or players_all.js for every PL player) into player objects. */
+GM.parseData = function (D) {
+  const parseStints = str => {
     const out = {};
-    if (!s) return out;
-    for (const part of s.split('|')) {
+    if (!str) return out;
+    for (const part of str.split('|')) {
       const [ci, runs] = part.split(':');
       const ys = new Set();
       for (const run of runs.split('.')) {
@@ -38,17 +26,49 @@ GM.fold = function (s) {
       out[D.clubs[+ci]] = ys;
     }
     return out;
-  }
-  function parseHon(s) {
-    const h = {};
-    for (const m of s.matchAll(/([A-Z])(\d+)/g)) h[m[1]] = +m[2];
-    return h;
-  }
-  GM.clubs = D.clubs;
-  GM.nats = D.nats;
-  // "fame" weight – used so the reels lean towards players people have heard of
-  GM.players.forEach(p => { p.pos = GM.GROUP[p.poss[0]]; p.fame = p.apps * (1 + p.goals / 30); p.key = GM.fold(p.name); });
-})();
+  };
+  const parseHon = str => { const h = {}; for (const m of str.matchAll(/([A-Z])(\d+)/g)) h[m[1]] = +m[2]; return h; };
+  // teammate pairs from Transfermarkt (index pairs within this file, flattened)
+  const links = new Set();
+  for (let k = 0; k < (D.links || []).length; k += 2) links.add(D.links[k] + ',' + D.links[k + 1]);
+  const ds = { links };
+  const PH = window.GM_PHOTOS || {};  // extra faces found by tools/fetch_photos.py, keyed "name|first season"
+  return D.players.map((r, i) => {
+    const p = {
+      id: i, name: r[0], poss: r[1].split('/'), nat: r[2] >= 0 ? D.nats[r[2]] : null,
+      clubs: r[3].map(c => D.clubs[c]), apps: r[4], goals: r[5], first: r[6], last: r[7], code: r[8], ast: r[9] || 0,
+      stints: parseStints(r[10] || ''), hon: parseHon(r[11] || ''), tm: r[12] || '', ds,
+    };
+    p.pk = p.name + '|' + p.first;  // stable key: survives the weekly data refresh re-ordering players
+    p.photo = PH[p.pk] || null;
+    // "fame" weight – used so the reels lean towards players people have heard of
+    p.pos = GM.GROUP[p.poss[0]]; p.fame = p.apps * (1 + p.goals / 30); p.key = GM.fold(p.name);
+    return p;
+  });
+};
+GM.players = GM.parseData(window.PL_DATA);
+GM.dataDate = window.PL_DATA.generated;
+GM.clubs = window.PL_DATA.clubs;
+GM.nats = window.PL_DATA.nats;
+GM.links = GM.players.length ? GM.players[0].ds.links : new Set();
+GM.byPk = new Map(GM.players.map(p => [p.pk, p]));
+
+// Every PL player ever (1+ apps), for Extreme and Purist: loaded the first time it's needed (~0.5 MB)
+GM.allPlayers = null;
+GM.loadAll = function () {
+  if (GM.allPlayers) return Promise.resolve(GM.allPlayers);
+  if (GM._loadingAll) return GM._loadingAll;
+  const tag = document.querySelector('script[src*="data/players.js"]');
+  const v = ((tag && tag.getAttribute('src').match(/v=(\d+)/)) || [0, '0'])[1];
+  GM._loadingAll = new Promise((res, rej) => {
+    const sc = document.createElement('script');
+    sc.src = 'data/players_all.js?v=' + v;
+    sc.onload = () => { GM.allPlayers = GM.parseData(window.PL_ALL); res(GM.allPlayers); };
+    sc.onerror = () => { GM._loadingAll = null; rej(new Error('Could not load every-player data')); };
+    document.head.appendChild(sc);
+  });
+  return GM._loadingAll;
+};
 
 GM.POS_NAME = {
   GK: 'Goalkeeper', LB: 'Left-back', CB: 'Centre-back', RB: 'Right-back', LM: 'Left midfield', CM: 'Centre midfield',
@@ -67,7 +87,7 @@ GM.STATS = {
 /** Were a and b teammates? Known club-season overlap, or a Transfermarkt "played with" link. */
 GM.teammates = function (a, b) {
   const key = a.id < b.id ? a.id + ',' + b.id : b.id + ',' + a.id;
-  if (GM.links.has(key)) return a.clubs.find(c => b.clubs.includes(c)) || true;
+  if (a.ds === b.ds && a.ds.links.has(key)) return a.clubs.find(c => b.clubs.includes(c)) || true;
   for (const c in a.stints) {
     const bs = b.stints[c];
     if (!bs) continue;
@@ -399,6 +419,15 @@ GM.MODES = {
   treble: { name: 'The Treble', icon: '🏆' },
   mystery: { name: 'Mystery Target', icon: '🎲' },
   daily: { name: 'Daily Ultimate', get icon() { return GM.calIcon(); } },
+  classic: { name: 'Classic – 500 Goals', icon: '⚽' },
+  classicast: { name: 'Classic – 350 Assists', icon: '⚽' },
+  classicapps: { name: 'Classic – 3,750 Apps', icon: '⚽' },
+  extreme: { name: 'Extreme Ultimate', icon: '⚡' },
+  extremeast: { name: 'Extreme Ultimate – Assists', icon: '⚡' },
+  extremeapps: { name: 'Extreme Ultimate – Apps', icon: '⚡' },
+  purist: { name: 'Purist', icon: '💎' },
+  puristast: { name: 'Purist – Assists', icon: '💎' },
+  puristapps: { name: 'Purist – Apps', icon: '💎' },
   hopper: { name: 'Club Hopper', icon: '🦘' },
   hilo: { name: 'Higher or Lower', icon: '↕️' },
   whoami: { name: 'Who Am I?', icon: '🕵️' },
@@ -408,7 +437,8 @@ GM.MODES = {
 
 // Hard mode: games show names + positions only (no clubs, years, apps, nationality); Who Am I? saves the
 // clubs for the last clue. Scores go to "<mode>h".
-GM.HARD_MODES = ['ultimate', 'ultimateast', 'ultimateapps', 'target', 'targetast', 'targetapps', 'treble', 'mystery', 'hopper', 'grid', 'hilo', 'whoami', 'tally'];
+GM.HARD_MODES = ['ultimate', 'ultimateast', 'ultimateapps', 'target', 'targetast', 'targetapps', 'classic', 'classicast', 'classicapps',
+  'extreme', 'extremeast', 'extremeapps', 'purist', 'puristast', 'puristapps', 'treble', 'mystery', 'hopper', 'grid', 'hilo', 'whoami', 'tally'];
 GM.isHard = () => GM.store.get('hard', false);
 GM.setHard = v => GM.store.set('hard', !!v);
 

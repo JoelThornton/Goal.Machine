@@ -46,10 +46,16 @@ jobs:
       - name: Sanity check (stops here if the new data looks wrong)
         run: python goal-machine/tools/check_data.py "$RUNNER_TEMP/old.js" goal-machine/data/players.js
 
+      - name: Build every-player data (Extreme and Purist modes)
+        run: |
+          SRC="$RUNNER_TEMP/src" OUT=goal-machine/data/players_all.js FULL="$RUNNER_TEMP/full_all.json" VAR=PL_ALL \
+            python goal-machine/tools/build_players.py 1
+          python -c "import json,sys; s=open('goal-machine/data/players_all.js').read(); n=len(json.loads(s[s.index('=')+1:s.rindex(';')])['players']); print(n,'players'); sys.exit(n < 4500)"
+
       - name: Publish if changed
         if: github.ref == 'refs/heads/master' && !inputs.dry_run
         run: |
-          if git diff --quiet -- goal-machine/data/players.js; then echo "No new matches - nothing to publish"; exit 0; fi
+          if git diff --quiet -- goal-machine/data/players.js goal-machine/data/players_all.js; then echo "No new matches - nothing to publish"; exit 0; fi
           (cd goal-machine && python tools/bump_version.py)
           DATE=$(grep -o '"generated":"[0-9-]*"' goal-machine/data/players.js | cut -d'"' -f4)
           git config user.name "github-actions[bot]"

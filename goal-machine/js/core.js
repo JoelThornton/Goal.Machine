@@ -481,6 +481,24 @@ GM.toast = function (msg, ms = 2200) {
   requestAnimationFrame(() => t.classList.add('show'));
   setTimeout(() => { t.classList.remove('show'); setTimeout(() => t.remove(), 300); }, ms);
 };
+// An in-app notification: a card that drops in from the top, and opens href when tapped (swipe it up or wait to dismiss)
+GM.notice = function ({ pic = '', title, sub = '', href, ms = 6000 }) {
+  GM.$$('.notice').forEach(n => n.remove());
+  const n = document.createElement(href ? 'a' : 'div');
+  n.className = 'notice';
+  if (href) n.href = href;
+  n.innerHTML = `${pic}<span class="notice-text"><b>${title}</b>${sub ? `<small>${sub}</small>` : ''}</span><span class="notice-go">${href ? '›' : ''}</span>`;
+  const close = () => { n.classList.remove('show'); setTimeout(() => n.remove(), 300); };
+  n.addEventListener('click', () => { GM.buzz(); close(); });
+  let y0 = null;
+  n.addEventListener('touchstart', e => { y0 = e.touches[0].clientY; }, { passive: true });
+  n.addEventListener('touchmove', e => { if (y0 != null && e.touches[0].clientY - y0 < -25) { y0 = null; close(); } }, { passive: true });
+  document.body.appendChild(n);
+  requestAnimationFrame(() => n.classList.add('show'));
+  GM.sound.play('sting'); GM.buzz(40);
+  setTimeout(close, ms);
+  return n;
+};
 GM.modal = function (html, { onClose } = {}) {
   const wrap = document.createElement('div');
   wrap.className = 'modal-wrap';

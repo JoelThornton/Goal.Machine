@@ -570,11 +570,17 @@
     setTimeout(done, 0);
     list = list || [];
     GM.online.setWaiting(list.length);
-    const seen = GM.store.get('onlineSeen', []), fresh = list.filter(g => !seen.includes(g.code));
+    // one alert per turn: a game counts as new again each time it changes (your next pick, the next lot…)
+    const tag = g => g.code + '@' + Math.floor(g.updated || 0);
+    const seen = GM.store.get('onlineSeen', []), fresh = list.filter(g => !seen.includes(tag(g)));
     if (fresh.length) {
       const g = fresh[0];
-      GM.toast(fresh.length > 1 ? `🌐 ${fresh.length} online games are waiting for you` : `🌐 ${esc(g.opp || 'Someone')} – it’s your move in a ${KIND[gk(g)].name}`, 3500);
-      GM.store.set('onlineSeen', [...seen, ...fresh.map(x => x.code)].slice(-100));
+      // a card at the top of the screen; tap it to go straight to the game (or to your games, if there are several)
+      const here = location.hash.includes('room=' + g.code);
+      if (!here) GM.notice(fresh.length > 1
+        ? { pic: '<span class="notice-icon">🌐</span>', title: `It’s your move in ${fresh.length} online games`, sub: 'Tap to see them', href: '#/online' }
+        : { pic: GM.userPic(g.opp || '?'), title: `⚔️ It’s your move against ${esc(g.opp || 'your opponent')}`, sub: `${KIND[gk(g)].icon} ${KIND[gk(g)].name} · tap to play`, href: '#/online?room=' + g.code });
+      GM.store.set('onlineSeen', [...seen, ...fresh.map(tag)].slice(-100));
     }
   };
 })();

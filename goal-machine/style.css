@@ -935,3 +935,12 @@ body.chaos-mode .reel .reel-goals { background: rgba(0, 0, 0, .35); color: #ffe6
 .friend .f-av { width: auto; height: auto; padding: 0; background: none; border: 0; cursor: pointer; }
 .og-icon { position: relative; } .og-icon .avatar { width: 40px; height: 40px; } .og-icon i { position: absolute; right: -6px; bottom: -4px; font-style: normal; font-size: 1rem; }
 .league li b { display: flex; align-items: center; gap: 8px; min-width: 0; } .league li .avatar { width: 28px; height: 28px; font-size: .62rem; }
+/* in-app notification card */
+.notice { position: fixed; left: 50%; top: calc(10px + env(safe-area-inset-top)); z-index: 95; width: min(92vw, 520px); display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: 12px;
+  padding: 12px 14px; border-radius: 18px; background: var(--toast-bg); color: var(--toast-text); text-decoration: none; box-shadow: 0 10px 34px rgba(0,0,0,.4);
+  transform: translate(-50%, -140%); transition: transform .3s cubic-bezier(.2,.9,.3,1.2); }
+.notice.show { transform: translate(-50%, 0); }
+.notice .avatar { width: 44px; height: 44px; }
+.notice-icon { font-size: 2rem; }
+.notice-text { display: grid; min-width: 0; } .notice-text b { font-size: .95rem; line-height: 1.25; } .notice-text small { opacity: .75; font-size: .78rem; }
+.notice-go { font: 700 1.6rem Oswald, sans-serif; opacity: .6; }

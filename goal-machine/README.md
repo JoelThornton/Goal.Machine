@@ -20,6 +20,11 @@ Live (once merged to the Pages branch): `https://joelthornton.github.io/goal-mac
 | #️⃣ Club Grid | Immaculate-Grid style (daily or random). Obscure answers score more |
 | 🔢 Guess the Tally | How many PL goals did he score? |
 
+**🥵 Hard mode** (the toggle on the home screen):
+- **All games:** cards show only names and positions (no clubs, years, apps, nationality, photos or club colours), and the Who Am I?, Club Grid and Club Hopper suggestions list names only.
+- **Target, The Treble and Mystery Target:** the reels also show far fewer stars. The weighting is square-rooted, so Shearer is about 4× as likely as an average player instead of about 16×, while the targets stay the same. Always taking the biggest number reaches 500 goals in about 18% of games, against 74% in normal mode.
+- **Leaderboards:** hard scores have their own boards.
+
 You keep spinning until the XI is full. Tap a player, then tap one of the highlighted slots he can play.
 
 ### Full-time report

@@ -86,6 +86,9 @@
   }
 
   const modeKey = () => keyFor(S.mode, S.stat, S.hard);
+  // Hard mode flattens the star bias in the target modes (Shearer ~4x an average player instead of ~16x) but keeps the
+  // same targets - big numbers are rarer, so one wrong pick can put the target out of reach.
+  const reelWeight = () => (S.hard && !S.rules.max ? p => Math.sqrt(S.rules.weight(p)) : S.rules.weight);
   // what wildcard descriptions talk about: in the Treble a wildcard affects all three numbers
   const wst = () => S.rules.treble ? { ...S.st, label: 'numbers', bigLabel: 'goals' } : S.st;
   const modeName = () => GM.MODES[S.mode === 'daily' ? 'daily' : (S.rules.treble || S.rules.mystery) ? S.mode : S.mode + statSuffix(S.stat)].name;
@@ -128,7 +131,7 @@
         if (mates.length) { cands = mates; mate = lp; }
       }
       if (!cands.length) break;
-      const p = r.weighted(cands, S.rules.weight);
+      const p = r.weighted(cands, reelWeight());
       const x = { id: p.id };
       if (mate) x.mate = { name: mate.name, club: p.clubs.find(c => mate.clubs.includes(c)) };
       reels.push(x);
@@ -520,7 +523,7 @@
         : r.mystery ? '1000 minus 5 points per 1% you miss by (roughly). Hit it exactly for a +500 bullseye.'
         : r.max ? `your score is your XI’s total PL ${L} (after any wildcard modifiers).` : `1000 minus 5 for every ${S.stat === 'goals' ? 'goal' : `${fmt(Math.round(S.target / 442 * 10) / 10)} ${L}`} off target. Exactly ${fmt(S.target)} = +500 bullseye bonus.`}</p>
       <p>🤝 A player who shares a club with your last signing may turn up to tempt you.</p>
-      ${S.hard ? '<p>🥵 <b>Hard mode:</b> just names and positions – no clubs, years, apps or nationality. Separate leaderboard.</p>' : ''}
+      ${S.hard ? `<p>🥵 <b>Hard mode:</b> just names and positions – no clubs, years, apps or nationality${r.max ? '' : ', and far fewer star players on the reels (same targets)'}. Separate leaderboard.</p>` : ''}
       <div class="row"><button class="btn" data-close>Got it</button></div>`);
   }
 

@@ -210,6 +210,10 @@ GM.distHtml = function (key, stat, current) {
 GM.photoSrcs = function (p) {
   const pl = c => `https://resources.premierleague.com/premierleague/photos/players/110x140/p${c}.png`;
   const out = [];
+  if (GM.playSafe) {  // Play version: only freely licensed (Wikimedia) photos
+    if (p.photo && p.photo.w) out.push({ u: p.photo.w, f: 'w:' + p.pk });
+    return out;
+  }
   if (p.code) out.push({ u: pl(p.code), f: 'pl' });
   if (p.photo && p.photo.pl) out.push({ u: pl(p.photo.pl), f: 'pl' });
   if (p.tm) out.push({ u: `https://img.a.transfermarkt.technology/portrait/header/${p.tm}.jpg`, f: 'tm:' + p.tm });
@@ -423,7 +427,11 @@ GM.APK_URL = 'https://github.com/OpportunisticGames/opportunisticgames.github.io
 // Oldest Android app build that doesn't need replacing. Raise it after an app change players should pick up; older
 // apps then show an update link. Builds before AndroidApp.version() existed always count as out of date.
 GM.APP_MIN_BUILD = 1;
-GM.appOutdated = () => !!window.AndroidApp && !(typeof window.AndroidApp.version === 'function' && window.AndroidApp.version() >= GM.APP_MIN_BUILD);
+// Which app we're in: 'play' (Google Play), 'sideload' (the GitHub APK) or 'web'. The Play version never offers APK
+// downloads (Play doesn't allow apps to update themselves) and skips photos we don't have the rights to.
+GM.channel = (() => { try { return window.AndroidApp && typeof window.AndroidApp.channel === 'function' ? window.AndroidApp.channel() : window.AndroidApp ? 'sideload' : 'web'; } catch (e) { return 'web'; } })();
+GM.playSafe = GM.channel === 'play';
+GM.appOutdated = () => !GM.playSafe && !!window.AndroidApp && !(typeof window.AndroidApp.version === 'function' && window.AndroidApp.version() >= GM.APP_MIN_BUILD);
 GM.baseUrl = () => location.href.split('#')[0].split('?')[0];
 
 /* ------------------------------------------------------------------ player search (autocomplete) */

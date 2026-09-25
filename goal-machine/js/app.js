@@ -203,6 +203,7 @@
         <a href="#/updates">📰 Updates & version history ${GM.hasUnseenUpdate() ? '<i class="new-dot inline"></i>' : ''}<span>›</span></a>
         <a href="#/about">ℹ️ About the data<span>›</span></a>
         ${build == null ? `<a href="${GM.APK_URL}">🤖 Android app (APK)<span>›</span></a>` : ''}
+        <a href="privacy.html">🔐 Privacy policy<span>›</span></a>
       </section>
       <p class="muted center">Goal Machine v${GM.VERSION}${build != null ? ` · App build ${build}` : ''}<br>Made by Opportunistic Games</p>`;
     const wire = (id, fn) => GM.$$('#' + id + ' [data-v]').forEach(b => b.onclick = () => {
@@ -327,7 +328,8 @@
       <p>Stats are stitched together from public datasets: the official premierleague.com player pages (1992–2020), Fantasy Premier League gameweek data (2016–today) and Understat season stats (2014–2016). Which club a player was at in each season (for chemistry and title badges) comes from Transfermarkt transfer records. Assists after 2020 are FPL assists, which run slightly higher than the official count. A handful of players’ early seasons are estimated from minutes played, so the odd tally might be off by a game or a goal.</p>
       <p>Only Premier League appearances and goals count – no cups, Europe or Championship seasons.</p>
       <p>📸 Player photos come from the Premier League, Transfermarkt and Wikimedia Commons (<a href="#/credits">photo credits</a>). Players without a photo show their initials in their club colours.</p>
-      <p>📲 Android app: <a href="${GM.APK_URL}">download the latest APK</a>. Game updates arrive automatically in the app.</p>
+      ${GM.playSafe ? '' : `<p>📲 Android app: <a href="${GM.APK_URL}">download the latest APK</a>. Game updates arrive automatically in the app.</p>`}
+      <p>🔐 <a href="privacy.html">Privacy policy</a></p>
       <p>This is a fan-made game inspired by FourFourTwo’s 442GOALS and is not affiliated with the Premier League or FourFourTwo.</p>
       </div>`;
   }

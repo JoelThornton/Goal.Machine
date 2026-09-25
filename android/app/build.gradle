@@ -7,31 +7,56 @@ def buildNumber = (System.getenv('GITHUB_RUN_NUMBER') ?: '1').toInteger()
 
 android {
     namespace 'io.github.opportunisticgames.goalmachine'
-    compileSdk 34
+    compileSdk 36
 
     defaultConfig {
         applicationId 'io.github.opportunisticgames.goalmachine'
         minSdk 24
-        targetSdk 34
+        targetSdk 36   // Google Play wants a recent target; 35+ also means drawing edge to edge (see MainActivity)
         versionCode buildNumber
         versionName "1.0.${buildNumber}"
     }
 
-    // A fixed key so each new APK can be installed as an update over the last one. It lives in the repo because
-    // this app is sideloaded among friends; move it to repository secrets before ever publishing to Google Play.
+    // Signing. The sideloaded APK keeps the key in the repo, so every new APK installs over the last one (swap it for
+    // a private one via the SIDELOAD_KEYSTORE_* secrets if you like – existing installs would need a reinstall).
+    // The Google Play bundle is signed with a private upload key from the UPLOAD_KEYSTORE_* repository secrets;
+    // without them it falls back to the repo key, which is fine for testing but must not be uploaded to Play.
+    def env = { String k -> System.getenv(k) ?: '' }
     signingConfigs {
-        release {
-            storeFile file('goalmachine.keystore')
-            storePassword 'goalmachine'
-            keyAlias 'goalmachine'
-            keyPassword 'goalmachine'
+        sideload {
+            storeFile env('SIDELOAD_KEYSTORE_FILE') ? file(env('SIDELOAD_KEYSTORE_FILE')) : file('goalmachine.keystore')
+            storePassword env('SIDELOAD_KEYSTORE_PASSWORD') ?: 'goalmachine'
+            keyAlias env('SIDELOAD_KEY_ALIAS') ?: 'goalmachine'
+            keyPassword env('SIDELOAD_KEYSTORE_PASSWORD') ?: 'goalmachine'
+        }
+        upload {
+            storeFile env('UPLOAD_KEYSTORE_FILE') ? file(env('UPLOAD_KEYSTORE_FILE')) : file('goalmachine.keystore')
+            storePassword env('UPLOAD_KEYSTORE_PASSWORD') ?: 'goalmachine'
+            keyAlias env('UPLOAD_KEY_ALIAS') ?: 'goalmachine'
+            keyPassword env('UPLOAD_KEYSTORE_PASSWORD') ?: 'goalmachine'
+        }
+    }
+
+    // Two versions of the app: 'sideload' (the APK on GitHub) and 'play' (the Google Play bundle). The site asks
+    // AndroidApp.channel() and, in the Play version, leaves out things Play doesn't allow (APK update links) or that
+    // are risky there (Premier League / Transfermarkt photos).
+    flavorDimensions 'channel'
+    productFlavors {
+        sideload {
+            dimension 'channel'
+            buildConfigField 'String', 'CHANNEL', '"sideload"'
+            signingConfig signingConfigs.sideload
+        }
+        play {
+            dimension 'channel'
+            buildConfigField 'String', 'CHANNEL', '"play"'
+            signingConfig signingConfigs.upload
         }
     }
 
     buildTypes {
         release {
             minifyEnabled false
-            signingConfig signingConfigs.release
         }
     }
 

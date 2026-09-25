@@ -148,6 +148,7 @@
     S.selected = -1;
     S.revealed = S.revealNext; S.revealNext = false;
     S.phase = 'spinning';
+    if (S.spin === 0 && S.respins === 0) GM.sound.play('whistle');
     render();
     await animateReels();
     S.phase = 'pick';
@@ -159,10 +160,12 @@
     const names = GM.players;
     const stops = cards.map((c, i) => 500 + i * 250);
     const t0 = performance.now();
+    let frame = 0;
     await new Promise(res => {
       const tick = () => {
         const t = performance.now() - t0;
         let running = false;
+        if (frame++ % 2 === 0) GM.sound.play('tick');
         cards.forEach((c, i) => {
           if (t < stops[i]) {
             running = true;
@@ -172,6 +175,7 @@
             c.classList.remove('spinning');
             c.innerHTML = reelInner(S.reels[i]);
             c.classList.add('landed');
+            GM.sound.play('land');
           }
         });
         if (running) setTimeout(tick, 55); else res();
@@ -189,6 +193,7 @@
       S.pending = null;
       S.inv.push(reel.wild);
       S.log.push('🃏');
+      GM.sound.play('wild');
       GM.toast(`${WILDCARDS[reel.wild].icon} ${WILDCARDS[reel.wild].name} added to your bag`);
       return afterPick(i);
     }
@@ -219,6 +224,7 @@
       heads = GM.rng(`${S.seed}|coin|${S.spin}|${S.respins}`)() < 0.5;
       mult = heads ? 2 : 0;
       if (heads) S.coinWin = true;
+      GM.sound.play(heads ? 'good' : 'bad');
       GM.toast(heads ? '🎲 Heads! Doubled' : '🎲 Tails… he counts for nothing', 2600);
     }
     const v = pv(p);
@@ -233,6 +239,9 @@
     S.used.push(p.id);
     S.log.push(pos);
     S.pending = null;
+    GM.sound.play('place'); GM.buzz();
+    // in target modes a blip climbs as the total closes in on the number
+    if (S.target && !S.rules.treble) setTimeout(() => GM.sound.play('rise', S.xi.reduce((a, x) => a + x.g, 0) / S.target), 180);
     afterPick(i);
   }
 
@@ -258,7 +267,7 @@
     const w = S.inv[k];
     const wc = WILDCARDS[w];
     if (S.phase === 'spinning' || S.phase === 'reveal' || S.phase === 'done') return;
-    const consume = () => { S.inv.splice(k, 1); S.log.push(wc.icon); S.wildUsed++; };
+    const consume = () => { S.inv.splice(k, 1); S.log.push(wc.icon); S.wildUsed++; GM.sound.play('wild'); };
     switch (wc.kind) {
       case 'reveal':
         if (S.phase === 'pick') S.revealed = true; else S.revealNext = true;
@@ -296,6 +305,7 @@
     const s = S.xi[slotIdx];
     if (S.subbing === false || s.p == null) return;
     GM.toast(`👋 ${byId(s.p).name} released`);
+    GM.sound.play('swoosh');
     s.p = null; s.g = 0; s.v = null; s.mod = null; s.as = null;
     S.inv.splice(S.subbing, 1);
     S.log.push('🔄');
@@ -346,10 +356,14 @@
     }
     if (S.mode === 'daily') GM.store.set('daily2:' + GM.today(), { ...S, rules: undefined });
     render();
+    GM.sound.play('fulltime');
+    const bull = sc.diff === 0;
+    if (bull) setTimeout(() => GM.sound.play('horn'), 1700);
     if (!S.readonly) {
       if (S.mode === 'daily' && sc.total > GM.best('daily')) GM.store.set('best:daily', sc.total);
       const { isBest } = await GM.recordScore(modeKey(), sc.total, { t: sc.t });
       if (isBest && sc.total > 0 && S.mode !== 'daily') GM.toast('🏆 New personal best!');
+      if (isBest && sc.total > 0 && !bull) setTimeout(() => GM.sound.play('cheer'), 1700);
     }
   }
 
@@ -458,9 +472,10 @@
       <button class="btn big" id="mgo" hidden>Kick off</button></div>`;
     const el = GM.$('#mroll', root), labels = STAT_KEYS.map(k => `${GM.STATS[k].icon} ${GM.STATS[k].name}`);
     let i = 0;
-    const iv = setInterval(() => { el.textContent = labels[i++ % 3]; }, 90);
+    const iv = setInterval(() => { el.textContent = labels[i++ % 3]; GM.sound.play('tick'); }, 90);
     setTimeout(() => {
       clearInterval(iv);
+      GM.sound.play('land');
       el.textContent = `${S.st.icon} ${S.st.name}`;
       el.classList.add('landed');
       const range = MYSTERY[S.stat];

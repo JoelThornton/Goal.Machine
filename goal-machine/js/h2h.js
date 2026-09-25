@@ -111,6 +111,7 @@
         <button class="btn big" id="ready">I'm ready</button>
         <a class="pass-back" href="#/h2h">Back to the scoreboard</a>
       </div>`;
+    GM.sound.play('sting');
     GM.$('#ready').onclick = () => {
       GM.buzz(30);
       g.run(root, {
@@ -130,6 +131,7 @@
     if (!done) addRound(m);
     save(m);
     GM.buzz(cur.winner === -1 ? 20 : [40, 60, 40]);
+    setTimeout(() => GM.sound.play(cur.winner === -1 ? 'whistle' : 'cheer'), 300);
     const headline = cur.winner === -1 ? '🤝 Honours even' : `${name(m, cur.winner)} takes the round`;
     GM.modal(`<div class="center round-result"><small>Round ${m.rounds.length - (done ? 0 : 1)} · ${GAMES[cur.game].name}</small>
       <h3>${headline}</h3>
@@ -158,6 +160,7 @@
         <button class="btn ghost" id="h2hshare">📤 Share the result</button>
         <button class="btn ghost" id="newplayers">👥 New players</button>
       </div>`;
+    GM.sound.play('fanfare');
     GM.$('#rematch').onclick = () => {
       const n = { names: m.names, bestOf: m.bestOf, hard: m.hard, seed: GM.newSeed(), rounds: [] };
       addRound(n); save(n); location.hash = '#/h2hplay';

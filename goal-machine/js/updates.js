@@ -4,7 +4,7 @@
 (function () {
   GM.UPDATES = [
     {
-      v: 13, date: '2026-09-25', title: 'New look + Head to Head',
+      v: 13, date: '2026-09-25', title: 'New look, sound + Head to Head',
       items: [
         '⚔️ Head to Head: pass the phone for a best-of series of random quick games, with the winner lifting the trophy',
         '🎨 A fresh look with a light theme, chunky buttons and colourful game tiles, grouped into Today, Hit the target and Quick games',
@@ -12,6 +12,8 @@
         '🧭 A tab bar at the bottom for Play, Leaderboards, Album and Players',
         '📰 An Updates page (tap 📰 on the home screen) listing what every version brings',
         '⚽ A loading screen and a little buzz on taps (you can switch it off in Settings)',
+        '🔊 Sound effects: the referee\'s whistle, spinning reels, the crowd and a goal horn for a bullseye',
+        '🏟️ Optional background: a stadium crowd or a music track (⚙️ Settings)',
       ],
     },
     {

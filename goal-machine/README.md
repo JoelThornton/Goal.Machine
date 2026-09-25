@@ -21,6 +21,8 @@ Live: `https://opportunisticgames.github.io/goal-machine/` (a free site by Oppor
 | 🔢 Guess the Tally | How many PL goals did he score? |
 | ⚔️ Head to Head | Two players, one phone. A best-of-3, 5 or 7 series of random quick games (Higher or Lower, a 3-player Who Am I?, a 5-player Guess the Tally, a 60-second Club Hopper). Each player gets their own questions, the higher score takes the round, and draws mean an extra round |
 
+**Sound:** everything is synthesised with Web Audio in `js/audio.js`, so there are no audio files. Sound effects include the referee's whistle, spinning and landing reels, signings, wildcards, right and wrong answers, the Club Hopper clock, a goal horn with crowd roar for a bullseye, and a trophy fanfare. For background you can pick a stadium crowd (murmur, "ooh"s and clapping) or a 122 bpm music loop. Effects are on and background is off by default, with volumes in ⚙️ Settings. Audio starts on the first tap (a browser rule) and pauses when the app is in the background. `GM.sound.renderDemo()` renders everything to a buffer for checking without speakers.
+
 **Look and settings:** light theme by default, with Dark or Auto (follows the phone) in ⚙️ Settings, alongside difficulty, vibration and your leaderboard name. **📰 Updates** lists every version and Android app build. When you release, add an entry to the top of `js/updates.js` (`v` = the new `?v=` number), and returning players get a one-off "What's new" pop-up.
 
 **🥵 Hard mode** (the toggle on the home screen):

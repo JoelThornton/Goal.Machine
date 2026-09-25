@@ -17,10 +17,13 @@
       root.appendChild(box);
       box.scrollIntoView({ behavior: 'smooth' });
       box.querySelector('[data-next]').onclick = () => done(score);
+      GM.sound.play('fulltime');
       return;
     }
     if (GM.checkGame) GM.checkGame(mode, score, extra);
     const { isBest } = await GM.recordScore(mode, score);
+    GM.sound.play('fulltime');
+    if (isBest && score > 0) setTimeout(() => GM.sound.play('cheer'), 1500);
     const box = document.createElement('div');
     box.className = 'result';
     box.innerHTML = `<div class="result-score">${score}<small>points</small></div>
@@ -69,6 +72,7 @@
       const el = GM.$('#hlb .hl-val b', root);
       await countUp(el, b[stat]);
       GM.$('#hlb', root).classList.add(ok ? 'good' : 'bad');
+      GM.sound.play(ok ? 'good' : 'bad');
       await GM.sleep(700);
       if (ok) {
         streak++; GM.buzz();
@@ -124,6 +128,7 @@
     function guess(p) {
       if (isMatch(p)) return endRound(true);
       wrong.push(p);
+      GM.sound.play('bad');
       if (clue < 4) clue++; else if (wrong.length >= 6) return endRound(false);
       GM.toast(`✗ Not ${GM.esc(p.name)}`);
       render();
@@ -131,6 +136,7 @@
     function endRound(ok) {
       const pts = ok ? PTS[clue] : 0;
       score += pts;
+      GM.sound.play(ok ? 'good' : 'bad');
       results.push(ok ? (clue === 0 ? '🟩' : clue < 3 ? '🟨' : '🟧') : '🟥');
       const m = GM.modal(`<div class="center">${GM.avatar(target, 'lg')}<h3>${ok ? '✅' : '❌'} ${GM.esc(target.name)}</h3>
         <p>${target.apps} apps · ${target.goals} goals · ${GM.era(target)}</p><p><b>+${pts}</b></p>
@@ -230,7 +236,8 @@
           used.add(p.id);
           filled[k] = { p, pts: rarity(k, p) };
           GM.toast(`✅ ${GM.esc(p.name)} +${filled[k].pts}`);
-        } else GM.toast(`❌ ${GM.esc(p.name)} doesn't fit`);
+          GM.sound.play('good');
+        } else { GM.toast(`❌ ${GM.esc(p.name)} doesn't fit`); GM.sound.play('bad'); }
         render();
       }, { plain: hard });
       setTimeout(() => inp.focus(), 50);
@@ -270,6 +277,7 @@
         const d = Math.abs(gv - p.goals);
         const pts = Math.round(100 * Math.max(0, 1 - d / Math.max(4, 0.35 * p.goals)));
         score += pts;
+        GM.sound.play(pts >= 70 ? 'good' : pts >= 30 ? 'place' : 'bad');
         GM.modal(`<div class="center"><h3>${GM.esc(p.name)}</h3><div class="result-total">${p.goals}<small>PL goals (you said ${gv})</small></div>
           <p><b>+${pts}</b> ${d === 0 ? '🎯 Spot on!' : ''}</p><button class="btn" data-close>${round + 1 < ROUNDS ? 'Next' : 'See score'}</button></div>`, {
           onClose: () => {
@@ -295,11 +303,13 @@
     function tick() {
       left--;
       const t = GM.$('#htime', root); if (t) { t.textContent = fmtT(Math.max(0, left)); t.classList.toggle('warn', left <= 10); }
+      if (left > 0 && left <= 10) GM.sound.play('clock');
       if (left <= 0) end();
     }
     function penalty(s, msg) {
       left = Math.max(0, left - s);
       GM.toast(`${msg} (−${s}s)`);
+      GM.sound.play('bad');
       const t = GM.$('#htime', root); if (t) t.textContent = fmtT(left);
       if (left <= 0) end();
     }
@@ -334,7 +344,7 @@
       choosing = p; render();
     }
     function hop(p, to) {
-      GM.buzz();
+      GM.buzz(); GM.sound.play('good');
       chain.push([p, club, to]);
       hops++; club = to; choosing = null;
       render();

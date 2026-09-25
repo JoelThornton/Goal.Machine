@@ -548,3 +548,6 @@ h2, h3 { letter-spacing: .3px; }
 :root[data-theme="light"] .counter-num b, :root[data-theme="light"] .result-total { text-shadow: none; }
 :root[data-theme="light"] .thermo i { border-right-color: #10261d; box-shadow: none; }
 :root[data-theme="light"] .mystery-reveal { background: #fff6d6; }
+.vol { display: flex; align-items: center; gap: 8px; font-size: .9rem; }
+.vol input { flex: 1; accent-color: var(--accent); height: 28px; }
+:root[data-theme="light"] .vol input { accent-color: #16803c; }

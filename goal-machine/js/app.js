@@ -156,10 +156,14 @@
   /* ---------------------------------------------------------------- settings */
   function settings() {
     const seg = (id, opts, on) => `<div class="seg" id="${id}">${Object.entries(opts).map(([k, l]) => `<button data-v="${k}" class="${k === String(on) ? 'on' : ''}">${l}</button>`).join('')}</div>`;
-    const build = GM.appBuild();
+    const build = GM.appBuild(), snd = GM.sound.settings();
     app.innerHTML = `<div class="topbar"><a href="#/" class="back">‹</a><h2>⚙️ Settings</h2><span></span></div>
       <section class="settings">
         <div class="setting"><b>Appearance</b><small>Auto follows your phone's light or dark setting</small>${seg('s-theme', GM.THEMES, GM.getTheme())}</div>
+        <div class="setting"><b>Sound effects</b><small>Whistles, reels, the crowd and the goal horn</small>${seg('s-sfx', { true: '🔊 On', false: '🔇 Off' }, snd.sfx)}
+          <label class="vol">🔈<input type="range" id="s-sfxvol" min="0" max="1" step="0.05" value="${snd.sfxVol}">🔊</label></div>
+        <div class="setting"><b>Background</b><small>A stadium crowd or a music track while you play</small>${seg('s-bg', { off: '🔇 Off', crowd: '🏟️ Crowd', music: '🎵 Music' }, snd.bg)}
+          <label class="vol">🔈<input type="range" id="s-bgvol" min="0" max="1" step="0.05" value="${snd.bgVol}">🔊</label></div>
         <div class="setting"><b>Difficulty</b><small>Hard shows names and positions only, with fewer stars on the reels</small>${seg('s-hard', { false: '🙂 Normal', true: '🥵 Hard' }, GM.isHard())}</div>
         <div class="setting"><b>Vibration</b><small>A little buzz on taps, hops and wins (phones only)</small>${seg('s-buzz', { true: '📳 On', false: '🔕 Off' }, GM.store.get('buzz', true))}</div>
         <div class="setting"><b>Leaderboard name</b><small>${GM.esc(GM.getName() || 'Not set yet')}</small><button class="btn ghost small" id="s-name">✏️ Change name</button></div>
@@ -176,6 +180,10 @@
     wire('s-theme', v => GM.setTheme(v));
     wire('s-hard', v => GM.setHard(v === 'true'));
     wire('s-buzz', v => GM.store.set('buzz', v === 'true'));
+    wire('s-sfx', v => { GM.sound.set('sfx', v === 'true'); GM.sound.play('whistle'); });
+    wire('s-bg', v => GM.sound.set('bg', v));
+    GM.$('#s-sfxvol').onchange = e => { GM.sound.set('sfxVol', +e.target.value); GM.sound.play('good'); };
+    GM.$('#s-bgvol').oninput = e => GM.sound.set('bgVol', +e.target.value);
     GM.$('#s-name').onclick = async () => {
       const n = await GM.prompt('Your leaderboard name', GM.getName(), 'e.g. Joel');
       if (n != null && n.trim()) { GM.store.set('name', n.trim().slice(0, 20)); settings(); }

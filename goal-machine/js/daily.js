@@ -69,7 +69,10 @@
       return game ? GAMES[game].won(e[game]) : Object.keys(GAMES).some(g => GAMES[g].won(e[g]));
     };
     let day = GM.today(), n = 0;
-    if (!ok(day)) day = addDays(day, -1);
+    if (!ok(day)) {
+      if (game && (l[day] || {})[game] != null) return 0;  // lost today: like Wordle, the streak resets
+      day = addDays(day, -1);
+    }
     while (ok(day)) { n++; day = addDays(day, -1); }
     return n;
   };

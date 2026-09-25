@@ -7,6 +7,13 @@
 (function () {
   GM.UPDATES = [
     {
+      v: 20, label: '4.5', date: '2026-09-26', app: 16, title: 'No more flickering faces',
+      items: [
+        '🖼️ Fixed player pictures flickering during a game: a photo that didn’t load was being tried again every time you tapped, and faces were re-centred each time. Now each photo is worked out once and stays put',
+        '⭐ Leaderboards show your account’s best score and your rank (e.g. #4 of 37) instead of your best on this device',
+      ],
+    },
+    {
       v: 19, label: '4.4', date: '2026-09-26', app: 16, title: 'A steadier draft',
       items: [
         '📐 The draft screen holds still: the pitch is sized once for your phone and stays that size from the first spin to full time. The reels, the spin button, your wildcards and the messages share one fixed space underneath',

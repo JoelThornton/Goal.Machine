@@ -83,28 +83,36 @@
     G(totalApps >= 3500, totalApps / 3500, `Vastly experienced – ${fmt(totalApps)} PL appearances between them.`);
     G(english === 11, 1.3, 'Three Lions – an all-English XI.');
     G(nats.size >= 8, nats.size / 7, `United Nations – ${nats.size} nationalities in one dressing room.`);
+    // the one bad thing: real weaknesses, scored so the most damning one wins
+    const goals = sum(players, p => p.goals), top = players.slice().sort((a, b) => b.goals - a.goals)[0];
+    const bit = players.filter(p => p.apps < 80).length, oop = xi.filter(s => s.as).length;
+    const avgApps = Math.round(totalApps / Math.max(1, players.length));
     B(stGoals < 40, 1 + (40 - stGoals) / 40, `Blunt attack – your strikers have only ${stGoals} PL goals between them.`);
     B(midCreate < 45, 1 + (45 - midCreate) / 45, `No creativity – just ${midCreate} goals and assists from midfield.`);
     B(defApps < 700, 1 + (700 - defApps) / 700, `Leaky – your back line has only ${fmt(defApps)} PL apps between them.`);
-    B(gk && gk.apps < 100, 1.2, `Dodgy keeper – ${gk ? gk.name : ''} only made ${gk ? gk.apps : 0} PL appearances.`);
+    B(gk && gk.apps < 100, 1.05, `Dodgy keeper – ${gk ? gk.name : ''} only made ${gk ? gk.apps : 0} PL appearances.`);
+    B(goals >= 60 && top && top.goals / goals >= 0.5, 0.6 + top.goals / goals, `One-man team – ${top ? top.name : ''} has ${top ? fmt(top.goals) : 0} of your ${fmt(goals)} goals. Nobody else chips in.`);
+    B(bit >= 4, 0.7 + bit / 8, `Squad players – ${bit} of your XI made fewer than 80 PL appearances.`);
+    B(oop >= 2, 0.6 + oop / 5, `Square pegs – ${oop} players are out of their best position.`);
+    B(honours === 0 && xi.length === 11, 0.9, 'Empty trophy cabinet – not one major honour in the squad.');
     B(pairs.length === 0 && xi.length === 11, 1.1, 'Total strangers – none of your XI ever played together.');
-    B(last - first >= 30, 0.3, `Time travellers – careers stretch from ${first} to ${last + 1}. Good luck with the fitness tests.`);
+    B(avgApps < 110, 1 + (110 - avgApps) / 110, `Green – they average just ${avgApps} PL appearances each.`);
+    B(last - first >= 30, 0.3, `Time travellers – careers stretch from ${first} to ${last >= GM.currentSeason ? 'today' : last + 1}. Good luck with the fitness tests.`);
     // otherwise, call out the weakest unit of the team
     const units = [
-      [stGoals / 150, `Weak spot up front – your strikers have ${fmt(stGoals)} PL goals between them.`],
+      [stGoals / 150, `Weak spot up front – your strikers have only ${fmt(stGoals)} PL goals between them.`],
       [midCreate / 180, `Weak spot in midfield – just ${fmt(midCreate)} goals and assists from the middle.`],
-      [defApps / 1800, `Weak spot at the back – ${fmt(defApps)} PL apps across the back line.`],
-      [gk ? gk.apps / 300 : 1, `Weak spot in goal – ${gk ? gk.name : ''} made ${gk ? fmt(gk.apps) : 0} PL appearances.`],
+      [defApps / 1800, `Weak spot at the back – only ${fmt(defApps)} PL apps across the back line.`],
+      [gk ? gk.apps / 300 : 1, `Weak spot in goal – ${gk ? gk.name : ''} made only ${gk ? fmt(gk.apps) : 0} PL appearances.`],
     ].sort((a, b) => a[0] - b[0]);
     B(units[0][0] < 0.75, 0.5 + (0.75 - units[0][0]), units[0][1]);
-    B(totalApps < 1800, 1 + (1800 - totalApps) / 1800, `Green – only ${fmt(totalApps)} PL appearances between them.`);
     good.sort((a, b) => b[0] - a[0]);
     bad.sort((a, b) => b[0] - a[0]);
     const qs = xi.map(s => [quality(s), s.player]).sort((a, b) => a[0] - b[0]);
     const best = qs[qs.length - 1], worst = qs[0];
     return {
       good: good.length ? good[0][1] : `Star man – ${best[1].name} (${fmt(best[1].goals)} goals, ${fmt(best[1].apps)} apps).`,
-      bad: bad.length ? bad[0][1] : `Weakest link – ${worst[1].name} (${fmt(worst[1].apps)} PL apps).`,
+      bad: bad.length ? bad[0][1] : `Weakest link – ${worst[1].name} gives you the least: ${fmt(worst[1].goals)} goals in ${fmt(worst[1].apps)} PL games.`,
     };
   }
 

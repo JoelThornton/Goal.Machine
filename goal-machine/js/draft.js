@@ -96,6 +96,7 @@
   }
 
   function start(el, mode, opts = {}) {
+    fitKey = '';  // a new page: size the pitch again
     root = el;
     if (!RULES[mode]) mode = 'ultimate';
     if (RULES[mode].all && !GM.allPlayers) {  // fetch every PL player first
@@ -728,7 +729,7 @@
     if (S.rules.treble) {
       return `<div class="counter treble">${STAT_KEYS.map(k => {
         const got = tot(k), tg = TREBLE[k];
-        return `<div class="trow"><span>${GM.STATS[k].icon} <b>${fmt(got)}</b> / ${fmt(tg)} ${GM.STATS[k].label}</span>
+        return `<div class="trow"><span><b>${GM.STATS[k].icon} ${fmt(got)}</b>/ ${fmt(tg)} ${GM.STATS[k].label}</span>
           <div class="bar"><i style="width:${Math.min(100, got / tg * 100)}%" class="${got > tg ? 'over' : ''}"></i></div></div>`;
       }).join('')}<div class="counter-sub">${left} slot${left === 1 ? '' : 's'} left${mod}</div></div>`;
     }
@@ -781,17 +782,38 @@
 
   // Size the pitch to the screen: after each update, give its four rows whatever height is left over (46-86px a row),
   // so it fills tall phones without making short ones scroll
+  // sized once per screen (and game layout); the dock under the pitch is a fixed height, so it never needs to change mid-game
+  let fitKey = '';
   function fitPitch() {
     const pitch = GM.$('.pitch', root);
     if (!pitch || !root.isConnected || S.phase === 'done') return;
     const rows = GM.$$('.pitch-row', pitch).length || 4;
+    const key = [innerWidth, innerHeight, S.mode, S.hard, S.rules.wild !== false, !!S.vs, !!S.online, rows].join('|');
+    if (key === fitKey) return;
+    fitKey = key;
     const cur = parseFloat(getComputedStyle(root).getPropertyValue('--slot-h')) || 52;
     // the game's own content (the page itself always stretches to the screen, so measure #app, padding included)
     const spare = window.innerHeight - (root.getBoundingClientRect().bottom + window.scrollY);
     const next = Math.max(46, Math.min(86, Math.floor(cur + spare / rows)));
     if (Math.abs(next - cur) >= 1) root.style.setProperty('--slot-h', next + 'px');
+    root.classList.toggle('slots-compact', next < 62);
   }
   window.addEventListener('resize', () => { if (S && root) fitPitch(); });
+  if (document.fonts) document.fonts.ready.then(() => { fitKey = ''; if (S && root) fitPitch(); });
+
+  // one line for what's happening (a CHAOS event, a storm, an active wildcard) and one for what to do next
+  function msgHtml(sp) {
+    const top = S.storm ? '<span class="m-ev">🌪️ <b>Wildcard storm!</b> No players this spin – grab a card</span>'
+      : S.event ? `<span class="m-ev">${S.event.icon} <b>${GM.esc(S.event.name)}</b> – ${GM.esc(S.event.note)}</span>`
+      : sp && S.phase !== 'spin' ? `<span class="m-sp">${sp.icon} ${sp.name}</span>` : '';
+    const pend = S.pending != null && S.reels[S.pending] && !S.reels[S.pending].wild && byId(S.reels[S.pending].id);
+    const next = S.subbing !== false ? '🔁 Tap a player on the pitch to release him <button class="btn small ghost" id="cancel-sub">Cancel</button>'
+      : S.phase === 'spin' ? 'Spin for three new players'
+      : S.phase !== 'pick' ? ''
+      : pend ? `📍 Tap a glowing slot for <b>${GM.esc(pend.name)}</b>`
+      : `Tap a player, then the slot he’ll play in${S.reels.some(r => r.wild) ? ' – or grab the wildcard' : ''}`;
+    return `<div class="m-top">${top}</div><div class="m-next">${next}</div>`;
+  }
 
   function render() {
     if (!S) return;
@@ -803,26 +825,22 @@
     const nReels = Math.max(3, S.reels.length);
     const sp = S.special && WILDCARDS[S.special];
     root.innerHTML = `
-      <div class="topbar"><a href="#/" class="back">‹</a><h2>${icon} ${modeName()}${S.hard ? ' · Hard' : ''}</h2><span class="top-btns">${S.online ? '' : GM.lbButton(modeKey())}<button class="icon-btn" id="help">?</button></span></div>
+      <div class="topbar"><a href="#/" class="back">‹</a><h2><span class="t-name">${icon} ${modeName().replace(/^Ultimate Wildcard CHAOS/, 'CHAOS')}</span>${S.hard ? '<small class="hard-pill">Hard</small>' : ''}</h2><span class="top-btns">${S.online ? '' : GM.lbButton(modeKey())}<button class="icon-btn" id="help">?</button></span></div>
       ${S.vs ? `<div class="banner">⚔️ Beat <b>${GM.esc(S.vs)}</b>’s score of <b>${GM.esc(S.vss)}</b></div>` : ''}
-      ${S.event ? `<div class="banner chaos-event">${S.event.icon} <b>${GM.esc(S.event.name)}</b> – ${GM.esc(S.event.note)}</div>` : ''}
-      ${S.storm && S.phase !== 'done' ? '<div class="banner chaos-event">🌪️ <b>Wildcard storm!</b> No players this spin – grab a card</div>' : ''}
       ${S.online ? `<div class="opp-bar" id="oppbar">🌐 Racing <b>${GM.esc(S.online.opp)}</b>…</div>` : ''}
       ${counterHtml()}
       ${pitchHtml()}
+      <div class="dock">
       ${S.rules.wild === false ? '' : `<div class="inv"><span class="inv-label">Wildcards ${S.inv.length}/3</span>${S.inv.length ? S.inv.map((w, k) =>
       `<button class="wild-btn ${S.subbing === k ? 'active' : ''}" data-w="${k}" title="${GM.esc(WILDCARDS[w].desc(wst()))}">${WILDCARDS[w].icon}<small>${WILDCARDS[w].name}</small></button>`).join('')
-        : '<span class="muted">none yet · they turn up on the reels</span>'}${S.subbing !== false ? '<button class="btn small ghost" id="cancel-sub">Cancel</button>' : ''}</div>`}
-      ${sp && S.phase !== 'spin' ? `<div class="special-banner">${sp.icon} ${sp.name}</div>` : ''}
-      ${S.phase === 'spin' ? `<div class="spin-zone"><button class="btn big spin" id="spin">🎰 SPIN</button></div>` : `<div class="reels">${Array.from({ length: nReels }, (_, i) => {
+        : '<span class="muted">none yet · they turn up on the reels</span>'}</div>`}
+      <div class="stage ${S.hard ? 'hard' : ''}">${S.phase === 'spin' ? `<div class="spin-zone"><button class="btn big spin" id="spin">🎰 SPIN</button></div>` : `<div class="reels ${nReels > 3 ? 'n5' : ''}">${Array.from({ length: nReels }, (_, i) => {
           const x = S.reels[i];
           if (S.phase === 'spinning') return `<div class="reel spinning"><div class="reel-spin">…</div></div>`;
           if (!x) return `<div class="reel idle"><div class="reel-q">?</div></div>`;
           return `<button class="reel ${x.wild ? 'is-wild' : ''} ${S.selected === i || S.pending === i ? 'selected' : ''} ${S.phase === 'reveal' && S.selected !== i ? 'dim' : ''} ${S.hard ? 'hard' : ''}" data-reel="${i}">${reelInner(x)}</button>`;
-        }).join('')}</div>`}
-      <div class="actions">
-        ${S.phase === 'pick' && S.pending == null ? `<div class="hint">Tap a player, then tap the slot he’ll play in${S.reels.some(r => r.wild) ? ' – or grab the wildcard' : ''}</div>` : ''}
-        ${S.phase === 'pick' && S.pending != null ? `<div class="hint">📍 Now tap a highlighted slot on the pitch for <b>${GM.esc(byId(S.reels[S.pending].id).name)}</b> (${byId(S.reels[S.pending].id).poss.join(' / ')})</div>` : ''}
+        }).join('')}</div>`}</div>
+      <div class="msg">${msgHtml(sp)}</div>
       </div>`;
     GM.$('#help', root).onclick = help;
     const spb = GM.$('#spin', root); if (spb) spb.onclick = () => doSpin();

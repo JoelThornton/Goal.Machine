@@ -482,7 +482,31 @@ GM.toast = function (msg, ms = 2200) {
   setTimeout(() => { t.classList.remove('show'); setTimeout(() => t.remove(), 300); }, ms);
 };
 // 🏆 in a game's top bar: straight to that game's leaderboard
-GM.lbButton = key => (key ? `<a class="icon-btn lb-btn" href="#/leaderboard?m=${encodeURIComponent(key)}" title="Leaderboard" aria-label="Leaderboard">🏆</a>` : '<span></span>');
+GM.lbButton = key => (key ? `<button class="icon-btn lb-btn" data-lb="${GM.esc(key)}" title="Leaderboard" aria-label="Leaderboard">🏆</button>` : '<span></span>');
+// the 🏆 in a game: that game's leaderboard in a pop-up, so you never leave the game
+GM.lbModal = async function (key) {
+  const DATED = { daily: '📅 Daily Ultimate', footle: '🟩 Footle', grid: '#️⃣ Daily Club Grid', mbdaily: '💰 Daily Moneyball', dchaos: '🌪️ Daily CHAOS' };
+  const [pre, date] = key.split(':'), hard = /h$/.test(key) && GM.HARD_MODES.includes(key.slice(0, -1));
+  const md = GM.MODES[hard ? key.slice(0, -1) : key] || GM.MODES[key] || {};
+  const title = date ? `${DATED[pre] || pre} · today` : `${md.icon || ''} ${(md.name || key).replace(/ \(Hard\)$/, '')}${hard ? ' · Hard' : ''}`;
+  const pts = /^d?chaos/.test(key) ? '<small> pts</small>' : '', me = GM.getName();
+  const local = GM.store.get('hist:' + key, []);
+  const m = GM.modal(`<div class="lb-pop"><h3>${title}</h3><p class="lb-pop-kicker">🏆 Leaderboard</p>
+    ${pts ? '<p class="muted center small">CHAOS points: your XI’s total plus every bonus</p>' : ''}
+    <div class="lb lb-pop-list" id="lbpop">${GM.lb.enabled ? '<div class="muted">Loading…</div>' : '<div class="muted">The global leaderboard is switched off.</div>'}</div>
+    ${local.length ? `<h4>📱 Your best</h4><div class="lb">${local.slice(0, 3).map((h, i) => `<div class="lb-row"><span>${i + 1}</span><span>${new Date(h.t).toLocaleDateString()}</span><b>${h.s.toLocaleString()}${pts}</b></div>`).join('')}</div>` : ''}
+    <div class="row"><a class="btn ghost small" href="#/leaderboard?m=${encodeURIComponent(key)}" data-leave>All leaderboards ›</a><button class="btn" data-close>Back to the game</button></div></div>`);
+  const leave = GM.$('[data-leave]', m.el); if (leave) leave.addEventListener('click', () => m.close());
+  if (!GM.lb.enabled) return;
+  try {
+    const rows = await GM.lb.top(key), el = GM.$('#lbpop', m.el);
+    if (!el) return;
+    el.innerHTML = rows.length ? rows.slice(0, 25).map((r, i) => `<div class="lb-row ${r.name === me ? 'me' : ''}"><span>${i < 3 ? ['🥇', '🥈', '🥉'][i] : i + 1}</span><span>${GM.esc(r.name)}</span><b>${r.score.toLocaleString()}${pts}</b></div>`).join('')
+      : '<div class="muted">No scores yet – be the first!</div>';
+    const mine = GM.$('.lb-row.me', el); if (mine) mine.scrollIntoView({ block: 'nearest' });
+  } catch (e) { const el = GM.$('#lbpop', m.el); if (el) el.innerHTML = '<div class="muted">Couldn’t load the leaderboard.</div>'; }
+};
+document.addEventListener('click', e => { const b = e.target.closest && e.target.closest('[data-lb]'); if (b) { e.preventDefault(); GM.lbModal(b.dataset.lb); } });
 // An in-app notification: a card that drops in from the top, and opens href when tapped (swipe it up or wait to dismiss)
 GM.notice = function ({ pic = '', title, sub = '', href, ms = 6000 }) {
   GM.$$('.notice').forEach(n => n.remove());

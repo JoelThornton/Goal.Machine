@@ -49,7 +49,7 @@
     GM.sound.scene(path);  // each game area has its own music
     GM.$('.cal-slot', tabbar).innerHTML = GM.calIcon();  // stays right past midnight
     switch (path) {
-      case 'draft': return GM.draft.start(app, ['target', 'treble', 'mystery', 'club', 'classic', 'extreme', 'purist'].includes(q.m) ? q.m : 'ultimate',
+      case 'draft': return GM.draft.start(app, ['target', 'treble', 'mystery', 'club', 'classic', 'classicwild', 'ultimatepure', 'extreme', 'purist'].includes(q.m) ? q.m : 'ultimate',
         { stat: q.s, seed: q.seed, vs: q.vs, vss: q.vss ? +q.vss : undefined, hard: q.seed ? q.h === '1' : GM.isHard(), club: q.c });
       case 'today': return GM.todayPage(app);
       case 'online': return GM.onlinePage(app, q);
@@ -87,14 +87,17 @@
     const tile = (href, cls, icon, title, sub, best, extra = '') =>
       `<a class="tile ${cls}" href="${href}"><span class="tile-icon">${icon}</span>${best ? `<span class="tile-pb">PB ${best.toLocaleString()}</span>` : ''}<b>${title}</b><small>${sub}</small>${extra}</a>`;
     const album = GM.albumSummary();
-    // the main event comes in three versions, and Target has a no-wildcards Classic version; the choice is remembered
-    const ULT = {
-      ultimate: { icon: '👑', short: 'Ultimate', name: 'Ultimate Wildcard', sub: 'Build the XI with the biggest total. Every player with 50+ PL apps is equally likely, so find the stars among the journeymen.' },
-      classic: { icon: '⚽', short: 'Classic', name: 'Classic', sub: 'The same hunt for the biggest total, with no wildcards. Just you, the reels and your football knowledge.' },
-      extreme: { icon: '⚡', short: 'Extreme', name: 'Extreme Ultimate', sub: `Every one of the 5,000+ players ever to play in the PL, all equally likely. Wildcards on. Mostly strangers.` },
-      purist: { icon: '💎', short: 'Purist', name: 'Purist', sub: 'Every PL player ever, equally likely, no wildcards. Fills your Purist collection.' },
+    // The main event: pick the player pool and whether wildcards are on - six modes in two small switches (remembered)
+    const POOLS = {
+      classic: { icon: '⭐', short: 'Classic', on: 'classicwild', off: 'classic', about: 'Every player with 50+ PL apps, and the better known they are, the more often they turn up' },
+      ultimate: { icon: '👑', short: 'Ultimate', on: 'ultimate', off: 'ultimatepure', about: 'Every player with 50+ PL apps, all equally likely, so find the stars among the journeymen' },
+      extreme: { icon: '⚡', short: 'Extreme', on: 'extreme', off: 'purist', about: 'Every one of the 5,000+ players ever to play in the PL, all equally likely. Mostly strangers' },
     };
-    const ult = ULT[GM.store.get('ultVariant', 'ultimate')] ? GM.store.get('ultVariant', 'ultimate') : 'ultimate';
+    const pool = POOLS[GM.store.get('ultPool', 'ultimate')] ? GM.store.get('ultPool', 'ultimate') : 'ultimate';
+    const wild = GM.store.get('ultWild', true) !== false;
+    const ult = POOLS[pool][wild ? 'on' : 'off'];
+    const ultName = GM.MODES[ult].name;
+    const ultSub = `${POOLS[pool].about}. ${wild ? 'Wildcards on.' : 'No wildcards: just the reels and your knowledge.'}${ult === 'purist' ? ' Fills your 💎 Purist collection.' : ''}`;
     const streak = GM.streak();
     const dtile = (g, cls, sub) => {
       const G = GM.DAILY_GAMES[g], st = GM.dailyStatus(g), gs = GM.streak(g);
@@ -118,9 +121,10 @@
         <button class="${hard ? 'on' : ''}" data-hard="1">🥵 Hard<small>names &amp; positions only, fewer stars</small></button>
       </div>
       <div class="mode-card featured ultimate big-card">
-        <span class="mode-icon">${ULT[ult].icon}</span>
-        <span class="mode-text"><span class="kicker">Main event</span><b>${ULT[ult].name}</b><small>${ULT[ult].sub}</small>
-          <span class="variant" role="group" aria-label="Version">${Object.entries(ULT).map(([k, v]) => `<button data-ult="${k}" class="${k === ult ? 'on' : ''}"><span>${v.icon}</span>${v.short}</button>`).join('')}</span>
+        <span class="mode-icon">${GM.MODES[ult].icon}</span>
+        <span class="mode-text"><span class="kicker">Main event</span><b>${ultName}</b><small>${ultSub}</small>
+          <span class="variant" role="group" aria-label="Players">${Object.entries(POOLS).map(([k, v]) => `<button data-pool="${k}" class="${k === pool ? 'on' : ''}"><span>${v.icon}</span>${v.short}</button>`).join('')}</span>
+          <span class="variant wild-switch" role="group" aria-label="Wildcards"><button data-wild="1" class="${wild ? 'on' : ''}">🃏 Wildcards on</button><button data-wild="0" class="${wild ? '' : 'on'}">🚫 No wildcards</button></span>
           <span class="stat-pick">${statBtn(ult, 'goals')}${statBtn(ult, 'assists')}${statBtn(ult, 'apps')}</span></span>
       </div>
       <a class="h2h-banner" href="#/h2h"><span>⚔️</span><span><b>Head to Head</b><small>${h2h ? `${GM.esc(h2h.names[0])} v ${GM.esc(h2h.names[1])}: tap to carry on` : 'Pass the phone, or play a friend online'}</small></span><span>🏆</span></a>
@@ -155,7 +159,8 @@
         <span class="bar"><i style="width:${(100 * album.players / GM.players.length).toFixed(1)}%"></i></span></a>
       <footer class="muted center">Playing as <a href="#/settings">${GM.account() ? '🔒 ' : ''}${GM.esc(GM.getName() || 'no name yet')}</a> · <a href="#/updates">v${GM.VERSION}</a></footer>`;
     GM.$$('[data-hard]').forEach(b => b.onclick = () => { GM.setHard(b.dataset.hard === '1'); home(); });
-    GM.$$('[data-ult]').forEach(b => b.onclick = () => { GM.store.set('ultVariant', b.dataset.ult); home(); });
+    GM.$$('[data-pool]').forEach(b => b.onclick = () => { GM.store.set('ultPool', b.dataset.pool); home(); });
+    GM.$$('[data-wild]').forEach(b => b.onclick = () => { GM.store.set('ultWild', b.dataset.wild === '1'); home(); });
     const ib = GM.$('#install');
     if (ib) {
       if (installEvt) ib.hidden = false;
@@ -245,7 +250,7 @@
     if (m && m.startsWith('dailies')) return dailyBoard(m.split(':')[1]);
     const hard = m ? /^[a-z]+h$/.test(m) && GM.MODES[m] != null : GM.isHard();
     const club = GM.favClub();
-    const tabs = ['ultimate', 'ultimateast', 'ultimateapps', 'classic', 'extreme', 'purist', 'daily:' + GM.today(), 'footle:' + GM.today(), 'target', 'targetast', 'targetapps', 'treble', 'mystery', 'hopper', 'hilo', 'whoami', 'grid:' + GM.today(), 'grid', 'tally']
+    const tabs = ['ultimate', 'ultimateast', 'ultimateapps', 'ultimatepure', 'classicwild', 'classic', 'extreme', 'purist', 'daily:' + GM.today(), 'footle:' + GM.today(), 'target', 'targetast', 'targetapps', 'treble', 'mystery', 'hopper', 'hilo', 'whoami', 'grid:' + GM.today(), 'grid', 'tally']
       .concat(club ? ['club' + GM.slug(club)] : [])
       .map(k => hard && GM.HARD_MODES.includes(k) ? k + 'h' : k);
     m = m && tabs.includes(m) ? m : tabs[0];

@@ -485,15 +485,21 @@ GM.MODES = {
   treble: { name: 'The Treble', icon: '🏆' },
   mystery: { name: 'Mystery Target', icon: '🎲' },
   daily: { name: 'Daily Ultimate', get icon() { return GM.calIcon(); } },
-  classic: { name: 'Classic', icon: '⚽' },
-  classicast: { name: 'Classic – Assists', icon: '⚽' },
-  classicapps: { name: 'Classic – Apps', icon: '⚽' },
-  extreme: { name: 'Extreme Ultimate', icon: '⚡' },
-  extremeast: { name: 'Extreme Ultimate – Assists', icon: '⚡' },
-  extremeapps: { name: 'Extreme Ultimate – Apps', icon: '⚡' },
-  purist: { name: 'Purist', icon: '💎' },
-  puristast: { name: 'Purist – Assists', icon: '💎' },
-  puristapps: { name: 'Purist – Apps', icon: '💎' },
+  classicwild: { name: 'Classic Wildcard', icon: '⭐' },
+  classicwildast: { name: 'Classic Wildcard – Assists', icon: '⭐' },
+  classicwildapps: { name: 'Classic Wildcard – Apps', icon: '⭐' },
+  classic: { name: 'Classic', icon: '⭐' },
+  classicast: { name: 'Classic – Assists', icon: '⭐' },
+  classicapps: { name: 'Classic – Apps', icon: '⭐' },
+  ultimatepure: { name: 'Ultimate', icon: '👑' },
+  ultimatepureast: { name: 'Ultimate – Assists', icon: '👑' },
+  ultimatepureapps: { name: 'Ultimate – Apps', icon: '👑' },
+  extreme: { name: 'Extreme Wildcard', icon: '⚡' },
+  extremeast: { name: 'Extreme Wildcard – Assists', icon: '⚡' },
+  extremeapps: { name: 'Extreme Wildcard – Apps', icon: '⚡' },
+  purist: { name: 'Extreme Purist', icon: '💎' },
+  puristast: { name: 'Extreme Purist – Assists', icon: '💎' },
+  puristapps: { name: 'Extreme Purist – Apps', icon: '💎' },
   hopper: { name: 'Club Hopper', icon: '🦘' },
   hilo: { name: 'Higher or Lower', icon: '↕️' },
   whoami: { name: 'Who Am I?', icon: '🕵️' },
@@ -504,6 +510,7 @@ GM.MODES = {
 // Hard mode: games show names + positions only (no clubs, years, apps, nationality); Who Am I? saves the
 // clubs for the last clue. Scores go to "<mode>h".
 GM.HARD_MODES = ['ultimate', 'ultimateast', 'ultimateapps', 'target', 'targetast', 'targetapps', 'classic', 'classicast', 'classicapps',
+  'classicwild', 'classicwildast', 'classicwildapps', 'ultimatepure', 'ultimatepureast', 'ultimatepureapps',
   'extreme', 'extremeast', 'extremeapps', 'purist', 'puristast', 'puristapps', 'treble', 'mystery', 'hopper', 'grid', 'hilo', 'whoami', 'tally'];
 GM.isHard = () => GM.store.get('hard', false);
 GM.setHard = v => GM.store.set('hard', !!v);

@@ -44,7 +44,13 @@
   };
   RULES.daily = RULES.ultimate;
   // Classic: Ultimate without the wildcards - the biggest total from the 50+ app players, all equally likely
-  RULES.classic = { max: true, weight: () => 1, noWild: [], wild: false };
+  // The biggest-total modes come in three player pools, each with and without wildcards:
+  //   Classic (50+ apps, well-known players more likely)  classicwild / classic
+  //   Ultimate (50+ apps, all equally likely)             ultimate / ultimatepure
+  //   Extreme (every PL player, all equally likely)       extreme / purist
+  RULES.classicwild = { max: true, weight: p => p.fame, fame: true, noWild: ['rotation', 'bus'] };
+  RULES.classic = { max: true, weight: p => p.fame, fame: true, noWild: [], wild: false };
+  RULES.ultimatepure = { max: true, weight: () => 1, noWild: [], wild: false };
   // Every player to have played in the PL (1+ apps), all equally likely: Extreme has wildcards, Purist has none
   RULES.extreme = { max: true, weight: () => 1, noWild: ['rotation', 'bus'], all: true };
   RULES.purist = { max: true, weight: () => 1, noWild: [], wild: false, all: true };
@@ -118,7 +124,7 @@
   const distKey = () => S.mode === 'daily' ? 'daily' : modeKey();
   // Hard mode flattens the star bias in the target modes (Shearer ~4x an average player instead of ~16x) but keeps the
   // same targets - big numbers are rarer, so one wrong pick can put the target out of reach.
-  const reelWeight = () => (S.hard && !S.rules.max ? p => Math.sqrt(S.rules.weight(p)) : S.rules.weight);
+  const reelWeight = () => (S.hard && (!S.rules.max || S.rules.fame) ? p => Math.sqrt(S.rules.weight(p)) : S.rules.weight);
   // what wildcard descriptions talk about: in the Treble a wildcard affects all three numbers
   const wst = () => S.rules.treble ? { ...S.st, label: 'numbers', bigLabel: 'goals' } : S.st;
   const modeName = () => S.mode === 'club' ? GM.MODES[modeKey()].name : GM.MODES[S.mode === 'daily' ? 'daily' : (S.rules.treble || S.rules.mystery) ? S.mode : S.mode + statSuffix(S.stat)].name;

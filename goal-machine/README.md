@@ -10,9 +10,7 @@ Live: `https://opportunisticgames.github.io/goal-machine/` (a free site by Oppor
 | Mode | What it is |
 | --- | --- |
 | 👑 Ultimate Wildcard | The main game. Build the XI with the biggest total of PL **goals**, **assists** or **appearances** (you choose). Every 50+ app player is equally likely, so you have to find the stars among the journeymen. Your score is the total |
-| ⚡ Extreme Ultimate | Ultimate Wildcard with every one of the 5,157 players to play in the PL (1+ apps), all equally likely |
-| 💎 Purist | Every PL player, equally likely, no wildcards. Fills its own **Purist collection** (a switch on the Album page) |
-| ⚽ Classic | Ultimate without wildcards: the biggest total of goals, assists or apps from the 50+ app players, all equally likely |
+| 🎛️ The six biggest-total modes | Two switches on the main card. **Players:** ⭐ Classic (50+ apps, well-known players more likely), 👑 Ultimate (50+ apps, all equally likely), ⚡ Extreme (all 5,157 players to play in the PL, equally likely). **Wildcards:** on or off. That gives Classic Wildcard / Classic, Ultimate Wildcard / Ultimate, Extreme Wildcard / Extreme Purist. Extreme Purist fills its own **Purist collection** |
 | 🌐 Online | **Draft Duel** (take turns picking from one set of reels, and a player your rival signs is gone) or **Live Race** (both play the same spins at once), via a 5-letter room code |
 | 📅 Daily Ultimate | Ultimate Wildcard (goals) with the same spins for everyone that day and one attempt |
 | 🎯 Target | Hit the number: **500 goals**, **350 assists** or **3,750 apps**. The reels lean towards well-known players. Closeness scores up to 1,000 points, and hitting it exactly adds a +500 bullseye bonus |

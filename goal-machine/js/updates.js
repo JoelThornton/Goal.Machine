@@ -8,8 +8,8 @@
       items: [
         '🌐 Play a friend online: a Draft Duel (take turns picking from the same reels) or a Live Race (same spins, watch their total), from the Head to Head banner',
         '⚖️ Fair spins: challenge links and daily games give everyone the same players on the same spin, whatever you picked before',
-        '⚡ Extreme Ultimate and 💎 Purist: every one of the 5,157 players to play in the PL, all equally likely. Purist has no wildcards and fills its own collection',
-        '⚽ Classic: the biggest-total hunt with no wildcards (a switch on the main card, next to Ultimate, Extreme and Purist)',
+        '🎛️ Six ways to play the main event: pick the players (⭐ Classic: well-known players more likely, 👑 Ultimate: everyone with 50+ apps equally likely, ⚡ Extreme: every one of the 5,157 PL players) and switch wildcards on or off',
+        '💎 Extreme Purist (every PL player, no wildcards) fills its own Purist collection',
         '🔒 Accounts: claim a unique leaderboard name, and move it to a new phone with a transfer code',
         '🎵 Four music tracks: Anthem, Matchday, Thinking Cap and Derby, each for its own part of the game',
         '📸 Faces are centred in the circles, player names on the pitch are easier to read, and the draft fits on one screen',

@@ -131,45 +131,123 @@
   /* ---------------------------------------------------------------- background music */
   let bgNodes = [], bgTimer = null, bgMode = 'off';
 
-  // The music: a 56-bar song at 122 bpm (about 1 min 50 s) in sections, so it takes a while to come round again:
-  // intro → groove → lift → breakdown (with a drum roll) → chorus → groove with a new bassline → chorus → turnaround.
-  // The chorus tune is written out; the arpeggio and hi-hats pick slightly different patterns on each pass.
-  const CH = { Am: [57, 60, 64], F: [53, 57, 60], C: [52, 55, 60], G: [55, 59, 62], Em: [52, 55, 59], Dm: [50, 53, 57] };
-  const ROOT = { Am: 45, F: 41, C: 48, G: 43, Em: 40, Dm: 38 };
-  const _ = null;
-  const TUNES = {  // eighth notes per bar, MIDI numbers
-    lift: [[69, _, 72, _, 69, _, 65, _], [71, _, 74, _, 71, _, 67, _], [71, _, 76, _, 79, _, 76, _], [69, _, _, _, 72, 71, 69, _]],
-    chorus: [[76, _, 79, _, 76, 74, 72, _], [74, _, 71, _, 74, _, 79, _], [72, _, 76, _, 81, _, 79, 76], [77, _, 76, _, 72, _, _, _],
-      [76, _, 79, _, 76, 74, 72, _], [74, _, 71, _, 74, _, 79, 81], [84, _, 83, _, 81, _, 79, 76], [77, _, 79, _, 76, _, _, _]],
+  // The music. Each game area has its own track, all played by the same little band (kick, clap, hats, bass, chord
+  // stabs, pad, arpeggio and a lead tune with an echo). A track is a list of sections; the arpeggios and hi-hats pick
+  // slightly different patterns on every pass, so they take a while to repeat exactly.
+  const CH = {  // chords: notes (MIDI) and bass root
+    Am: [[57, 60, 64], 45], F: [[53, 57, 60], 41], C: [[52, 55, 60], 48], G: [[55, 59, 62], 43], Em: [[52, 55, 59], 40],
+    Dm: [[50, 53, 57], 38], Bb: [[53, 58, 62], 46], D: [[54, 57, 62], 50], B: [[54, 59, 63], 47],
+    Cmaj7: [[55, 59, 60, 64], 48], Am7: [[55, 57, 60, 64], 45], Fmaj7: [[53, 57, 60, 64], 41], G7: [[53, 55, 59, 62], 43],
+    Dm7: [[53, 57, 60, 62], 38], Em7: [[55, 59, 62, 64], 40], E7: [[52, 56, 59, 62], 40],
   };
-  const SONG = [
-    { bars: 4, chords: ['Am', 'F', 'C', 'G'], pad: 1, hats: 8, bass: 'pulse', intro: 1 },
-    { bars: 8, chords: ['Am', 'F', 'C', 'G'], pad: 1, kick: 1, clap: 1, hats: 8, bass: 'pulse', stab: 1 },
-    { bars: 8, chords: ['F', 'G', 'Em', 'Am'], pad: 1, kick: 1, clap: 1, hats: 16, bass: 'pulse', arp: 1, tune: 'lift', fill: 1 },
-    { bars: 8, chords: ['Dm', 'F', 'Am', 'G'], pad: 1, hats: 0, bass: 'long', arp: 1, roll: 1 },
-    { bars: 8, chords: ['C', 'G', 'Am', 'F'], pad: 1, kick: 1, clap: 1, hats: 16, open: 1, bass: 'pulse', stab: 1, tune: 'chorus' },
-    { bars: 8, chords: ['Am', 'F', 'C', 'G'], pad: 1, kick: 1, clap: 1, hats: 8, bass: 'bounce', stab: 1, arp: 1 },
-    { bars: 8, chords: ['C', 'G', 'Am', 'F'], pad: 1, kick: 1, clap: 1, hats: 16, open: 1, bass: 'bounce', stab: 1, arp: 1, tune: 'chorus', fill: 1 },
-    { bars: 4, chords: ['Am', 'F', 'G', 'G'], pad: 1, kick: 1, hats: 8, bass: 'pulse', roll: 1 },
-  ];
-  const BARS = SONG.reduce((a, x) => a + x.bars, 0);
-  function startMusic(from, until) {
-    const bpm = 122, step = 60 / bpm / 4, c = X.ctx;
-    const out = c.createGain(); out.gain.value = 1.5; out.connect(X.bg);
+  const _ = null;
+  const TRACKS = {
+    // Menus: 'Anthem', 122 bpm in A minor (the original track)
+    anthem: {
+      bpm: 122, inst: {},
+      tunes: {
+        lift: [[69, _, 72, _, 69, _, 65, _], [71, _, 74, _, 71, _, 67, _], [71, _, 76, _, 79, _, 76, _], [69, _, _, _, 72, 71, 69, _]],
+        chorus: [[76, _, 79, _, 76, 74, 72, _], [74, _, 71, _, 74, _, 79, _], [72, _, 76, _, 81, _, 79, 76], [77, _, 76, _, 72, _, _, _],
+          [76, _, 79, _, 76, 74, 72, _], [74, _, 71, _, 74, _, 79, 81], [84, _, 83, _, 81, _, 79, 76], [77, _, 79, _, 76, _, _, _]],
+      },
+      song: [
+        { bars: 4, chords: ['Am', 'F', 'C', 'G'], pad: 1, hats: 8, bass: 'pulse', intro: 1 },
+        { bars: 8, chords: ['Am', 'F', 'C', 'G'], pad: 1, kick: 1, clap: 1, hats: 8, bass: 'pulse', stab: 1 },
+        { bars: 8, chords: ['F', 'G', 'Em', 'Am'], pad: 1, kick: 1, clap: 1, hats: 16, bass: 'pulse', arp: 1, tune: 'lift', fill: 1 },
+        { bars: 8, chords: ['Dm', 'F', 'Am', 'G'], pad: 1, hats: 0, bass: 'long', arp: 1, roll: 1 },
+        { bars: 8, chords: ['C', 'G', 'Am', 'F'], pad: 1, kick: 1, clap: 1, hats: 16, open: 1, bass: 'pulse', stab: 1, tune: 'chorus' },
+        { bars: 8, chords: ['Am', 'F', 'C', 'G'], pad: 1, kick: 1, clap: 1, hats: 8, bass: 'bounce', stab: 1, arp: 1 },
+        { bars: 8, chords: ['C', 'G', 'Am', 'F'], pad: 1, kick: 1, clap: 1, hats: 16, open: 1, bass: 'bounce', stab: 1, arp: 1, tune: 'chorus', fill: 1 },
+        { bars: 4, chords: ['Am', 'F', 'G', 'G'], pad: 1, kick: 1, hats: 8, bass: 'pulse', roll: 1 },
+      ],
+    },
+    // Team builders: 'Matchday', 128 bpm in D minor - driving, with a bigger bass and louder stabs
+    matchday: {
+      bpm: 128, inst: { bassType: 'square', bassLp: 520, stabVol: 0.03, leadSaw: 1 },
+      tunes: {
+        lift: [[70, _, 74, _, 77, _, 74, _], [72, _, 76, _, 79, _, 76, _], [74, _, 77, _, 81, _, 77, _], [74, _, _, _, 69, _, _, _]],
+        chorus: [[74, _, 77, _, 81, _, 77, 74], [74, _, 70, _, 74, _, 77, _], [77, _, 81, _, 84, _, 81, 77], [76, _, 79, _, 76, _, 72, _],
+          [81, _, 77, _, 74, _, 77, 81], [82, _, 81, _, 77, _, 74, _], [77, _, 81, _, 84, _, 86, _], [84, _, _, _, 79, _, 76, _]],
+      },
+      song: [
+        { bars: 4, chords: ['Dm', 'Bb', 'F', 'C'], pad: 1, hats: 16, bass: 'pulse', intro: 1 },
+        { bars: 8, chords: ['Dm', 'Bb', 'F', 'C'], kick: 1, clap: 1, hats: 8, bass: 'bounce', stab: 1 },
+        { bars: 8, chords: ['Bb', 'C', 'Dm', 'Dm'], pad: 1, kick: 1, clap: 1, hats: 16, bass: 'pulse', arp: 1, tune: 'lift', fill: 1 },
+        { bars: 4, chords: ['Bb', 'C', 'Bb', 'C'], pad: 1, bass: 'long', arp: 1, roll: 1 },
+        { bars: 8, chords: ['Dm', 'Bb', 'F', 'C'], pad: 1, kick: 1, clap: 1, hats: 16, open: 1, bass: 'bounce', stab: 1, tune: 'chorus' },
+        { bars: 8, chords: ['Dm', 'F', 'C', 'Bb'], kick: 1, clap: 1, hats: 8, bass: 'drive', stab: 1, arp: 1 },
+        { bars: 8, chords: ['Dm', 'Bb', 'F', 'C'], pad: 1, kick: 1, clap: 1, hats: 16, open: 1, bass: 'bounce', stab: 1, arp: 1, tune: 'chorus', fill: 1 },
+      ],
+    },
+    // Puzzles (Footle, grids, Who Am I?, Tally): 'Thinking Cap', 90 bpm with swing - soft keys, no claps, jazzy chords
+    puzzle: {
+      bpm: 90, inst: { swing: 0.18, kickVol: 0.22, rim: 1, bassType: 'triangle', bassLp: 700, keys: 1, arpType: 'sine', arpVol: 0.014, hatVol: 0.022, soft: 1 },
+      tunes: {
+        noodle: [[76, _, _, 79, _, _, 76, _], [72, _, _, _, 69, _, _, _], [74, _, _, 77, _, _, 81, _], [79, _, _, _, _, _, _, _],
+          [76, _, 74, _, 72, _, _, _], [69, _, _, 72, _, _, 76, _], [77, _, _, 76, _, 74, _, _], [72, _, _, _, _, _, _, _]],
+      },
+      song: [
+        { bars: 4, chords: ['Cmaj7', 'Am7', 'Fmaj7', 'G7'], pad: 1, bass: 'long', hats: 8, intro: 1 },
+        { bars: 8, chords: ['Cmaj7', 'Am7', 'Dm7', 'G7'], pad: 1, kick: 1, clap: 1, hats: 8, bass: 'walk', stab: 1 },
+        { bars: 8, chords: ['Fmaj7', 'Em7', 'Dm7', 'Cmaj7'], pad: 1, kick: 1, clap: 1, hats: 8, bass: 'walk', arp: 1, tune: 'noodle' },
+        { bars: 8, chords: ['Am7', 'Dm7', 'G7', 'Cmaj7'], pad: 1, bass: 'long', arp: 1 },
+        { bars: 8, chords: ['Cmaj7', 'Am7', 'Dm7', 'G7'], pad: 1, kick: 1, clap: 1, hats: 8, bass: 'walk', stab: 1, tune: 'noodle' },
+      ],
+    },
+    // Head to Head and the quick-fire games: 'Derby', 140 bpm in E minor - tense and fast
+    derby: {
+      bpm: 140, inst: { bassType: 'sawtooth', bassLp: 460, stabVol: 0.026, arpVol: 0.02, leadSaw: 1 },
+      tunes: {
+        chorus: [[76, _, 79, _, 83, _, 79, 76], [76, _, 72, _, 76, _, 79, _], [78, _, 81, _, 78, _, 74, _], [75, _, 78, _, 83, _, _, _],
+          [83, _, 81, _, 79, _, 76, _], [79, _, 76, _, 72, _, 76, _], [74, _, 78, _, 81, _, 86, _], [83, _, _, _, 78, _, 75, _]],
+      },
+      song: [
+        { bars: 4, chords: ['Em', 'C', 'D', 'B'], hats: 16, bass: 'drive', intro: 1 },
+        { bars: 8, chords: ['Em', 'C', 'D', 'B'], kick: 1, clap: 1, hats: 16, bass: 'drive', stab: 1, arp: 1 },
+        { bars: 8, chords: ['Em', 'C', 'D', 'B'], pad: 1, kick: 1, clap: 1, hats: 16, open: 1, bass: 'drive', stab: 1, tune: 'chorus', fill: 1 },
+        { bars: 4, chords: ['C', 'D', 'Em', 'B'], pad: 1, bass: 'long', arp: 1, roll: 1 },
+        { bars: 8, chords: ['Em', 'C', 'D', 'B'], pad: 1, kick: 1, clap: 1, hats: 16, open: 1, bass: 'drive', stab: 1, arp: 1, tune: 'chorus', fill: 1 },
+      ],
+    },
+  };
+  // which track plays where
+  const SCENES = {
+    anthem: ['', 'today', 'leaderboard', 'album', 'players', 'updates', 'settings', 'about', 'credits'],
+    matchday: ['draft', 'daily'],
+    puzzle: ['footle', 'clubfootle', 'grid', 'dailygrid', 'whoami', 'tally'],
+    derby: ['h2h', 'h2hplay', 'hilo', 'hopper', 'online'],
+  };
+  const trackFor = path => Object.keys(SCENES).find(k => SCENES[k].includes(path)) || 'anthem';
+  let scene = 'anthem';
+
+  function startMusic(name, from, until) {
+    const T = TRACKS[name] || TRACKS.anthem, I = T.inst, SONG = T.song, c = X.ctx;
+    const BARS = SONG.reduce((a, x) => a + x.bars, 0);
+    const step = 60 / T.bpm / 4;
+    const out = c.createGain(); out.connect(X.bg);
+    const t00 = (from || now()) + 0.1;
+    out.gain.setValueAtTime(0.0001, t00); out.gain.linearRampToValueAtTime(1.5, t00 + 1.2);  // fade in
     // the tune gets a little echo
     const lead = c.createGain(), echo = c.createDelay(1), fb = c.createGain(), wet = c.createGain();
     echo.delayTime.value = step * 3; fb.gain.value = 0.3; wet.gain.value = 0.35;
     lead.connect(out); lead.connect(echo); echo.connect(fb); fb.connect(echo); echo.connect(wet); wet.connect(out);
-    let s = 0, t0 = (from || now()) + 0.1, pass = 0;
+    let s = 0, t0 = t00, pass = 0;
     const inst = {
-      kick: t => tone(150, { t, to: 45, glide: 0.12, dur: 0.22, vol: 0.5, dest: out }),
-      clap: (t, v = 0.11) => [0, 0.01, 0.022].forEach(j => noise({ t: t + j, dur: 0.12, freq: 1600, q: 0.9, vol: v, dest: out })),
-      hat: (t, open) => noise({ t, dur: open ? 0.18 : 0.04, type: 'highpass', freq: 7500, vol: open ? 0.05 : 0.035, dest: out }),
-      bass: (t, n, len) => tone(midi(n), { t, dur: step * len, type: 'sawtooth', lp: 380, vol: 0.14, dest: out }),
-      stab: (t, ch) => ch.forEach(n => [-9, 9].forEach(d => tone(midi(n + 12), { t, dur: step * 1.4, type: 'sawtooth', lp: 1700, detune: d, vol: 0.022, dest: out }))),
-      pad: (t, ch, bars) => ch.forEach(n => tone(midi(n), { t, dur: step * 16 * bars, type: 'triangle', attack: 0.4, vol: 0.03, dest: out })),
-      arp: (t, n) => tone(midi(n + 24), { t, dur: step * 0.9, type: 'square', lp: 2600, vol: 0.016, dest: out }),
-      tune: (t, n) => { tone(midi(n), { t, dur: step * 1.7, type: 'square', lp: 2400, vol: 0.028, dest: lead }); tone(midi(n), { t, dur: step * 1.7, type: 'sawtooth', lp: 3000, detune: 8, vol: 0.018, dest: lead }); },
+      kick: t => tone(150, { t, to: 45, glide: 0.12, dur: 0.22, vol: I.kickVol || 0.5, dest: out }),
+      clap: (t, v = 0.11) => I.rim ? tone(1900, { t, type: 'triangle', dur: 0.04, vol: v * 0.5, dest: out })
+        : [0, 0.01, 0.022].forEach(j => noise({ t: t + j, dur: 0.12, freq: 1600, q: 0.9, vol: v, dest: out })),
+      hat: (t, open) => noise({ t, dur: open ? 0.18 : 0.04, type: 'highpass', freq: 7500, vol: open ? 0.05 : (I.hatVol || 0.035), dest: out }),
+      bass: (t, n, len) => tone(midi(n), { t, dur: step * len, type: I.bassType || 'sawtooth', lp: I.bassLp || 380, vol: I.bassType === 'triangle' ? 0.2 : 0.14, dest: out }),
+      stab: (t, ch) => I.keys
+        ? ch.forEach(n => tone(midi(n + 12), { t, dur: step * 3, type: 'triangle', attack: 0.01, vol: 0.02, dest: out }))
+        : ch.forEach(n => [-9, 9].forEach(d => tone(midi(n + 12), { t, dur: step * 1.4, type: 'sawtooth', lp: 1700, detune: d, vol: I.stabVol || 0.022, dest: out }))),
+      pad: (t, ch, bars) => ch.forEach(n => tone(midi(n), { t, dur: step * 16 * bars, type: 'triangle', attack: 0.4, vol: I.soft ? 0.024 : 0.03, dest: out })),
+      arp: (t, n) => tone(midi(n + 24), { t, dur: step * 0.9, type: I.arpType || 'square', lp: 2600, vol: I.arpVol || 0.016, dest: out }),
+      tune: (t, n) => {
+        if (I.soft) { tone(midi(n), { t, dur: step * 3, type: 'sine', vol: 0.04, dest: lead }); tone(midi(n + 12), { t, dur: step * 1.5, type: 'sine', vol: 0.008, dest: lead }); return; }
+        tone(midi(n), { t, dur: step * 1.7, type: 'square', lp: 2400, vol: 0.028, dest: lead });
+        tone(midi(n), { t, dur: step * 1.7, type: 'sawtooth', lp: I.leadSaw ? 3600 : 3000, detune: 8, vol: I.leadSaw ? 0.024 : 0.018, dest: lead });
+      },
     };
     const ARPS = [[0, 1, 2, 1], [0, 2, 1, 2], [2, 1, 0, 1], [0, 1, 2, 3]];
     function schedule(horizon) {
@@ -178,36 +256,43 @@
         if (barAll === 0 && b === 0 && s > 0) pass++;
         let sec = SONG[0], start = 0;
         for (const x of SONG) { if (barAll < start + x.bars) { sec = x; break; } start += x.bars; }
-        const bar = barAll - start, name = sec.chords[bar % 4], ch = CH[name], root = ROOT[name], last = bar === sec.bars - 1;
-        const r = GM.rng(pass + ':' + barAll + ':' + b);
-        if (b === 0 && sec.pad) inst.pad(t0, ch, 1);
-        if (sec.kick && b % 4 === 0 && !(last && sec.fill && b >= 8)) inst.kick(t0);
-        if (sec.clap && (b === 4 || b === 12)) inst.clap(t0);
+        const bar = barAll - start, [ch, root] = CH[sec.chords[bar % 4]], last = bar === sec.bars - 1;
+        const r = GM.rng(name + pass + ':' + barAll + ':' + b);
+        const t = t0 + (I.swing && b % 2 ? step * I.swing : 0);  // swing pushes the off-beat 16ths late
+        if (b === 0 && sec.pad) inst.pad(t, ch, 1);
+        if (sec.kick && (I.soft ? b % 8 === 0 : b % 4 === 0) && !(last && sec.fill && b >= 8)) inst.kick(t);
+        if (sec.clap && (b === 4 || b === 12)) inst.clap(t);
         // drum roll into the next section: the last bar (or two, for a roll) fills with rising claps
         if ((sec.fill && last && b >= 8) || (sec.roll && bar >= sec.bars - 2 && (bar === sec.bars - 1 || b % 2 === 0))) {
-          inst.clap(t0, 0.03 + 0.08 * ((bar === sec.bars - 1 ? 16 : 0) + b) / 32);
+          inst.clap(t, 0.03 + 0.08 * ((bar === sec.bars - 1 ? 16 : 0) + b) / 32);
         }
-        if (sec.hats === 8 && b % 4 === 2) inst.hat(t0, sec.open && b === 14);
-        if (sec.hats === 16 && (b % 2 === 0 || r() < 0.2)) inst.hat(t0, sec.open && b === 14 && bar % 2 === 1);
-        if (sec.bass === 'pulse' && b % 2 === 0) inst.bass(t0, b === 6 || b === 14 ? root + 12 : root, 1.8);
-        if (sec.bass === 'bounce' && [0, 3, 6, 8, 10, 11, 14].includes(b)) inst.bass(t0, [6, 11].includes(b) ? root + 12 : b === 14 ? root + 7 : root, 1.4);
-        if (sec.bass === 'long' && b === 0) inst.bass(t0, root, 15);
-        if (sec.stab && (b === 2 || b === 6 || b === 10 || b === 13)) inst.stab(t0, ch);
-        if (sec.arp && !(sec.intro)) {
+        if (sec.hats === 8 && b % 4 === 2) inst.hat(t, sec.open && b === 14);
+        if (sec.hats === 16 && (b % 2 === 0 || r() < 0.2)) inst.hat(t, sec.open && b === 14 && bar % 2 === 1);
+        if (sec.bass === 'pulse' && b % 2 === 0) inst.bass(t, b === 6 || b === 14 ? root + 12 : root, 1.8);
+        if (sec.bass === 'bounce' && [0, 3, 6, 8, 10, 11, 14].includes(b)) inst.bass(t, [6, 11].includes(b) ? root + 12 : b === 14 ? root + 7 : root, 1.4);
+        if (sec.bass === 'drive' && b % 2 === 0) inst.bass(t, b % 8 === 6 ? root + 12 : root, 1.2);
+        if (sec.bass === 'walk' && b % 4 === 0) inst.bass(t, root + [0, 4, 7, 9][b / 4], 3.6);  // a walking line up the chord
+        if (sec.bass === 'long' && b === 0) inst.bass(t, root, 15);
+        if (sec.stab && (I.keys ? b === 0 || b === 10 : b === 2 || b === 6 || b === 10 || b === 13)) inst.stab(t, ch);
+        if (sec.arp && !sec.intro) {
           const pat = ARPS[(pass + Math.floor(barAll / 4)) % ARPS.length], notes = ch.concat(ch[0] + 12);
-          inst.arp(t0, notes[pat[b % 4]] + (b >= 8 ? 12 : 0));
+          if (!I.soft || b % 2 === 0) inst.arp(t, notes[pat[b % 4] % notes.length] + (b >= 8 ? 12 : 0));
         }
         if (sec.tune && b % 2 === 0) {
-          const tune = TUNES[sec.tune], n = tune[bar % tune.length][b / 2];
-          if (n) inst.tune(t0, n);
+          const tune = T.tunes[sec.tune], n = tune[bar % tune.length][b / 2];
+          if (n) inst.tune(t, n);
         }
         s++; t0 += step;
       }
     }
     if (until) { schedule(until - 1); return; }
     schedule(now() + 0.25);
-    bgTimer = setInterval(() => schedule(now() + 0.25), 60);
-    bgNodes.push({ stop: () => { out.disconnect(); echo.disconnect(); } });
+    const timer = setInterval(() => schedule(now() + 0.25), 60);
+    bgNodes.push({ stop: () => {  // fade out, then let go
+      clearInterval(timer);
+      try { out.gain.cancelScheduledValues(now()); out.gain.setTargetAtTime(0.0001, now(), 0.15); } catch (e) { }
+      setTimeout(() => { out.disconnect(); echo.disconnect(); }, 900);
+    } });
   }
 
   function stopBg() {
@@ -217,11 +302,11 @@
   }
   function syncBg() {
     if (!live) return;
-    const want = document.hidden ? 'off' : GM.sound.settings().bg;
+    const want = document.hidden || GM.sound.settings().bg !== 'music' ? 'off' : scene;
     if (want === bgMode) return;
     stopBg();
     X = live;
-    if (want === 'music') startMusic();
+    if (want !== 'off') startMusic(want);
     bgMode = want;
   }
 
@@ -246,6 +331,9 @@
   GM.sound = {
     settings: () => ({ sfx: store.get('sfx', true), sfxVol: store.get('sfxVol', 0.7), bg: store.get('bg', 'off') === 'music' ? 'music' : 'off', bgVol: store.get('bgVol', 0.5) }),
     set(k, v) { store.set(k, v); applyVolumes(); syncBg(); },
+    // the router calls this on every page change; the music follows the game area
+    scene(path) { const t = trackFor(path); if (t !== scene) { scene = t; syncBg(); } },
+    TRACKS: Object.keys(TRACKS),
     play(name, arg) {
       if (!live || !store.get('sfx', true) || document.hidden) return;
       if (live.ctx.state !== 'running') return;
@@ -255,12 +343,13 @@
     // Renders every sound (and a few seconds of each background) to a WAV, for checking them without a speaker
     async renderDemo(names = Object.keys(SOUNDS), gap = 1.6, bgSeconds = 0) {
       const sfxEnd = names.length * gap + 2, rate = 44100;
-      const ctx = new OfflineAudioContext(1, Math.ceil((sfxEnd + bgSeconds + 1) * rate), rate);
+      const bgTotal = typeof bgSeconds === 'object' ? bgSeconds.reduce((t, x) => t + x[1], 0) : bgSeconds;
+      const ctx = new OfflineAudioContext(1, Math.ceil((sfxEnd + bgTotal + 1) * rate), rate);
       const prev = X; X = makeStudio(ctx);
       X.bg.gain.value = 0.4;
       names.forEach((n, i) => SOUNDS[n](i * gap + 0.1));
       const liveNodes = bgNodes;
-      if (bgSeconds) startMusic(sfxEnd, sfxEnd + bgSeconds);
+      if (bgSeconds) (typeof bgSeconds === 'object' ? bgSeconds : [['anthem', bgSeconds]]).reduce((t0, [name, secs]) => { startMusic(name, t0, t0 + secs); return t0 + secs; }, sfxEnd);
       bgNodes = liveNodes;
       const buf = await ctx.startRendering();
       X = prev;

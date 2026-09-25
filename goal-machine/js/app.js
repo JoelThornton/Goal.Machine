@@ -46,6 +46,7 @@
     document.body.classList.toggle('has-tabs', menu);
     tabbar.hidden = !menu;
     GM.$$('[data-tab]', tabbar).forEach(a => a.classList.toggle('on', a.dataset.tab === path));
+    GM.sound.scene(path);  // each game area has its own music
     GM.$('.cal-slot', tabbar).innerHTML = GM.calIcon();  // stays right past midnight
     switch (path) {
       case 'draft': return GM.draft.start(app, ['target', 'treble', 'mystery', 'club', 'classic', 'extreme', 'purist'].includes(q.m) ? q.m : 'ultimate',
@@ -192,7 +193,7 @@
           <select class="input" id="s-club"><option value="">None</option>${GM.clubOptions().map(c => `<option ${c === GM.favClub() ? 'selected' : ''}>${GM.esc(c)}</option>`).join('')}</select></div>
         <div class="setting"><b>Sound effects</b><small>Whistles, reels, the crowd and the goal horn</small>${seg('s-sfx', { true: '🔊 On', false: '🔇 Off' }, snd.sfx)}
           <label class="vol">🔈<input type="range" id="s-sfxvol" min="0" max="1" step="0.05" value="${snd.sfxVol}">🔊</label></div>
-        <div class="setting"><b>Music</b><small>A background track while you play</small>${seg('s-bg', { off: '🔇 Off', music: '🎵 On' }, snd.bg)}
+        <div class="setting"><b>Music</b><small>Each area has its own track: Anthem on the menus, Matchday for team builders, Thinking Cap for puzzles and Derby for head-to-heads</small>${seg('s-bg', { off: '🔇 Off', music: '🎵 On' }, snd.bg)}
           <label class="vol">🔈<input type="range" id="s-bgvol" min="0" max="1" step="0.05" value="${snd.bgVol}">🔊</label></div>
         <div class="setting"><b>Difficulty</b><small>Hard shows names and positions only, with fewer stars on the reels</small>${seg('s-hard', { false: '🙂 Normal', true: '🥵 Hard' }, GM.isHard())}</div>
         <div class="setting"><b>Vibration</b><small>A little buzz on taps, hops and wins (phones only)</small>${seg('s-buzz', { true: '📳 On', false: '🔕 Off' }, GM.store.get('buzz', true))}</div>

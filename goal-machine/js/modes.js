@@ -5,7 +5,14 @@
   const P = GM.players;
   // opts (all optional) let Head to Head run a game: seed, hard, rounds/time, back (link), done(score) instead of saving
   let backTo = '#/';
-  const top = (label, icon) => `<div class="topbar"><a href="${backTo}" class="back">‹</a><h2>${icon} ${label}</h2><span></span></div>`;
+  // the leaderboard for the game on screen (not in Head to Head, which has its own scoring)
+  const boardKey = () => {
+    if (backTo !== '#/') return null;
+    const path = location.hash.replace(/^#\/?/, '').split('?')[0];
+    if (path === 'dailygrid') return 'grid:' + GM.today();
+    return GM.MODES[path] ? path + (GM.isHard() && GM.HARD_MODES.includes(path) ? 'h' : '') : null;
+  };
+  const top = (label, icon) => `<div class="topbar"><a href="${backTo}" class="back">‹</a><h2>${icon} ${label}</h2>${GM.lbButton(boardKey())}</div>`;
   const setup = opts => { backTo = opts.back || '#/'; return { r: GM.rng(opts.seed || GM.newSeed()), hard: opts.hard != null ? opts.hard : GM.isHard() }; };
 
   async function gameOver(root, mode, score, lines, again, shareText, extra, done) {

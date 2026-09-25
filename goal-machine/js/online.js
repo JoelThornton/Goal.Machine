@@ -60,18 +60,31 @@
     if (!GM.account()) return needAccount(root, q.join ? `You've been invited to game <b>${esc(q.join)}</b>. Claim a name and you're in.` : '', q);
     if (q.join) return join(root, q.join);
     if (q.room) return room(root, q.room, q);
+    // sub-tabs keep it short: your games first, with finished games, the league and friends a tap away
+    const TABS = [['games', '🎮 Games'], ['done', '✅ Finished'], ['league', '🏆 League'], ['friends', '👥 Friends']];
+    let tab = TABS.some(t => t[0] === q.tab) ? q.tab : GM.store.get('onlineTab', 'games');
     root.innerHTML = `${top('Online')}
       <div class="online-me"><a href="#/settings" class="me-pic">${GM.userPic(me())}</a><span>Playing as <b>🔒 ${esc(me())}</b></span><button class="btn small" id="onew">⚔️ New game</button></div>
-      <div id="olists"><p class="muted center">Loading your games…</p></div>
-      <h3 class="section-title">🏆 This week's league<span class="more" id="lgreset"></span></h3>
-      <div class="seg wrap league-modes" id="lgmode">${LEAGUE.map(([k, l]) => `<button data-v="${k}" class="${k === GM.store.get('leagueMode', 'ultimate') ? 'on' : ''}">${l}</button>`).join('')}</div>
-      <div id="league" class="league"><p class="muted center">Loading…</p></div>
-      <h3 class="section-title">Friends</h3>
-      <div id="ofriends" class="friends"></div>
-      <div class="join-row"><input class="input" id="ofriend" maxlength="20" placeholder="Add a friend by name" autocomplete="off"><button class="btn" id="oadd">➕ Add</button></div>
-      <h3 class="section-title">Got a code?</h3>
-      <div class="join-row"><input class="input" id="ocode" maxlength="5" placeholder="ABCDE" autocapitalize="characters"><button class="btn" id="ojoin">Join</button></div>
-      <p class="muted center"><a href="#/h2h">📱 Play on one phone instead (pass it round)</a></p>`;
+      <div class="seg online-tabs" id="otabs">${TABS.map(([k, l]) => `<button data-t="${k}">${l}<i class="ot-n" data-n="${k}"></i></button>`).join('')}</div>
+      <div data-panel="games"><div id="olists"><p class="muted center">Loading your games…</p></div></div>
+      <div data-panel="done"><div id="odone"></div></div>
+      <div data-panel="league">
+        <h3 class="section-title">This week<span class="more" id="lgreset"></span></h3>
+        <div class="seg wrap league-modes" id="lgmode">${LEAGUE.map(([k, l]) => `<button data-v="${k}" class="${k === GM.store.get('leagueMode', 'ultimate') ? 'on' : ''}">${l.replace('📅', GM.calIcon())}</button>`).join('')}</div>
+        <div id="league" class="league"><p class="muted center">Loading…</p></div></div>
+      <div data-panel="friends">
+        <div id="ofriends" class="friends"></div>
+        <div class="join-row"><input class="input" id="ofriend" maxlength="20" placeholder="Add a friend by name" autocomplete="off"><button class="btn" id="oadd">➕ Add</button></div>
+        <h3 class="section-title">Got a code?</h3>
+        <div class="join-row"><input class="input" id="ocode" maxlength="5" placeholder="ABCDE" autocapitalize="characters"><button class="btn" id="ojoin">Join</button></div>
+        <p class="muted center"><a href="#/h2h">📱 Play on one phone instead (pass it round)</a></p></div>`;
+    const showTab = t => {
+      tab = t; GM.store.set('onlineTab', t);
+      GM.$$('#otabs button').forEach(b => b.classList.toggle('on', b.dataset.t === t));
+      GM.$$('[data-panel]', root).forEach(el => { el.hidden = el.dataset.panel !== t; });
+    };
+    GM.$$('#otabs button').forEach(b => b.onclick = () => showTab(b.dataset.t));
+    showTab(tab);
     GM.$('#onew').onclick = () => newGame();
     // the league: you and your friends' best this week (Monday to Sunday); dailies add up every day's score
     const loadLeague = async () => {
@@ -114,15 +127,19 @@
           : g.kind === 'duel' ? (g.turn === seat ? '👉 Your pick' : `⏳ ${esc(opp)}’s pick`)
           : g.kind === 'auction' ? (myMove(g, seat) ? '👉 Your bid' : `⏳ Waiting for ${esc(opp)}’s bid`)
           : `You ${(s[seat] || {}).done ? '✓ done' : `${(s[seat] || {}).n || 0}/11`} · ${esc(opp)} ${(s[other(seat)] || {}).done ? '✓ done' : `${(s[other(seat)] || {}).n || 0}/11`}`;
-        return `<a class="og-row ${o ? 'res-' + o.text.toLowerCase() : ''}" href="#/online?room=${g.code}"><span class="og-icon">${opp ? GM.userPic(opp) : ''}<i>${k.icon}</i></span>
+        return `<a class="og-row ${o ? 'res-' + o.text.toLowerCase() : ''} ${!o && myMove(g, seat) ? 'mine' : ''}" href="#/online?room=${g.code}"><span class="og-icon">${opp ? GM.userPic(opp) : ''}<i>${k.icon}</i></span>
           <span class="og-main"><b>${opp ? esc(opp) : 'Open invite'}</b><small>${k.name} · ${st.icon} ${st.name}</small><small class="og-sub">${sub}</small></span>
           <span class="og-when">${when(g.updated)}</span></a>`;
       };
-      const block = (title, list, empty) => `<h3 class="section-title">${title}${list.length ? ` <span class="count">${list.length}</span>` : ''}</h3>
+      const block = (title, list, empty) => `<h3 class="section-title">${title}${list.length && list === yours ? ` <span class="count">${list.length}</span>` : ''}</h3>
         ${list.length ? `<div class="og-list">${list.map(line).join('')}</div>` : `<p class="muted center">${empty}</p>`}`;
-      GM.$('#olists').innerHTML = block('Your move', yours, 'Nothing waiting on you. Start a game!')
-        + (theirs.length ? block('Their move', theirs, '') : '')
-        + (done.length ? block('Finished', done.slice(0, 20), '') : '');
+      GM.$('#olists').innerHTML = (yours.length ? block('👉 Your move', yours, '')
+          : `<div class="og-empty"><b>Nothing waiting on you</b><span>Start a game, or check back when it’s your turn.</span><button class="btn" id="onew2">⚔️ New game</button></div>`)
+        + (theirs.length ? block('⏳ Their move', theirs, '') : '');
+      GM.$('#odone').innerHTML = done.length ? `<div class="og-list">${done.slice(0, 30).map(line).join('')}</div>` : '<p class="muted center">No finished games yet.</p>';
+      const nb = GM.$('#onew2'); if (nb) nb.onclick = () => newGame();
+      // the Games tab shows how many are waiting on you; the list itself marks your moves loudly
+      const n = GM.$('[data-n="games"]'); if (n) { n.textContent = yours.length || ''; n.classList.toggle('hot', !!yours.length); }
       GM.$('#ofriends').innerHTML = friends.length ? friends.map(f => `<div class="friend"><button class="f-av" data-fmenu="${esc(f.name)}" title="Options">${GM.userPic(f.name)}</button>
           <span class="f-main"><b>${esc(f.name)}</b>${f.w + f.d + f.l ? record(f) : '<small class="muted">No games yet</small>'}</span>
           <button class="btn small" data-challenge="${esc(f.name)}">⚔️ Play</button></div>`).join('')
@@ -393,11 +410,12 @@
   function duelState(r) {
     const st = { xi: { host: FORMATION.map(pos => ({ pos, k: null })), guest: FORMATION.map(pos => ({ pos, k: null })) }, used: new Set(), done: false,
       // Scout Duel: who has used which card, which players each has scouted, and who is blindfolded for their next pick
-      wild: { host: {}, guest: {} }, scouted: { host: new Set(), guest: new Set() }, blind: {} };
+      // hand: how many of each card each player holds (one of each to start; bonus cards on the reels add more)
+      hand: { host: { scout: 1, blind: 1, swap: 1 }, guest: { scout: 1, blind: 1, swap: 1 } }, scouted: { host: new Set(), guest: new Set() }, blind: {} };
     const open = seat => st.xi[seat].filter(s => !s.k).map(s => s.pos);
     const wildcard = (m, seat) => {
-      if (st.wild[seat][m.w] || !SCOUT_CARDS[m.w]) return;
-      st.wild[seat][m.w] = true;
+      if (!SCOUT_CARDS[m.w] || !(st.hand[seat][m.w] > 0)) return;
+      st.hand[seat][m.w]--;
       if (m.w === 'scout') st.scouted[seat].add(m.k);
       if (m.w === 'blind') st.blind[other(seat)] = true;
       if (m.w === 'swap') {
@@ -411,11 +429,20 @@
       const active = order.filter(s => open(s).length);
       if (!active.length) break;
       const reels = duelReels(r.seed, spin, active, open, st.used), takenNow = {};
+      // Scout Duel: from the 3rd spin, about one spin in three also offers a bonus card, which you can take instead of a player
+      if (r.variant === 'scout' && spin >= 2) {
+        const rb = GM.rng(`${r.seed}|bonus|${spin}`);
+        if (rb() < 0.34) { const types = Object.keys(SCOUT_CARDS); reels.splice(Math.floor(rb() * (reels.length + 1)), 0, 'card:' + types[Math.floor(rb() * types.length)]); }
+      }
       for (const seat of active) {
         while (i < r.moves.length && r.moves[i].w) wildcard(r.moves[i++], seat);  // cards don't use up your turn
         if (i >= r.moves.length) return Object.assign(st, { spin, reels, turn: seat, first: active[0], takenNow, open });
         const m = r.moves[i++], slot = m.k != null && st.xi[seat][m.slot];
         st.blind[seat] = false;  // a blindfold lasts one pick
+        if (typeof m.k === 'string' && m.k.startsWith('card:')) {  // took the bonus card: it goes in their hand
+          if (reels.includes(m.k) && !takenNow[m.k]) { st.hand[seat][m.k.slice(5)] = (st.hand[seat][m.k.slice(5)] || 0) + 1; takenNow[m.k] = seat; }
+          continue;
+        }
         // a recorded pick stands even if a weekly data update has changed the reels since
         if (slot && !slot.k && GM.byPk.get(m.k) && !st.used.has(m.k)) { slot.k = m.k; st.used.add(m.k); takenNow[m.k] = seat; }
       }
@@ -448,7 +475,14 @@
           ? `<small>${GM.flag(p.nat)} ${GM.era(p)}</small><span class="chips">${p.clubs.map(c => GM.clubChip(c)).join('')}</span>`
           : clues.filter(c => c !== 'name').map(c => clueHtml(c, p)).join('')}</button>`;
     };
+    const bonusCard = k => {
+      const c = SCOUT_CARDS[k.slice(5)], by = st.takenNow[k];
+      return `<button class="duel-card bonus-card ${by ? 'taken' : ''}" data-pick="${esc(k)}" ${mineNow && !by ? '' : 'disabled'}>
+        ${by ? `<span class="dc-tag">✍️ ${by === you ? 'You' : esc(opp)}</span>` : '<span class="dc-tag">🃏 Bonus card</span>'}
+        <span class="bc-icon">${c.icon}</span><b>${c.name}</b><small>${c.desc}</small><span class="bc-note">Take it instead of a player</span></button>`;
+    };
     const card = k => {
+      if (k.startsWith('card:')) return bonusCard(k);
       const p = GM.byPk.get(k), by = st.takenNow[k], ok = fits(p), can = mineNow && !by && ok;
       if (scoutGame) return scoutCard(k, p, by, ok, can);
       const clubs = p.clubs.slice(0, 3).map(c => GM.clubChip(c)).join('') + (p.clubs.length > 3 ? `<small>+${p.clubs.length - 3}</small>` : '');
@@ -461,8 +495,13 @@
       return `<div class="dx ${p ? 'on' : ''}"><span class="pos pos-${GM.GROUP[s.pos]}">${s.pos}</span>${p ? `<b>${esc(p.name.split(' ').slice(-1)[0])}</b><i>${scoutGame ? '?' : p[stat.key]}</i>` : '<b class="muted">–</b>'}</div>`;
     }).join('')}</div>`;
     const tMe = duelTotal(my, r.stat), tThem = duelTotal(st.xi[them], r.stat);
-    const noFit = mineNow && !st.reels.some(k => !st.takenNow[k] && fits(GM.byPk.get(k)));
-    const cardsLeft = Object.keys(SCOUT_CARDS).filter(w => !st.wild[you][w]);
+    const isCard = k => k.startsWith('card:');
+    const noFit = mineNow && !st.reels.some(k => !st.takenNow[k] && (isCard(k) || fits(GM.byPk.get(k))));
+    const hand = st.hand[you], held = Object.values(hand).reduce((a, n) => a + n, 0);
+    // your cards, big and above the players (they were easy to miss tucked under the reels)
+    const handHtml = `<div class="scout-hand ${mineNow && held ? 'live' : ''}"><div class="sh-title">🃏 Your cards <span>${!held ? 'all played – grab bonus cards from the reels' : mineNow ? 'tap one to play it (it doesn’t use your pick)' : 'use them on your turn'}</span></div>
+      <div class="sh-cards">${Object.entries(SCOUT_CARDS).map(([w, c]) => `<button class="sh-card" data-wild="${w}" ${mineNow && hand[w] > 0 ? '' : 'disabled'}>
+        <span class="sh-icon">${c.icon}</span><b>${c.name}</b><small>${c.desc}</small>${hand[w] > 0 ? `<i class="sh-n">×${hand[w]}</i>` : ''}</button>`).join('')}</div></div>`;
     root.innerHTML = `${top(KIND[gk(r)].name, '#/online')}
       <div class="h2h-board duel-board">
         <div class="h2h-team p1">${GM.userPic(me(), 'board')}<b>You</b><strong>${scoutGame ? '?' : tMe}</strong><small>${11 - myOpen.length}/11</small></div>
@@ -472,9 +511,8 @@
       <div class="duel-turn ${mineNow ? 'mine' : ''}">${mineNow ? (st.first === you ? '👉 Your pick – first choice this spin' : '👉 Your pick – from what’s left') : `⏳ ${esc(opp || 'Your opponent')} is picking…${live ? '' : ' They’ll see it’s their turn next time they open the game.'}`}
         <small>Spin ${st.spin + 1}</small>${mineNow && live ? `<span class="clock" id="dclock">${PICK_SECONDS}</span>` : ''}</div>
       ${blindNow ? `<div class="banner">🙈 ${esc(opp)} blindfolded you: positions only this pick</div>` : ''}
+      ${scoutGame ? handHtml : ''}
       <div class="duel-cards">${st.reels.map(card).join('')}</div>
-      ${scoutGame ? `<div class="scout-wild">${Object.entries(SCOUT_CARDS).map(([w, c]) => `<button class="wild-btn" data-wild="${w}" ${mineNow && !st.wild[you][w] ? '' : 'disabled'} title="${c.desc}">${c.icon}<small>${c.name}</small></button>`).join('')}
-        <span class="muted">${cardsLeft.length ? `${cardsLeft.length} card${cardsLeft.length > 1 ? 's' : ''} left · use them on your turn` : 'All cards played'}</span></div>` : ''}
       ${noFit ? '<div class="actions"><button class="btn ghost" id="dpass">None of these fit – pass</button></div>' : ''}
       <h3 class="section-title">Your XI</h3>${pitch(my)}
       <details class="set" open><summary><span>${esc(opp || 'Their')}'s XI</span><span>${scoutGame ? 'totals at full time' : `${tThem} ${stat.label}`}</span></summary>${pitch(st.xi[them])}</details>
@@ -483,12 +521,12 @@
     resignButton(root, r, you);
     GM.$$('[data-pick]:not([disabled])', root).forEach(b => b.onclick = () => (scouting ? scoutOne(b.dataset.pick) : pick(b.dataset.pick)));
     let scouting = false;
-    const scoutOne = k => { scouting = false; send({ w: 'scout', k }); };
+    const scoutOne = k => { scouting = false; if (isCard(k)) return pick(k); send({ w: 'scout', k }); };
     GM.$$('[data-wild]:not([disabled])', root).forEach(b => b.onclick = () => {
       const w = b.dataset.wild;
       if (w === 'scout') {
         scouting = true; GM.toast('🔍 Tap a player to see their full report');
-        GM.$$('.duel-card.scout', root).forEach(c => { if (!st.takenNow[c.dataset.pick]) { c.disabled = false; c.classList.add('pick-me'); } });
+        GM.$$('.duel-card.scout', root).forEach(c => { if (!st.takenNow[c.dataset.pick] && !isCard(c.dataset.pick)) { c.disabled = false; c.classList.add('pick-me'); } });
         return;
       }
       if (w === 'blind') return GM.confirm(`🙈 Blindfold ${esc(opp)}? They’ll see positions only on their next pick.`).then(ok => ok && send({ w: 'blind' }));
@@ -515,7 +553,7 @@
         if (left === 0) {
           clearInterval(timer); timer = null;
           GM.$$('.modal-wrap').forEach(m => m.remove());
-          const options = st.reels.filter(k => !st.takenNow[k] && fits(GM.byPk.get(k)));
+          const options = st.reels.filter(k => !isCard(k) && !st.takenNow[k] && fits(GM.byPk.get(k)));
           if (!options.length) return send({ k: null, slot: null });
           const k = options[Math.floor(Math.random() * options.length)];
           GM.toast(`⏰ Time’s up – you got ${esc(GM.byPk.get(k).name)}`);
@@ -527,6 +565,7 @@
     }
 
     function pick(k) {
+      if (isCard(k)) return send({ k, slot: null });  // a bonus card goes straight into your hand
       const p = GM.byPk.get(k), slots = my.map((s, i) => i).filter(i => !my[i].k && p.poss.includes(my[i].pos));
       const byPos = [...new Map(slots.map(i => [my[i].pos, i])).values()];
       if (byPos.length === 1) return send({ k, slot: byPos[0] });
@@ -576,7 +615,7 @@
     if (fresh.length) {
       const g = fresh[0];
       // a card at the top of the screen; tap it to go straight to the game (or to your games, if there are several)
-      const here = location.hash.includes('room=' + g.code);
+      const here = location.hash.includes('room=' + g.code) || /^#\/online(\?tab=games)?$/.test(location.hash);  // already looking at it (or at your games list)
       if (!here) GM.notice(fresh.length > 1
         ? { pic: '<span class="notice-icon">🌐</span>', title: `It’s your move in ${fresh.length} online games`, sub: 'Tap to see them', href: '#/online' }
         : { pic: GM.userPic(g.opp || '?'), title: `⚔️ It’s your move against ${esc(g.opp || 'your opponent')}`, sub: `${KIND[gk(g)].icon} ${KIND[gk(g)].name} · tap to play`, href: '#/online?room=' + g.code });

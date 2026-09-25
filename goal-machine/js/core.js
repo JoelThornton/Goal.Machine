@@ -481,6 +481,8 @@ GM.toast = function (msg, ms = 2200) {
   requestAnimationFrame(() => t.classList.add('show'));
   setTimeout(() => { t.classList.remove('show'); setTimeout(() => t.remove(), 300); }, ms);
 };
+// 🏆 in a game's top bar: straight to that game's leaderboard
+GM.lbButton = key => (key ? `<a class="icon-btn lb-btn" href="#/leaderboard?m=${encodeURIComponent(key)}" title="Leaderboard" aria-label="Leaderboard">🏆</a>` : '<span></span>');
 // An in-app notification: a card that drops in from the top, and opens href when tapped (swipe it up or wait to dismiss)
 GM.notice = function ({ pic = '', title, sub = '', href, ms = 6000 }) {
   GM.$$('.notice').forEach(n => n.remove());

@@ -5,8 +5,13 @@
   const FORMATION = ['GK', 'LB', 'CB', 'CB', 'RB', 'LM', 'CM', 'CM', 'RM', 'ST', 'ST'];
   const SIDE = { LB: 0, LM: 0, RB: 2, RM: 2 }; // for left-to-right ordering on the pitch
   const WIDE_MIDS = [5, 8];
-  // Target mode numbers: 442 is the classic; the others were set so they're about as hard to hit (simulated)
-  const TARGETS = { goals: 442, assists: 333, apps: 3500 };
+  // Target mode numbers - simulated so each is reachable in ~70% of games by someone picking the biggest numbers
+  const TARGETS = { goals: 500, assists: 350, apps: 3750 };
+  // The Treble: hit all three at once (above what a random team gets, below what a greedy one gets)
+  const TREBLE = { goals: 400, assists: 300, apps: 3300 };
+  // Mystery Target: stat and number are drawn at random; the number stays hidden until full time
+  const MYSTERY = { goals: [300, 650], assists: [220, 420], apps: [2600, 4200] };
+  const STAT_KEYS = ['goals', 'assists', 'apps'];
   // "big number" filter for the Centurion Throw, per stat
   const BIG = { goals: 100, assists: 50, apps: 400 };
 
@@ -15,7 +20,7 @@
     scout: { icon: '🔍', name: "Scout's IQ", w: 3, kind: 'reveal', desc: st => `See the PL ${st.label} of the players on the reels this turn.` },
     respin: { icon: '🎰', name: 'Roll Again', w: 3, kind: 'respin', desc: () => 'Throw these back and spin again – free.' },
     sub: { icon: '🔄', name: 'Make a Sub', w: 2, kind: 'sub', desc: st => `Release a player from your XI. His ${st.label} come off.` },
-    centurion: { icon: '💯', name: 'Centurion Throw', w: 1.5, kind: 'special', desc: st => `A free spin of players with ${BIG[st.id]}+ PL ${st.label}.`, filter: (p, st) => p[st.key] >= BIG[st.id] },
+    centurion: { icon: '💯', name: 'Centurion Throw', w: 1.5, kind: 'special', desc: st => `A free spin of players with ${BIG[st.id]}+ PL ${st.bigLabel || st.label}.`, filter: (p, st) => p[st.key] >= BIG[st.id] },
     gegenpress: { icon: '⚡', name: 'Gegenpress', w: 1.5, kind: 'formation', desc: () => 'Your empty LM and RM slots push up and become strikers.' },
     bus: { icon: '🚌', name: 'Park the Bus', w: 1.5, kind: 'formation', desc: () => 'Two empty attacking slots drop back to centre-back.' },
     captain: { icon: '©️', name: "Captain's Armband", w: 1.5, kind: 'modifier', desc: st => `Your next signing’s ${st.label} count double.` },
@@ -32,6 +37,10 @@
     ultimate: { max: true, weight: () => 1, noWild: ['rotation', 'bus'] },
     // hit the number: reels lean towards well-known players so big numbers are in reach
     target: { max: false, weight: p => p.fame, noWild: [] },
+    // three targets at once
+    treble: { max: false, treble: true, weight: p => p.fame, noWild: [] },
+    // random stat + hidden number, with a thermometer
+    mystery: { max: false, mystery: true, weight: p => p.fame, noWild: [] },
   };
   RULES.daily = RULES.ultimate;
 
@@ -40,21 +49,33 @@
 
   GM.draft = { start, RULES, WILDCARDS, TARGETS, state: () => S, render: () => render(), modeKey: (m, s, h) => keyFor(m, s, h) };
 
-  const statSuffix = s => ({ goals: '', assists: 'ast', apps: 'apps' }[s]);
-  function keyFor(mode, stat, hard) { return mode === 'daily' ? 'daily:' + GM.today() : mode + statSuffix(stat) + (hard ? 'h' : ''); }
+  const statSuffix = s => ({ goals: '', assists: 'ast', apps: 'apps' }[s] || '');
+  function keyFor(mode, stat, hard) {
+    if (mode === 'daily') return 'daily:' + GM.today();
+    return (mode === 'treble' || mode === 'mystery' ? mode : mode + statSuffix(stat)) + (hard ? 'h' : '');
+  }
 
   function start(el, mode, opts = {}) {
     root = el;
     if (!RULES[mode]) mode = 'ultimate';
-    const stat = mode === 'daily' ? 'goals' : (GM.STATS[opts.stat] ? opts.stat : 'goals');
     const seed = mode === 'daily' ? 'daily:' + GM.today() : (opts.seed || GM.newSeed());
+    let stat = mode === 'daily' ? 'goals' : (GM.STATS[opts.stat] ? opts.stat : 'goals');
+    let target = RULES[mode] && !RULES[mode].max ? TARGETS[stat] : null;
+    if (mode === 'treble') { stat = 'goals'; target = null; }
+    if (mode === 'mystery') {
+      // seeded, so a challenge link gets the same mystery
+      const r = GM.rng(seed + '|mystery');
+      stat = STAT_KEYS[r.int(3)];
+      const [lo, hi] = MYSTERY[stat];
+      target = lo + r.int(hi - lo + 1);
+    }
     if (mode === 'daily') {
       const done = GM.store.get('daily2:' + GM.today());
       if (done && done.xi) { S = done; S.rules = RULES.daily; S.phase = 'done'; S.readonly = true; render(); return; }
     }
     S = {
       mode, stat, seed, rules: RULES[mode], st: { ...GM.STATS[stat], id: stat },
-      target: RULES[mode].max ? null : TARGETS[stat], spin: 0, respins: 0,
+      target, spin: 0, respins: 0, revealStage: mode === 'mystery' ? 'intro' : null,
       xi: FORMATION.map(pos => ({ pos, p: null, g: 0, mod: null, as: null })),
       reels: [], selected: -1, revealed: false, revealNext: false, special: null,
       inv: [], modifier: null, subbing: false, used: [], last: null,
@@ -65,9 +86,13 @@
   }
 
   const modeKey = () => keyFor(S.mode, S.stat, S.hard);
-  const modeName = () => GM.MODES[S.mode === 'daily' ? 'daily' : S.mode + statSuffix(S.stat)].name;
+  // what wildcard descriptions talk about: in the Treble a wildcard affects all three numbers
+  const wst = () => S.rules.treble ? { ...S.st, label: 'numbers', bigLabel: 'goals' } : S.st;
+  const modeName = () => GM.MODES[S.mode === 'daily' ? 'daily' : (S.rules.treble || S.rules.mystery) ? S.mode : S.mode + statSuffix(S.stat)].name;
   const val = p => p[S.st.key];
-  const total = () => S.xi.reduce((t, s) => t + s.g, 0);
+  const pv = p => ({ goals: p.goals, assists: p.ast, apps: p.apps });
+  const tot = k => S.xi.reduce((t, s) => t + (s.v ? s.v[k] : 0), 0);
+  const total = () => tot(S.stat);
   const openPos = () => [...new Set(S.xi.filter(s => s.p == null).map(s => s.pos))];
   const byId = id => GM.players[id];
   const fits = (p, open) => p.poss.some(x => open.includes(x));
@@ -95,7 +120,7 @@
       let cands = pool.filter(p => !taken.has(p.id));
       let mate = null;
       if (wc && wc.filter) {
-        const themed = cands.filter(p => wc.filter(p, S.st));
+        const themed = cands.filter(p => wc.filter(p, wst()));
         if (themed.length) cands = themed;
       } else if (i === 1 && S.last != null && r() < 0.35) {
         const lp = byId(S.last);
@@ -183,16 +208,21 @@
     const slot = S.xi[slotIdx];
     if (!targetSlots(p).includes(slotIdx)) { GM.toast(`${GM.esc(p.name)} can play ${p.poss.join(' / ')} – pick a highlighted slot`); return; }
     const pos = slot.pos;
-    let g = val(p);
-    if (S.modifier === 'captain') g *= 2;
-    if (S.modifier === 'rotation') g = Math.floor(g / 2);
+    // every signing stores goals/assists/apps; modifiers apply to all three
+    let mult = 1, heads = true;
+    if (S.modifier === 'captain') mult = 2;
+    if (S.modifier === 'rotation') mult = 0.5;
     if (S.modifier === 'coin') {
-      const heads = GM.rng(`${S.seed}|coin|${S.spin}|${S.respins}`)() < 0.5;
-      g = heads ? g * 2 : 0;
+      heads = GM.rng(`${S.seed}|coin|${S.spin}|${S.respins}`)() < 0.5;
+      mult = heads ? 2 : 0;
       if (heads) S.coinWin = true;
-      GM.toast(heads ? `🎲 Heads! ${S.st.name} doubled` : `🎲 Tails… his ${S.st.label} count for nothing`, 2600);
+      GM.toast(heads ? '🎲 Heads! Doubled' : '🎲 Tails… he counts for nothing', 2600);
     }
-    slot.p = p.id; slot.g = g; slot.mod = S.modifier === 'coin' ? (g ? 'captain' : 'zero') : S.modifier;
+    const v = pv(p);
+    STAT_KEYS.forEach(k => { v[k] = Math.floor(v[k] * mult); });
+    slot.v = v;
+    const g = v[S.stat];
+    slot.p = p.id; slot.g = g; slot.mod = S.modifier === 'coin' ? (heads ? 'captain' : 'zero') : S.modifier;
     slot.as = pos !== p.poss[0] ? pos : null;
     slot.fresh = true;
     S.modifier = null;
@@ -262,8 +292,8 @@
   function release(slotIdx) {
     const s = S.xi[slotIdx];
     if (S.subbing === false || s.p == null) return;
-    GM.toast(`👋 ${byId(s.p).name} released (−${fmt(s.g)})`);
-    s.p = null; s.g = 0; s.mod = null; s.as = null;
+    GM.toast(`👋 ${byId(s.p).name} released`);
+    s.p = null; s.g = 0; s.v = null; s.mod = null; s.as = null;
     S.inv.splice(S.subbing, 1);
     S.log.push('🔄');
     S.wildUsed++;
@@ -273,14 +303,28 @@
 
   /* ---------------------------------------------------------------- scoring / finish */
   function scoreFor(st) {
-    const t = st.xi.reduce((a, s) => a + s.g, 0);
+    const sum = k => st.xi.reduce((a, s) => a + (s.v ? s.v[k] : (k === st.stat ? s.g : 0)), 0);
+    const t = sum(st.stat);
     if (st.rules.max) return { total: t, parts: [], diff: null, t };
+    if (st.rules.treble) {
+      // up to 333 per stat: full marks when exact, nothing once you're 25% out
+      const parts = [], hits = [];
+      STAT_KEYS.forEach(k => {
+        const got = sum(k), tg = TREBLE[k], e = Math.abs(got - tg) / tg;
+        parts.push([`${GM.STATS[k].icon} ${fmt(got)} / ${fmt(tg)} ${GM.STATS[k].label}`, Math.round(333 * Math.max(0, 1 - 4 * e))]);
+        if (e <= 0.03) hits.push(k);
+      });
+      if (hits.length === 3) parts.push(['🏆 THE TREBLE – all three within 3%!', 500]);
+      else if (hits.length === 2) parts.push(['🥈 The Double – two within 3%', 150]);
+      const worst = Math.max(...STAT_KEYS.map(k => Math.abs(sum(k) - TREBLE[k]) / TREBLE[k]));
+      return { total: parts.reduce((a, p) => a + p[1], 0), parts, diff: hits.length === 3 ? 0 : null, t, hits, closeness: Math.round(worst * 500) };
+    }
     const diff = Math.abs(st.target - t);
-    // closeness is measured in "442-goal units" so apps/assists targets score on the same scale
-    const d = Math.round(diff * 442 / st.target);
+    // closeness is measured in "500-goal units" so every stat/target scores on the same scale
+    const d = Math.round(diff * 500 / st.target);
     const parts = [[`Closeness (${fmt(diff)} off)`, Math.max(0, 1000 - 5 * d)]];
     if (diff === 0) parts.push(['🎯 Bullseye!', 500]);
-    return { total: parts.reduce((a, p) => a + p[1], 0), parts, diff, t };
+    return { total: parts.reduce((a, p) => a + p[1], 0), parts, diff, t, closeness: d };
   }
 
   async function finish() {
@@ -293,7 +337,7 @@
       S.collected = GM.collectDraft({
         mode: S.mode, stat: S.stat, total: sc.t, hard: S.hard, xi: xiSlots.map(s => s.player),
         rating: rating.score, pairs: rating.pairs.length, wildUsed: S.wildUsed, coinWin: S.coinWin,
-        bull: sc.diff === 0, closeness: S.target ? Math.round(sc.diff * 442 / S.target) : null,
+        bull: sc.diff === 0, closeness: sc.closeness != null ? sc.closeness : null, treble: !!(sc.hits && sc.hits.length === 3),
       });
       S.collected = { n: S.collected.newPlayers.length, total: S.collected.total, badges: S.collected.fresh.map(x => x.icon + ' ' + x.name) };
     }
@@ -309,17 +353,19 @@
   /* ---------------------------------------------------------------- rendering */
   const posBadges = GM.posBadges;
   // a small secondary number on the reel card that isn't the stat being played for
-  const hintStat = p => S.stat === 'apps' ? '' : `<small>${fmt(p.apps)} apps</small>`;
+  const hintStat = p => S.stat === 'apps' || S.rules.mystery ? '' : `<small>${fmt(p.apps)} apps</small>`;
 
   function reelInner(x) {
     if (!x) return '';
     if (x.wild) {
       const w = WILDCARDS[x.wild];
-      return `<div class="wild-card"><div class="wild-icon">${w.icon}</div><div class="wild-name">${w.name}</div><div class="wild-desc">${w.desc(S.st)}</div><div class="tag">WILDCARD</div></div>`;
+      return `<div class="wild-card"><div class="wild-icon">${w.icon}</div><div class="wild-name">${w.name}</div><div class="wild-desc">${w.desc(wst())}</div><div class="tag">WILDCARD</div></div>`;
     }
     const p = byId(x.id);
     const reveal = S.revealed;
-    const num = `<div class="reel-goals ${reveal ? 'show' : ''}">${reveal ? `<b>${fmt(val(p))}</b> ${S.st.label}` : `<b>?</b> ${S.st.label}`}${S.hard ? '' : hintStat(p)}</div>`;
+    const num = S.rules.treble
+      ? `<div class="reel-goals treble-num ${reveal ? 'show' : ''}">${STAT_KEYS.map(k => `<span><b>${reveal ? fmt(pv(p)[k]) : '?'}</b> ${GM.STATS[k].icon}</span>`).join('')}</div>`
+      : `<div class="reel-goals ${reveal ? 'show' : ''}">${reveal ? `<b>${fmt(val(p))}</b> ${S.st.label}` : `<b>?</b> ${S.st.label}`}${S.hard ? '' : hintStat(p)}</div>`;
     if (S.hard) {
       return `${GM.avatar(p, 'lg', true)}
       <div class="reel-name">${GM.esc(p.name)}</div>
@@ -342,7 +388,7 @@
     const surname = p.name.includes(' ') ? p.name.split(' ').slice(1).join(' ') : p.name;
     return `<div class="slot filled ${s.fresh ? 'fresh' : ''}" data-slot="${i}" title="${GM.esc(p.name)}">
       ${GM.avatar(p)}<span class="slot-name">${GM.esc(surname)}</span>
-      <span class="slot-goals">${fmt(s.g)}${MOD_TAG[s.mod] || ''}</span><span class="slot-pos" title="${GM.POS_NAME[s.pos]}">${s.pos}</span></div>`;
+      <span class="slot-goals">${S.rules.treble && s.v ? `${s.v.goals}·${s.v.assists}·${s.v.apps}` : fmt(s.g)}${MOD_TAG[s.mod] || ''}</span><span class="slot-pos" title="${GM.POS_NAME[s.pos]}">${s.pos}</span></div>`;
   }
 
   function pitchHtml() {
@@ -368,6 +414,21 @@
       <div class="counter-sub">${pb ? (t > pb ? '🔥 Beating your best (' + fmt(pb) + ')' : `Your best: ${fmt(pb)}`) : 'Set your first score'} · ${left} slot${left === 1 ? '' : 's'} left${mod}</div>
     </div>`;
     }
+    if (S.rules.treble) {
+      return `<div class="counter treble">${STAT_KEYS.map(k => {
+        const got = tot(k), tg = TREBLE[k];
+        return `<div class="trow"><span>${GM.STATS[k].icon} <b>${fmt(got)}</b> / ${fmt(tg)} ${GM.STATS[k].label}</span>
+          <div class="bar"><i style="width:${Math.min(100, got / tg * 100)}%" class="${got > tg ? 'over' : ''}"></i></div></div>`;
+      }).join('')}<div class="counter-sub">${left} slot${left === 1 ? '' : 's'} left${mod}</div></div>`;
+    }
+    if (S.rules.mystery) {
+      const th = thermo(t / S.target);
+      return `<div class="counter mystery">
+        <div class="counter-num"><b>${fmt(t)}</b><span>${S.st.label} · target ❓</span></div>
+        <div class="thermo"><i style="width:${Math.min(100, t / S.target * 80)}%;background:${th.color}"></i></div>
+        <div class="counter-sub"><b>${th.icon} ${th.label}</b> · ${left} slot${left === 1 ? '' : 's'} left${mod}</div>
+      </div>`;
+    }
     const over = t > S.target;
     return `<div class="counter ${over ? 'over' : ''}">
       <div class="counter-num"><b>${fmt(t)}</b><span>/ ${fmt(S.target)} ${S.st.label}</span></div>
@@ -376,9 +437,40 @@
     </div>`;
   }
 
+  // Mystery Target temperature, from the fraction of the hidden target you've reached
+  function thermo(f) {
+    if (f > 1.08) return { icon: '💥', label: 'Overcooked!', color: 'var(--bad)' };
+    if (f >= 0.97) return { icon: '🎯', label: 'Scorching!', color: '#ff7a00' };
+    if (f >= 0.85) return { icon: '🔥', label: 'Hot', color: '#ffa53b' };
+    if (f >= 0.65) return { icon: '♨️', label: 'Warm', color: '#ffd23f' };
+    if (f >= 0.4) return { icon: '🌤️', label: 'Getting warmer', color: '#9fd8ff' };
+    return { icon: '🥶', label: 'Ice cold', color: '#6cc3ff' };
+  }
+
+  function mysteryIntro() {
+    // a little slot-machine reveal of which stat counts – the number stays secret
+    root.innerHTML = `<div class="topbar"><a href="#/" class="back">‹</a><h2>🎲 Mystery Target</h2><span></span></div>
+      <div class="mystery-intro"><p>Tonight we’re counting…</p><div class="mystery-roll" id="mroll">⚽ Goals</div>
+      <p class="muted" id="mnote">The target number is secret until full time. A thermometer tells you how warm you are.</p>
+      <button class="btn big" id="mgo" hidden>Kick off</button></div>`;
+    const el = GM.$('#mroll', root), labels = STAT_KEYS.map(k => `${GM.STATS[k].icon} ${GM.STATS[k].name}`);
+    let i = 0;
+    const iv = setInterval(() => { el.textContent = labels[i++ % 3]; }, 90);
+    setTimeout(() => {
+      clearInterval(iv);
+      el.textContent = `${S.st.icon} ${S.st.name}`;
+      el.classList.add('landed');
+      const range = MYSTERY[S.stat];
+      GM.$('#mnote', root).innerHTML = `Somewhere between <b>${fmt(range[0])}</b> and <b>${fmt(range[1])}</b> ${S.st.label}. The exact number is secret until full time – watch the thermometer.`;
+      const go = GM.$('#mgo', root); go.hidden = false;
+      go.onclick = () => { S.revealStage = null; render(); };
+    }, 1400);
+  }
+
   function render() {
     if (!S) return;
     if (S.phase === 'done') return renderDone();
+    if (S.revealStage === 'intro') return mysteryIntro();
     const icon = GM.MODES[S.mode === 'daily' ? 'daily' : S.mode].icon;
     const nReels = Math.max(3, S.reels.length);
     const sp = S.special && WILDCARDS[S.special];
@@ -388,7 +480,7 @@
       ${counterHtml()}
       ${pitchHtml()}
       <div class="inv"><span class="inv-label">Wildcards ${S.inv.length}/3</span>${S.inv.length ? S.inv.map((w, k) =>
-      `<button class="wild-btn ${S.subbing === k ? 'active' : ''}" data-w="${k}" title="${GM.esc(WILDCARDS[w].desc(S.st))}">${WILDCARDS[w].icon}<small>${WILDCARDS[w].name}</small></button>`).join('')
+      `<button class="wild-btn ${S.subbing === k ? 'active' : ''}" data-w="${k}" title="${GM.esc(WILDCARDS[w].desc(wst()))}">${WILDCARDS[w].icon}<small>${WILDCARDS[w].name}</small></button>`).join('')
         : '<span class="muted">none yet – they appear on the reels</span>'}${S.subbing !== false ? '<button class="btn small ghost" id="cancel-sub">Cancel</button>' : ''}</div>
       ${sp && S.phase !== 'spin' ? `<div class="special-banner">${sp.icon} ${sp.name}</div>` : ''}
       <div class="reels">${Array.from({ length: nReels }, (_, i) => {
@@ -416,13 +508,17 @@
   function help() {
     const r = S.rules, L = S.st.label;
     GM.modal(`<h3>How to play</h3>
-      ${r.max ? `<p>👑 <b>${modeName()}:</b> no target – build the XI with the <b>most Premier League ${L}</b> you can. Every player with 50+ apps is equally likely to turn up, so you’ll mostly see journeymen: spot the big numbers and use your wildcards well.</p>`
+      ${r.treble ? `<p>🏆 <b>The Treble:</b> one XI, three targets – <b>${fmt(TREBLE.goals)} goals</b>, <b>${fmt(TREBLE.assists)} assists</b> and <b>${fmt(TREBLE.apps)} appearances</b>. Strikers bring goals, creators bring assists, old warhorses bring apps: balance them.</p>`
+      : r.mystery ? `<p>🎲 <b>Mystery Target:</b> you’re counting <b>${S.st.label}</b>, but the target is secret – somewhere between ${fmt(MYSTERY[S.stat][0])} and ${fmt(MYSTERY[S.stat][1])}. The thermometer tells you how close you are. It’s revealed at full time.</p>`
+      : r.max ? `<p>👑 <b>${modeName()}:</b> no target – build the XI with the <b>most Premier League ${L}</b> you can. Every player with 50+ apps is equally likely to turn up, so you’ll mostly see journeymen: spot the big numbers and use your wildcards well.</p>`
       : `<p>🎯 <b>${modeName()}:</b> build an XI whose players have <b>${fmt(S.target)}</b> Premier League ${L} between them – as close as you can, exactly for a bullseye.</p>`}
       <p>Each spin shows three players who fit an open position. Their ${L} are hidden until you sign one. You keep spinning until the XI is full.</p>
       <p>Every player has real positions – <b>GK, LB, CB, RB, LM, CM, RM, ST</b>. Tap a player, then tap one of the highlighted slots he can play.</p>
       <p><b>Wildcards</b> appear on the reels from the 2nd spin – grab one instead of a player and use it when you like (hold up to 3):</p>
-      <ul class="wc-list">${Object.entries(WILDCARDS).filter(([k]) => !r.noWild.includes(k)).map(([, w]) => `<li>${w.icon} <b>${w.name}</b> – ${w.desc(S.st)}</li>`).join('')}</ul>
-      <p><b>Scoring:</b> ${r.max ? `your score is your XI’s total PL ${L} (after any wildcard modifiers).` : `1000 minus 5 for every ${S.stat === 'goals' ? 'goal' : `${fmt(Math.round(S.target / 442 * 10) / 10)} ${L}`} off target. Exactly ${fmt(S.target)} = +500 bullseye bonus.`}</p>
+      <ul class="wc-list">${Object.entries(WILDCARDS).filter(([k]) => !r.noWild.includes(k)).map(([, w]) => `<li>${w.icon} <b>${w.name}</b> – ${w.desc(wst())}</li>`).join('')}</ul>
+      <p><b>Scoring:</b> ${r.treble ? 'up to 333 points per stat (full marks when exact, nothing once you’re 25% out). All three within 3% wins the Treble: +500. Two = the Double: +150.'
+        : r.mystery ? '1000 minus 5 points per 1% you miss by (roughly). Hit it exactly for a +500 bullseye.'
+        : r.max ? `your score is your XI’s total PL ${L} (after any wildcard modifiers).` : `1000 minus 5 for every ${S.stat === 'goals' ? 'goal' : `${fmt(Math.round(S.target / 442 * 10) / 10)} ${L}`} off target. Exactly ${fmt(S.target)} = +500 bullseye bonus.`}</p>
       <p>🤝 A player who shares a club with your last signing may turn up to tempt you.</p>
       ${S.hard ? '<p>🥵 <b>Hard mode:</b> just names and positions – no clubs, years, apps or nationality. Separate leaderboard.</p>' : ''}
       <div class="row"><button class="btn" data-close>Got it</button></div>`);
@@ -436,14 +532,16 @@
     root.innerHTML = `
       <div class="topbar"><a href="#/" class="back">‹</a><h2>${icon} Full time</h2><span></span></div>
       <div class="result">
-        <div class="result-total ${sc.diff === 0 ? 'bull' : ''}">${fmt(sc.t)}<small>PL ${S.st.label}${S.rules.max ? '' : ` · target ${fmt(S.target)}`}</small></div>
+        ${S.rules.mystery ? `<div class="mystery-reveal">🎲 The mystery target was <b>${fmt(S.target)}</b> ${S.st.label}</div>` : ''}
+        ${S.rules.treble ? `<div class="result-total ${sc.diff === 0 ? 'bull' : ''}">${sc.hits.length === 3 ? '🏆' : sc.hits.length === 2 ? '🥈' : ''}${fmt(sc.t)}<small>goals · ${fmt(tot('assists'))} assists · ${fmt(tot('apps'))} apps</small></div>`
+        : `<div class="result-total ${sc.diff === 0 ? 'bull' : ''}">${fmt(sc.t)}<small>PL ${S.st.label}${S.rules.max ? '' : ` · target ${fmt(S.target)}`}</small></div>`}
         ${S.rules.max ? '' : `<div class="result-score">${sc.total}<small>points</small></div>
         <table class="breakdown">${sc.parts.map(([k, v]) => `<tr><td>${k}</td><td>+${v}</td></tr>`).join('')}</table>`}
         ${S.vs ? `<div class="banner">${sc.total > S.vss ? '🎉 You beat' : sc.total == S.vss ? '🤝 You drew with' : '😬 You lost to'} <b>${GM.esc(S.vs)}</b> (${GM.esc(S.vss)})</div>` : ''}
         <div class="muted">Personal best: ${fmt(Math.max(best, sc.total))}</div>
       </div>
       ${S.collected ? `<a class="collected" href="#/album">📒 ${S.collected.n ? `<b>+${S.collected.n}</b> new player${S.collected.n === 1 ? '' : 's'} for your album` : 'No new players this time'} · ${S.collected.total.toLocaleString()} collected${S.collected.badges.length ? `<br>🏅 ${S.collected.badges.join(' · ')}` : ''} ›</a>` : ''}
-      ${GM.report ? GM.report(xi, S.st) : ''}
+      ${GM.report ? GM.report(xi, S.st, S.rules.treble) : ''}
       ${pitchHtml()}
       <div class="actions col">
         ${S.mode !== 'daily' ? `<button class="btn big" id="again">🔁 Play again</button>` : `<div class="muted">New Daily Ultimate tomorrow</div>`}
@@ -451,7 +549,7 @@
         <button class="btn ghost" id="share">📤 Share result</button>
         <a class="btn ghost" href="#/leaderboard?m=${encodeURIComponent(modeKey())}">🏆 Leaderboard</a>
       </div>`;
-    const again = GM.$('#again', root); if (again) again.onclick = () => start(root, S.mode, { hard: S.hard, stat: S.stat });
+    const again = GM.$('#again', root); if (again) again.onclick = () => start(root, S.mode, { hard: S.hard, stat: S.rules.mystery ? undefined : S.stat });
     GM.$('#share', root).onclick = () => GM.share(resultText(sc));
     GM.$('#challenge', root).onclick = async () => {
       const name = await GM.askName() || 'A friend';
@@ -459,6 +557,7 @@
       const url = `${GM.baseUrl()}#/draft?m=${m}&s=${S.stat}&seed=${encodeURIComponent(S.seed)}${S.hard ? '&h=1' : ''}&vs=${encodeURIComponent(name)}&vss=${sc.total}`;
       GM.share(S.rules.max
         ? `⚽ Goal Machine – my ${modeName()}${S.hard ? ' (Hard)' : ''} XI has ${fmt(sc.t)} PL ${S.st.label}. Same spins, can you beat it?`
+        : S.rules.treble || S.rules.mystery ? `⚽ Goal Machine – I scored ${sc.total} in ${modeName()}${S.hard ? ' (Hard)' : ''}. Same spins, can you beat me?`
         : `⚽ Goal Machine – I scored ${sc.total} in ${modeName()}${S.hard ? ' (Hard)' : ''} (${fmt(sc.t)}/${fmt(S.target)}). Same spins, can you beat me?`, url);
     };
   }
@@ -469,6 +568,8 @@
     const rating = GM.teamRating ? GM.teamRating(S.xi.filter(s => s.p != null).map(s => ({ ...s, player: byId(s.p) }))) : null;
     const tier = rating ? `\n${rating.tier.icon} ${rating.tier.name}` : '';
     if (S.rules.max) return `⚽ Goal Machine – ${head}\n👑 ${fmt(sc.t)} PL ${S.st.label}${tier}\n${icons}`;
+    if (S.rules.treble) return `⚽ Goal Machine – ${head}\n${STAT_KEYS.map(k => `${GM.STATS[k].icon} ${fmt(tot(k))}/${fmt(TREBLE[k])}`).join(' ')}${sc.hits.length === 3 ? ' 🏆 TREBLE!' : ''}\n${sc.total} pts${tier}\n${icons}`;
+    if (S.rules.mystery) return `⚽ Goal Machine – ${head}\n🎲 ${fmt(sc.t)} ${S.st.label} vs a secret ${fmt(S.target)}${sc.diff === 0 ? ' 🎯 BULLSEYE' : ''} · ${sc.total} pts${tier}\n${icons}`;
     return `⚽ Goal Machine – ${head}\n${fmt(sc.t)}/${fmt(S.target)} ${S.st.label}${sc.diff === 0 ? ' 🎯 BULLSEYE' : ''} · ${sc.total} pts${tier}\n${icons}`;
   }
 })();

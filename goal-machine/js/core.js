@@ -284,9 +284,11 @@ GM.MODES = {
   ultimate: { name: 'Ultimate Wildcard', icon: '👑' },
   ultimateast: { name: 'Ultimate Wildcard – Assists', icon: '👑' },
   ultimateapps: { name: 'Ultimate Wildcard – Apps', icon: '👑' },
-  target: { name: 'Target 442', icon: '🎯' },
-  targetast: { name: 'Target 333 – Assists', icon: '🎯' },
-  targetapps: { name: 'Target 3500 – Apps', icon: '🎯' },
+  target: { name: 'Target 500 – Goals', icon: '🎯' },
+  targetast: { name: 'Target 350 – Assists', icon: '🎯' },
+  targetapps: { name: 'Target 3,750 – Apps', icon: '🎯' },
+  treble: { name: 'The Treble', icon: '🏆' },
+  mystery: { name: 'Mystery Target', icon: '🎲' },
   daily: { name: 'Daily Ultimate', icon: '📅' },
   hopper: { name: 'Club Hopper', icon: '🦘' },
   hilo: { name: 'Higher or Lower', icon: '↕️' },
@@ -297,7 +299,7 @@ GM.MODES = {
 
 // Hard mode: games show names + positions only (no clubs, years, apps, nationality); Who Am I? saves the
 // clubs for the last clue. Scores go to "<mode>h".
-GM.HARD_MODES = ['ultimate', 'ultimateast', 'ultimateapps', 'target', 'targetast', 'targetapps', 'hilo', 'whoami', 'tally'];
+GM.HARD_MODES = ['ultimate', 'ultimateast', 'ultimateapps', 'target', 'targetast', 'targetapps', 'treble', 'mystery', 'hopper', 'grid', 'hilo', 'whoami', 'tally'];
 GM.isHard = () => GM.store.get('hard', false);
 GM.setHard = v => GM.store.set('hard', !!v);
 Object.keys(GM.MODES).filter(k => GM.HARD_MODES.includes(k)).forEach(k => {

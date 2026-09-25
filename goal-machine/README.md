@@ -11,7 +11,9 @@ Live (once merged to the Pages branch): `https://joelthornton.github.io/goal-mac
 | --- | --- |
 | 👑 Ultimate Wildcard | The main game. Build the XI with the biggest total of PL **goals**, **assists** or **appearances** (you choose). Every 50+ app player is equally likely, so you have to find the stars among the journeymen. Your score is the total |
 | 📅 Daily Ultimate | Ultimate Wildcard (goals) with the same spins for everyone that day and one attempt |
-| 🎯 Target | Hit the number: **442 goals**, **333 assists** or **3,500 apps**. The reels lean towards well-known players. Closeness scores up to 1,000 points, and hitting it exactly adds a +500 bullseye bonus |
+| 🎯 Target | Hit the number: **500 goals**, **350 assists** or **3,750 apps**. The reels lean towards well-known players. Closeness scores up to 1,000 points, and hitting it exactly adds a +500 bullseye bonus |
+| 🏆 The Treble | One XI, three targets: **400 goals, 300 assists and 3,300 apps**. Up to 333 points per stat. All three within 3% wins the Treble (+500), and two within 3% is the Double (+150) |
+| 🎲 Mystery Target | A random stat and a secret number (e.g. somewhere between 300 and 650 goals). A thermometer shows how close you are (🥶 → 🔥 → 🎯 → 💥), and the target is revealed at full time |
 | 🦘 Club Hopper | Name a player from the club on screen, then hop to one of his other PL clubs. See how many hops you can make in 90 seconds |
 | ↕️ Higher or Lower | Who has more PL goals or apps? Keep the streak going |
 | 🕵️ Who Am I? | Guess the player from clues |

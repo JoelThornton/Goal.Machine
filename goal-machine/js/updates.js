@@ -7,6 +7,18 @@
 (function () {
   GM.UPDATES = [
     {
+      v: 18, label: '4.3', date: '2026-09-26', app: 16, title: 'Less scrolling, easier leaderboards',
+      items: [
+        '🗂️ Home has tabs now (Main, Targets, Market, Quick & more), so you’re not scrolling past everything to find a game. The dailies live in the Today tab',
+        '🌐 Online has tabs too: Games (your move first, with a count on the tab), Finished, League and Friends. Games waiting on you glow',
+        '🏆 A leaderboard button in the corner of every game, next to the ?, opens that game’s leaderboard',
+        '📊 Ranks is sorted into groups (Main event, CHAOS, Daily, Targets, Market, Quick) instead of one long list',
+        '🃏 Scout Duel: your Scout, Blindfold and Swap cards sit big above the reels, and bonus cards turn up on the reels. Take one instead of a player to add it to your hand',
+        '🌪️ CHAOS scores are shown as points everywhere (your XI’s total plus bonuses), the wildcard reel no longer shows a blank box, and the pitch grows to fill taller screens',
+        '📅 Today fits on one screen, and the Normal / Hard descriptions are up to date',
+      ],
+    },
+    {
       v: 17, label: '4.2', date: '2026-09-26', app: 16, title: 'CHAOS, the Online tab + your picks',
       items: [
         '🌪️ Ultimate Wildcard CHAOS, with its own neon look and its own music (Mayhem): bonus points for chemistry, squad rating, PL titles, Hall of Famers, one-club men, journeymen and veterans, random events (red cards, injuries, VAR, golden goals, masked men, mystery boxes…), wildcard storms, a CHAOS meter that unleashes double points, and new cards like 🎰 All In',

@@ -73,7 +73,12 @@
     return `<div class="verdict good">💎 Bargain: ${esc(best.p.name)} – ${fmt(best.v)} ${lbl} for ${money(best.paid)}</div>
       <div class="verdict bad">💸 Flop: ${esc(worst.p.name)} – ${fmt(worst.v)} ${lbl} for ${money(worst.paid)}</div>`;
   }
-  const top = (icon, title, back = '#/') => `<div class="topbar"><a href="${back}" class="back">‹</a><h2>${icon} ${title}</h2><span></span></div>`;
+  const boardKey = () => {
+    const [path, qs] = location.hash.replace(/^#\/?/, '').split('?'), q = new URLSearchParams(qs || '');
+    if (path === 'moneyball' && q.get('daily') === '1') return 'mbdaily:' + GM.today();
+    return ['moneyball', 'window'].includes(path) ? path + statSuffix(q.get('s') || 'goals') : null;
+  };
+  const top = (icon, title, back = '#/') => `<div class="topbar"><a href="${back}" class="back">‹</a><h2>${icon} ${title}</h2>${GM.lbButton(boardKey())}</div>`;
   function statPicker(root, icon, title, blurb, go) {
     root.innerHTML = `${top(icon, title)}<div class="h2h-hero"><div class="h2h-trophy">${icon}</div><h3>${title}</h3><p>${blurb}</p></div>
       <div class="stat-row">${Object.entries(GM.STATS).map(([k, s]) => `<button class="stat-btn" data-s="${k}"><i class="sb-ico">${s.icon}</i>${s.name}</button>`).join('')}</div>`;

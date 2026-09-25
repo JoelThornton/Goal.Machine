@@ -135,12 +135,12 @@
     }
     const s = GM.streak();
     root.innerHTML = `<div class="topbar"><a href="#/" class="back">‹</a><h2>${GM.calIcon()} Today</h2><span></span></div>
-      <div class="streak-hero"><div class="flame ${s ? 'lit' : ''}">🔥</div><div><b>${s}</b><span>day streak</span><small>Best ${GM.bestStreak()} · play any daily game to keep it going</small></div></div>
+      <div class="streak-hero"><div class="flame ${s ? 'lit' : ''}">🔥</div><div><b>${s}</b><span>day streak</span><small>Best ${GM.bestStreak()} · play any daily to keep it going</small></div></div>
       <div class="daily-list">${games.map(g => {
         const G = GAMES[g], st = GM.dailyStatus(g), gs = GM.streak(g);
         const name = g === 'club' ? `${esc(club)} Footle` : G.name;
         return `<a class="daily-row ${st.done ? 'done' : ''}" href="${G.href}"><span class="dr-icon">${G.icon}</span>
-          <span class="dr-text"><b>${name}</b><small>${st.text || (g === 'footle' ? 'Guess the player in 8' : g === 'daily' ? 'Same spins for everyone. One shot.' : g === 'grid' ? 'Played for both? Fill the grid.' : 'Guess the mystery player from your club')}</small></span>
+          <span class="dr-text"><b>${name}</b><small>${st.text || (g === 'footle' ? 'Guess the player in 8' : g === 'daily' ? 'Same spins for everyone. One shot.' : g === 'grid' ? 'Played for both? Fill the grid.' : g === 'moneyball' ? 'Same market for everyone' : g === 'chaos' ? 'Same chaos for everyone · one go' : 'Mystery player from your club')}</small></span>
           <span class="dr-streak">${gs ? `🔥${gs}` : ''}</span><span class="dr-go">${st.done ? 'View' : st.text ? 'Continue' : 'Play'}</span></a>`;
       }).join('')}</div>
       ${club ? '' : `<a class="pick-club" href="#/settings">🏟️ Pick your favourite club to unlock a daily <b>Club Footle</b> and your club's colours</a>`}
@@ -197,7 +197,7 @@
     }
     function render() {
       const gs = guesses(), won = gs.some(g => isAnswer(g, ans)), over = won || gs.length >= MAX;
-      root.innerHTML = `<div class="topbar"><a href="#/today" class="back">‹</a><h2>🟩 ${title}</h2><button class="icon-btn small" id="fhelp">?</button></div>
+      root.innerHTML = `<div class="topbar"><a href="#/today" class="back">‹</a><h2>🟩 ${title}</h2><span class="top-btns">${clubMode ? '' : GM.lbButton('footle:' + day)}<button class="icon-btn small" id="fhelp">?</button></span></div>
         <div class="hl-head">Guess ${Math.min(gs.length + (over ? 0 : 1), MAX)} of ${MAX}${clubMode ? ` · every answer played for ${esc(club)}` : ' · a well-known PL player'}</div>
         ${over ? '' : `<div class="guess-box"><input class="input" id="fg" placeholder="Type a player…" autocomplete="off"><div class="ac" id="fac" hidden></div></div>`}
         <div class="f-head"><span></span><div class="f-cells">${COLS.map(([, l]) => `<span>${l}</span>`).join('')}</div></div>

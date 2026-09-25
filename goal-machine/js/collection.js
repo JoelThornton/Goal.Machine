@@ -2,9 +2,22 @@
 'use strict';
 
 (function () {
-  const KEY = 'album';
-  const load = () => GM.store.get(KEY, { players: {}, ach: {}, days: [] });
-  const save = a => GM.store.set(KEY, a);
+  // Two books: the Album (players with 50+ PL apps, plus badges) and the Purist collection (every PL player, filled
+  // only by Purist drafts). Players are keyed "name|first season", which stays put when the weekly data refresh
+  // re-orders the list; albums saved with list positions are converted once.
+  const load = (book = 'album') => {
+    const a = GM.store.get(book, { players: {}, ach: {}, days: [] });
+    const keys = Object.keys(a.players);
+    if (book === 'album' && keys.length && keys.every(k => /^\d+$/.test(k))) {
+      const moved = {};
+      keys.forEach(k => { const p = GM.players[+k]; if (p) moved[p.pk] = a.players[k]; });
+      a.players = moved;
+      GM.store.set(book, a);
+    }
+    return a;
+  };
+  const save = (a, book = 'album') => GM.store.set(book, a);
+  const bookList = book => (book === 'purist' ? GM.allPlayers || [] : GM.players);
   const fmt = n => n.toLocaleString();
 
   /* ---------------------------------------------------------------- achievements */
@@ -80,7 +93,7 @@
   ];
   const setMembers = {};
   SETS.forEach(s => { setMembers[s.id] = GM.players.filter(s.test).map(p => p.id); });
-  const setDone = (a, id) => setMembers[id].every(i => a.players[i]);
+  const setDone = (a, id) => setMembers[id].every(i => a.players[GM.players[i].pk]);
 
   function check(ev, a) {
     const fresh = [];
@@ -103,15 +116,18 @@
   /** Called when a draft finishes. Adds the XI to the album and checks badges. */
   GM.collectDraft = function (ev) {
     const a = load();
+    const purist = ev.mode === 'purist', book = purist ? load('purist') : a;
     const newPlayers = [];
     ev.xi.forEach(p => {
-      if (!a.players[p.id]) { a.players[p.id] = GM.today(); newPlayers.push(p); }
+      if (!purist && !GM.byPk.has(p.pk)) return;  // Extreme's lesser-known players belong to the Purist collection only
+      if (!book.players[p.pk]) { book.players[p.pk] = GM.today(); newPlayers.push(p); }
     });
     if (ev.mode === 'daily' && !a.days.includes(GM.today())) a.days = a.days.concat(GM.today()).slice(-60);
     const fresh = check({ type: 'draft', ...ev }, a);
     save(a);
+    if (purist) save(book, 'purist');
     celebrate(fresh, newPlayers);
-    return { newPlayers, fresh, total: Object.keys(a.players).length };
+    return { newPlayers, fresh, total: Object.keys(book.players).length, book: purist ? 'purist' : 'album' };
   };
 
   /** Called when any other game finishes. */
@@ -123,13 +139,14 @@
 
   GM.albumSummary = function () {
     const a = load();
-    return { players: Object.keys(a.players).length, badges: Object.keys(a.ach).length, totalBadges: A.length };
+    return { players: Object.keys(a.players).length, badges: Object.keys(a.ach).length, totalBadges: A.length,
+      purist: Object.keys(GM.store.get('purist', { players: {} }).players).length };
   };
 
   /* ---------------------------------------------------------------- dream XI */
   const SLOTS = ['GK', 'LB', 'CB', 'CB', 'RB', 'LM', 'CM', 'CM', 'RM', 'ST', 'ST'];
-  function dreamXI(ids, key) {
-    const have = ids.map(i => GM.players[i]).sort((x, y) => y[key] - x[key]);
+  function dreamXI(have, key) {
+    have = have.slice().sort((x, y) => y[key] - x[key]);
     const used = new Set();
     // fill scarcest positions first so utility players don't block them
     const order = [0, 1, 4, 5, 8, 2, 3, 6, 7, 9, 10];
@@ -143,11 +160,20 @@
   }
 
   /* ---------------------------------------------------------------- album page */
-  GM.album = function (root, statId = 'goals') {
-    const a = load();
-    const ids = Object.keys(a.players).map(Number);
+  GM.album = function (root, statId = 'goals', book = 'album') {
+    const purist = book === 'purist';
+    if (purist && !GM.allPlayers) {
+      root.innerHTML = `<div class="topbar"><a href="#/" class="back">‹</a><h2>💎 Purist collection</h2><span></span></div><div class="loading-all"><div class="splash-bar"><i></i></div></div>`;
+      GM.loadAll().then(() => { if (location.hash.includes('b=purist')) GM.album(root, statId, book); });
+      return;
+    }
+    const a = load(book), list = bookList(book);
+    const index = purist ? new Map(list.map(p => [p.pk, p])) : GM.byPk;
+    const mine = Object.keys(a.players).map(k => index.get(k)).filter(Boolean);
+    const has = p => !!a.players[p.pk];
+    const ids = mine;
     const st = GM.STATS[statId];
-    const xi = dreamXI(ids, st.key);
+    const xi = dreamXI(mine, st.key);
     const tot = xi.reduce((t, s) => t + (s.player ? s.player[st.key] : 0), 0);
     const rows = [['ST'], ['LM', 'CM', 'RM'], ['LB', 'CB', 'RB'], ['GK']];
     const rowOf = pos => rows.findIndex(r => r.includes(pos));
@@ -156,35 +182,38 @@
       ? `<div class="slot filled" title="${GM.esc(s.player.name)}">${GM.avatar(s.player)}<span class="slot-name">${GM.esc(s.player.name.split(' ').slice(-1)[0])}</span><span class="slot-goals">${fmt(s.player[st.key])}</span><span class="slot-pos">${s.pos}</span></div>`
       : `<div class="slot empty"><span class="pos pos-${GM.GROUP[s.pos]}">${s.pos}</span></div>`;
     const clubSets = GM.clubs.map(c => {
-      const members = GM.players.filter(p => p.clubs.includes(c));
-      return [c, members.filter(p => a.players[p.id]).length, members.length];
+      const members = list.filter(p => p.clubs.includes(c));
+      return [c, members.filter(has).length, members.length];
     }).sort((x, y) => y[1] / y[2] - x[1] / x[2] || y[2] - x[2]);
     const bar = (have, all) => `<div class="bar"><i style="width:${all ? have / all * 100 : 0}%"></i></div>`;
-    const recent = Object.entries(a.players).sort((x, y) => (y[1] > x[1] ? 1 : -1)).slice(0, 18).map(([i]) => GM.players[i]);
+    const recent = Object.entries(a.players).sort((x, y) => (y[1] > x[1] ? 1 : -1)).slice(0, 18).map(([k]) => index.get(k)).filter(Boolean);
+    const main = load();
 
-    root.innerHTML = `<div class="topbar"><a href="#/" class="back">‹</a><h2>📒 Album</h2><span></span></div>
+    root.innerHTML = `<div class="topbar"><a href="#/" class="back">‹</a><h2>${purist ? '💎 Purist collection' : '📒 Album'}</h2><span></span></div>
+      <div class="hard-toggle small"><a class="${purist ? '' : 'on'}" href="#/album">📒 Album</a><a class="${purist ? 'on' : ''}" href="#/album?b=purist">💎 Purist</a></div>
       <div class="album-head">
-        <div><b>${fmt(ids.length)}</b><small>of ${fmt(GM.players.length)} players</small></div>
-        <div><b>${Object.keys(a.ach).length}</b><small>of ${A.length} badges</small></div>
+        <div><b>${fmt(ids.length)}</b><small>of ${fmt(list.length)} players</small></div>
+        <div>${purist ? `<b>${list.length ? (100 * ids.length / list.length).toFixed(1) : 0}%</b><small>of every PL player</small>` : `<b>${Object.keys(main.ach).length}</b><small>of ${A.length} badges</small>`}</div>
       </div>
-      ${bar(ids.length, GM.players.length)}
-      <p class="muted center">Every player you sign in a draft is added to your album. Stored on this device.</p>
+      ${bar(ids.length, list.length)}
+      <p class="muted center">${purist ? 'The purist\'s album: every one of the ' + fmt(list.length) + ' players to play in the Premier League, collected only through <a href="#/draft?m=purist">💎 Purist</a> drafts (no wildcards, everyone equally likely).'
+        : 'Every player you sign in a draft is added to your album. Stored on this device.'}</p>
 
       <h3 class="section-title">⭐ Your Dream XI</h3>
       <p class="muted">Your best collected player in every position.</p>
-      <div class="hard-toggle small three">${Object.entries(GM.STATS).map(([k, s]) => `<a class="${k === statId ? 'on' : ''}" href="#/album?s=${k}">${s.icon} ${s.name}</a>`).join('')}</div>
+      <div class="hard-toggle small three">${Object.entries(GM.STATS).map(([k, s]) => `<a class="${k === statId ? 'on' : ''}" href="#/album?s=${k}${purist ? '&b=purist' : ''}">${s.icon} ${s.name}</a>`).join('')}</div>
       <div class="pitch"><div class="pitch-lines"></div><div class="shape">${fmt(tot)} ${st.label}</div>
         ${lines.map(l => `<div class="pitch-row">${l.map(([s]) => slot(s)).join('')}</div>`).join('')}</div>
 
-      <h3 class="section-title">🏅 Badges</h3>
+      ${purist ? '' : `<h3 class="section-title">🏅 Badges</h3>
       <div class="ach-grid">${A.map(x => `<div class="ach ${a.ach[x.id] ? 'got' : ''}" title="${GM.esc(x.desc)}">
-        <span class="ach-icon">${a.ach[x.id] ? x.icon : '🔒'}</span><b>${x.name}</b><small>${x.desc}</small></div>`).join('')}</div>
+        <span class="ach-icon">${a.ach[x.id] ? x.icon : '🔒'}</span><b>${x.name}</b><small>${x.desc}</small></div>`).join('')}</div>`}
 
       <h3 class="section-title">🗂️ Sets</h3>
       <div class="sets">${SETS.map(s => {
-        const m = setMembers[s.id], have = m.filter(i => a.players[i]);
+        const m = setMembers[s.id].map(i => GM.players[i]), have = m.filter(has);
         return `<details class="set"><summary><span>${s.icon} ${s.name}</span><span>${have.length}/${m.length}</span>${bar(have.length, m.length)}</summary>
-          <div class="set-list">${m.map(i => GM.players[i]).sort((x, y) => y.fame - x.fame).map(p => `<span class="${a.players[p.id] ? 'have' : ''}">${a.players[p.id] ? '✅' : '▫️'} ${GM.esc(p.name)}</span>`).join('')}</div></details>`;
+          <div class="set-list">${m.sort((x, y) => y.fame - x.fame).map(p => `<span class="${has(p) ? 'have' : ''}">${has(p) ? '✅' : '▫️'} ${GM.esc(p.name)}</span>`).join('')}</div></details>`;
       }).join('')}</div>
 
       <details class="set clubs-block"><summary><span>🏟️ Clubs</span><span>${clubSets.filter(([, h, n]) => h === n).length}/${clubSets.length} complete</span></summary>

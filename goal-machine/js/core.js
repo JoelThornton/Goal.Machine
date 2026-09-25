@@ -11,24 +11,12 @@ GM.fold = function (s) {
     .replace(/[^a-z0-9 ]/g, ' ').replace(/\s+/g, ' ').trim();
 };
 
-(function () {
-  const D = window.PL_DATA;
-  GM.dataDate = D.generated;
-  GM.players = D.players.map((r, i) => ({
-    id: i, name: r[0], poss: r[1].split('/'), nat: r[2] >= 0 ? D.nats[r[2]] : null,
-    clubs: r[3].map(c => D.clubs[c]), apps: r[4], goals: r[5], first: r[6], last: r[7], code: r[8], ast: r[9] || 0,
-    stints: parseStints(r[10] || ''), hon: parseHon(r[11] || ''), tm: r[12] || '',
-  }));
-  // extra faces found by tools/fetch_photos.py, keyed "name|first season"
-  const PH = window.GM_PHOTOS || {};
-  GM.players.forEach(p => { p.photo = PH[p.name + '|' + p.first] || null; });
-  // teammate pairs from Transfermarkt (index pairs, flattened)
-  GM.links = new Set();
-  for (let k = 0; k < (D.links || []).length; k += 2) GM.links.add(D.links[k] + ',' + D.links[k + 1]);
-  function parseStints(s) {
+/** Turns a data file (players.js, or players_all.js for every PL player) into player objects. */
+GM.parseData = function (D) {
+  const parseStints = str => {
     const out = {};
-    if (!s) return out;
-    for (const part of s.split('|')) {
+    if (!str) return out;
+    for (const part of str.split('|')) {
       const [ci, runs] = part.split(':');
       const ys = new Set();
       for (const run of runs.split('.')) {
@@ -38,17 +26,49 @@ GM.fold = function (s) {
       out[D.clubs[+ci]] = ys;
     }
     return out;
-  }
-  function parseHon(s) {
-    const h = {};
-    for (const m of s.matchAll(/([A-Z])(\d+)/g)) h[m[1]] = +m[2];
-    return h;
-  }
-  GM.clubs = D.clubs;
-  GM.nats = D.nats;
-  // "fame" weight – used so the reels lean towards players people have heard of
-  GM.players.forEach(p => { p.pos = GM.GROUP[p.poss[0]]; p.fame = p.apps * (1 + p.goals / 30); p.key = GM.fold(p.name); });
-})();
+  };
+  const parseHon = str => { const h = {}; for (const m of str.matchAll(/([A-Z])(\d+)/g)) h[m[1]] = +m[2]; return h; };
+  // teammate pairs from Transfermarkt (index pairs within this file, flattened)
+  const links = new Set();
+  for (let k = 0; k < (D.links || []).length; k += 2) links.add(D.links[k] + ',' + D.links[k + 1]);
+  const ds = { links };
+  const PH = window.GM_PHOTOS || {};  // extra faces found by tools/fetch_photos.py, keyed "name|first season"
+  return D.players.map((r, i) => {
+    const p = {
+      id: i, name: r[0], poss: r[1].split('/'), nat: r[2] >= 0 ? D.nats[r[2]] : null,
+      clubs: r[3].map(c => D.clubs[c]), apps: r[4], goals: r[5], first: r[6], last: r[7], code: r[8], ast: r[9] || 0,
+      stints: parseStints(r[10] || ''), hon: parseHon(r[11] || ''), tm: r[12] || '', ds,
+    };
+    p.pk = p.name + '|' + p.first;  // stable key: survives the weekly data refresh re-ordering players
+    p.photo = PH[p.pk] || null;
+    // "fame" weight – used so the reels lean towards players people have heard of
+    p.pos = GM.GROUP[p.poss[0]]; p.fame = p.apps * (1 + p.goals / 30); p.key = GM.fold(p.name);
+    return p;
+  });
+};
+GM.players = GM.parseData(window.PL_DATA);
+GM.dataDate = window.PL_DATA.generated;
+GM.clubs = window.PL_DATA.clubs;
+GM.nats = window.PL_DATA.nats;
+GM.links = GM.players.length ? GM.players[0].ds.links : new Set();
+GM.byPk = new Map(GM.players.map(p => [p.pk, p]));
+
+// Every PL player ever (1+ apps), for Extreme and Purist: loaded the first time it's needed (~0.5 MB)
+GM.allPlayers = null;
+GM.loadAll = function () {
+  if (GM.allPlayers) return Promise.resolve(GM.allPlayers);
+  if (GM._loadingAll) return GM._loadingAll;
+  const tag = document.querySelector('script[src*="data/players.js"]');
+  const v = ((tag && tag.getAttribute('src').match(/v=(\d+)/)) || [0, '0'])[1];
+  GM._loadingAll = new Promise((res, rej) => {
+    const sc = document.createElement('script');
+    sc.src = 'data/players_all.js?v=' + v;
+    sc.onload = () => { GM.allPlayers = GM.parseData(window.PL_ALL); res(GM.allPlayers); };
+    sc.onerror = () => { GM._loadingAll = null; rej(new Error('Could not load every-player data')); };
+    document.head.appendChild(sc);
+  });
+  return GM._loadingAll;
+};
 
 GM.POS_NAME = {
   GK: 'Goalkeeper', LB: 'Left-back', CB: 'Centre-back', RB: 'Right-back', LM: 'Left midfield', CM: 'Centre midfield',
@@ -67,7 +87,7 @@ GM.STATS = {
 /** Were a and b teammates? Known club-season overlap, or a Transfermarkt "played with" link. */
 GM.teammates = function (a, b) {
   const key = a.id < b.id ? a.id + ',' + b.id : b.id + ',' + a.id;
-  if (GM.links.has(key)) return a.clubs.find(c => b.clubs.includes(c)) || true;
+  if (a.ds === b.ds && a.ds.links.has(key)) return a.clubs.find(c => b.clubs.includes(c)) || true;
   for (const c in a.stints) {
     const bs = b.stints[c];
     if (!bs) continue;
@@ -179,33 +199,59 @@ GM.addDist = function (key, stat, v) {
 GM.distHtml = function (key, stat, current) {
   const d = GM.dist(key, stat), mx = Math.max(1, ...d), n = d.reduce((a, b) => a + b, 0), me = current == null ? -1 : GM.bandOf(stat, current);
   const label = { goals: 'goals', assists: 'assists', apps: 'apps' }[stat] || stat;
-  return `<div class="dist"><h4>Your results · ${n} game${n === 1 ? '' : 's'}</h4>${d.map((c, i) => ({ c, i })).reverse().map(({ c, i }) =>
+  return `<div class="dist ${n ? '' : 'empty'}"><h4>Your results · ${n} game${n === 1 ? '' : 's'}</h4>${d.map((c, i) => ({ c, i })).reverse().map(({ c, i }) =>
     `<div><span>${GM.bandLabel(stat, i)}</span><i class="${i === me ? 'me' : ''}" style="width:${Math.max(7, 100 * c / mx)}%">${c}</i></div>`).join('')}
     <small>${label} per XI</small></div>`;
 };
 
 // Where a face can come from, best first: the Premier League (FPL code, or one found in its archive), Transfermarkt,
 // then a freely licensed Wikipedia photo. If one fails to load the next is tried, and the initials stay underneath.
-GM.photoUrls = function (p) {
+// Each source is framed differently, so non-PL photos zoom onto the face found by tools/face_points.py (GM_FACES).
+GM.photoSrcs = function (p) {
   const pl = c => `https://resources.premierleague.com/premierleague/photos/players/110x140/p${c}.png`;
-  const urls = [];
-  if (p.code) urls.push(pl(p.code));
-  if (p.photo && p.photo.pl) urls.push(pl(p.photo.pl));
-  if (p.tm) urls.push(`https://img.a.transfermarkt.technology/portrait/header/${p.tm}.jpg`);
-  if (p.photo && p.photo.w) urls.push(p.photo.w);
-  return urls;
+  const out = [];
+  if (GM.playSafe) {  // Play version: only freely licensed (Wikimedia) photos
+    if (p.photo && p.photo.w) out.push({ u: p.photo.w, f: 'w:' + p.pk });
+    return out;
+  }
+  if (p.code) out.push({ u: pl(p.code), f: 'pl' });
+  if (p.photo && p.photo.pl) out.push({ u: pl(p.photo.pl), f: 'pl' });
+  if (p.tm) out.push({ u: `https://img.a.transfermarkt.technology/portrait/header/${p.tm}.jpg`, f: 'tm:' + p.tm });
+  if (p.photo && p.photo.w) out.push({ u: p.photo.w, f: 'w:' + p.name + '|' + p.first });
+  return out;
+};
+GM.photoUrls = p => GM.photoSrcs(p).map(x => x.u);
+
+// Scale and place the photo so the face fills about 55% of the circle, centred a touch above the middle
+GM.fitFace = function (img) {
+  const f = (window.GM_FACES || {})[img.dataset.f], box = img.parentNode && img.parentNode.clientWidth;
+  if (!f || f.length < 3 || !box || !img.naturalWidth) return;
+  const nw = img.naturalWidth, nh = img.naturalHeight, fw = f[2] / 100 * nw;
+  let sc = Math.max(0.55 * box / fw, box / nw, box / nh);
+  sc = Math.min(sc, 4 * Math.max(box / nw, box / nh));  // never blow a tiny face up into mush
+  const W = nw * sc, H = nh * sc;
+  const left = Math.min(0, Math.max(box - W, box / 2 - f[0] / 100 * W));
+  const top = Math.min(0, Math.max(box - H, box * 0.46 - f[1] / 100 * H));
+  Object.assign(img.style, { width: W + 'px', height: H + 'px', left: left + 'px', top: top + 'px' });
+  img.classList.add('fitted');
 };
 GM.nextPhoto = function (img) {
-  const rest = (img.dataset.alt || '').split(' ').filter(Boolean);
+  let rest = [];
+  try { rest = JSON.parse(img.dataset.alt || '[]'); } catch (e) { }
   if (!rest.length) { img.remove(); return; }
-  img.src = rest.shift();
-  img.dataset.alt = rest.join(' ');
+  const n = rest.shift();
+  img.removeAttribute('style'); img.classList.remove('fitted');
+  img.className = n.f === 'pl' ? 'ph-pl' : 'ph-x';
+  img.dataset.f = n.f;
+  img.dataset.alt = JSON.stringify(rest);
+  img.src = n.u;
 };
 GM.avatar = function (p, cls = '', plain = false) {
   // plain = hard mode: no photo, no club colours
   const [, bg, fg] = plain ? [0, '#23483b', '#e8f5ee'] : GM.CLUB[p.clubs[p.clubs.length - 1]] || [0, '#334', '#fff'];
-  const urls = plain ? [] : GM.photoUrls(p);
-  const img = urls.length ? `<img loading="lazy" alt="" referrerpolicy="no-referrer" src="${GM.esc(urls[0])}" data-alt="${GM.esc(urls.slice(1).join(' '))}" onerror="GM.nextPhoto(this)">` : '';
+  const srcs = plain ? [] : GM.photoSrcs(p);
+  const img = srcs.length ? `<img loading="lazy" alt="" referrerpolicy="no-referrer" class="${srcs[0].f === 'pl' ? 'ph-pl' : 'ph-x'}" src="${GM.esc(srcs[0].u)}"
+    data-f="${GM.esc(srcs[0].f)}" data-alt="${GM.esc(JSON.stringify(srcs.slice(1)))}" onload="GM.fitFace(this)" onerror="GM.nextPhoto(this)">` : '';
   return `<span class="avatar ${cls}" style="--cb:${bg};--cf:${fg}"><b>${GM.initials(p.name)}</b>${img}</span>`;
 };
 
@@ -272,14 +318,72 @@ GM.store = {
   history.replaceState(null, '', location.pathname + location.search + (m[2] ? decodeURIComponent(m[2]) : '#/'));
 })();
 
-GM.getName = () => GM.store.get('name', '');
+/* ------------------------------------------------------------------ accounts
+   A leaderboard name is claimed once and then belongs to this device: the device keeps a random secret key, and the
+   server (claim_name / submit_score in Supabase) only stores its hash and only accepts scores for a name with its key.
+   A transfer code (name + key) moves the account to another phone. */
+GM.account = () => GM.store.get('account', null);
+GM.getName = () => (GM.account() || {}).name || GM.store.get('name', '');
+GM.newKey = () => [...crypto.getRandomValues(new Uint8Array(16))].map(b => b.toString(16).padStart(2, '0')).join('');
+GM.NAME_RULE = /^[A-Za-z0-9][A-Za-z0-9 _.-]{1,18}[A-Za-z0-9]$/;
+/** Claims a name for this device (or confirms it's already ours). Resolves 'ok', 'taken', 'bad_name' or 'offline'. */
+GM.claimName = async function (name, key) {
+  name = name.trim();
+  if (!GM.NAME_RULE.test(name)) return 'bad_name';
+  if (!GM.lb.enabled) { GM.store.set('name', name); return 'ok'; }
+  const acc = GM.account();
+  key = key || (acc && acc.key) || GM.newKey();
+  let res;
+  try { res = await GM.lb.rpc('claim_name', { p_username: name, p_key: key }); } catch (e) { return 'offline'; }
+  if (res === 'ok') { GM.store.set('account', { name, key }); GM.store.set('name', name); }
+  return res;
+};
+/** The name to post scores under: claims one first if needed (asking if there isn't one). Null if the player skips. */
 GM.askName = async function () {
-  let n = GM.getName();
-  if (n) return n;
-  n = await GM.prompt('Pick a name for the leaderboard', '', 'e.g. Joel');
-  n = (n || '').trim().slice(0, 20);
-  if (n) GM.store.set('name', n);
-  return n;
+  const acc = GM.account();
+  if (acc || !GM.lb.enabled) return GM.getName() || (await GM.accountModal());
+  const legacy = GM.store.get('name', '');
+  if (legacy && (await GM.claimName(legacy)) === 'ok') return legacy;  // keep the name they already use, if it's free
+  return GM.accountModal(legacy ? `Someone already has the name “${legacy}” on the leaderboard. Pick another – it'll be yours alone.` : '');
+};
+GM.accountModal = function (note = '') {
+  return new Promise(res => {
+    const m = GM.modal(`<h3>🔒 Claim your leaderboard name</h3>
+      <p class="muted">${note ? GM.esc(note) : 'Names are unique: once you claim one, only you can post scores with it.'}</p>
+      <form class="claim"><input class="input" maxlength="20" placeholder="e.g. Joel" value="${GM.esc(GM.store.get('name', ''))}" autocomplete="off">
+        <small class="claim-msg muted">3–20 letters, numbers, spaces, dots, dashes or underscores</small>
+        <div class="row"><button type="button" class="btn ghost" data-close>Not now</button><button class="btn">Claim</button></div></form>
+      <p class="muted center"><a href="#/settings" data-close>Moving from another phone? Use a transfer code in ⚙️ Settings</a></p>`, { onClose: () => res(null) });
+    const f = m.el.querySelector('form'), inp = f.querySelector('input'), msg = f.querySelector('.claim-msg');
+    let t = null;
+    inp.oninput = () => {
+      clearTimeout(t);
+      const v = inp.value.trim();
+      if (!GM.NAME_RULE.test(v)) { msg.textContent = '3–20 letters, numbers, spaces, dots, dashes or underscores'; msg.className = 'claim-msg muted'; return; }
+      t = setTimeout(async () => {
+        try {
+          const ok = await GM.lb.rpc('name_available', { p_username: v });
+          msg.textContent = ok ? `✓ “${v}” is free` : `✗ “${v}” is taken`; msg.className = 'claim-msg ' + (ok ? 'ok' : 'no');
+        } catch (e) { }
+      }, 350);
+    };
+    f.onsubmit = async e => {
+      e.preventDefault();
+      const v = inp.value.trim(), r = await GM.claimName(v);
+      if (r === 'ok') { m.el.parentNode.remove(); GM.toast(`🔒 “${GM.esc(v)}” is yours`); res(v); return; }
+      msg.className = 'claim-msg no';
+      msg.textContent = r === 'taken' ? `✗ “${v}” is taken – try another` : r === 'offline' ? 'Couldn’t reach the leaderboard – try again in a bit' : '3–20 letters, numbers, spaces, dots, dashes or underscores';
+    };
+    setTimeout(() => inp.focus(), 50);
+  });
+};
+GM.transferCode = () => { const a = GM.account(); return a ? btoa(unescape(encodeURIComponent(a.name + '\n' + a.key))).replace(/=+$/, '') : ''; };
+GM.useTransferCode = async function (code) {
+  let name, key;
+  try { [name, key] = decodeURIComponent(escape(atob(code.trim()))).split('\n'); } catch (e) { return 'bad_code'; }
+  if (!name || !key) return 'bad_code';
+  const r = await GM.claimName(name, key);
+  return r === 'taken' ? 'wrong_code' : r;
 };
 
 /* ------------------------------------------------------------------ modal / toast */
@@ -299,9 +403,9 @@ GM.modal = function (html, { onClose } = {}) {
   document.body.appendChild(wrap);
   return { el: wrap.firstChild, close };
 };
-GM.prompt = function (title, value = '', placeholder = '') {
+GM.prompt = function (title, value = '', placeholder = '', max = 20) {
   return new Promise(res => {
-    const m = GM.modal(`<h3>${GM.esc(title)}</h3><form><input class="input" maxlength="20" value="${GM.esc(value)}" placeholder="${GM.esc(placeholder)}" autofocus>
+    const m = GM.modal(`<h3>${GM.esc(title)}</h3><form><input class="input" maxlength="${max}" value="${GM.esc(value)}" placeholder="${GM.esc(placeholder)}" autofocus>
       <div class="row"><button type="button" class="btn ghost" data-close>Skip</button><button class="btn">Save</button></div></form>`, { onClose: () => res(null) });
     const f = m.el.querySelector('form');
     f.onsubmit = e => { e.preventDefault(); const v = f.querySelector('input').value; m.el.parentNode.remove(); res(v); };
@@ -323,7 +427,11 @@ GM.APK_URL = 'https://github.com/OpportunisticGames/opportunisticgames.github.io
 // Oldest Android app build that doesn't need replacing. Raise it after an app change players should pick up; older
 // apps then show an update link. Builds before AndroidApp.version() existed always count as out of date.
 GM.APP_MIN_BUILD = 1;
-GM.appOutdated = () => !!window.AndroidApp && !(typeof window.AndroidApp.version === 'function' && window.AndroidApp.version() >= GM.APP_MIN_BUILD);
+// Which app we're in: 'play' (Google Play), 'sideload' (the GitHub APK) or 'web'. The Play version never offers APK
+// downloads (Play doesn't allow apps to update themselves) and skips photos we don't have the rights to.
+GM.channel = (() => { try { return window.AndroidApp && typeof window.AndroidApp.channel === 'function' ? window.AndroidApp.channel() : window.AndroidApp ? 'sideload' : 'web'; } catch (e) { return 'web'; } })();
+GM.playSafe = GM.channel === 'play';
+GM.appOutdated = () => !GM.playSafe && !!window.AndroidApp && !(typeof window.AndroidApp.version === 'function' && window.AndroidApp.version() >= GM.APP_MIN_BUILD);
 GM.baseUrl = () => location.href.split('#')[0].split('?')[0];
 
 /* ------------------------------------------------------------------ player search (autocomplete) */
@@ -377,6 +485,21 @@ GM.MODES = {
   treble: { name: 'The Treble', icon: '🏆' },
   mystery: { name: 'Mystery Target', icon: '🎲' },
   daily: { name: 'Daily Ultimate', get icon() { return GM.calIcon(); } },
+  classicwild: { name: 'Classic Wildcard', icon: '⭐' },
+  classicwildast: { name: 'Classic Wildcard – Assists', icon: '⭐' },
+  classicwildapps: { name: 'Classic Wildcard – Apps', icon: '⭐' },
+  classic: { name: 'Classic', icon: '⭐' },
+  classicast: { name: 'Classic – Assists', icon: '⭐' },
+  classicapps: { name: 'Classic – Apps', icon: '⭐' },
+  ultimatepure: { name: 'Ultimate', icon: '👑' },
+  ultimatepureast: { name: 'Ultimate – Assists', icon: '👑' },
+  ultimatepureapps: { name: 'Ultimate – Apps', icon: '👑' },
+  extreme: { name: 'Extreme Wildcard', icon: '⚡' },
+  extremeast: { name: 'Extreme Wildcard – Assists', icon: '⚡' },
+  extremeapps: { name: 'Extreme Wildcard – Apps', icon: '⚡' },
+  purist: { name: 'Extreme Purist', icon: '💎' },
+  puristast: { name: 'Extreme Purist – Assists', icon: '💎' },
+  puristapps: { name: 'Extreme Purist – Apps', icon: '💎' },
   hopper: { name: 'Club Hopper', icon: '🦘' },
   hilo: { name: 'Higher or Lower', icon: '↕️' },
   whoami: { name: 'Who Am I?', icon: '🕵️' },
@@ -386,7 +509,9 @@ GM.MODES = {
 
 // Hard mode: games show names + positions only (no clubs, years, apps, nationality); Who Am I? saves the
 // clubs for the last clue. Scores go to "<mode>h".
-GM.HARD_MODES = ['ultimate', 'ultimateast', 'ultimateapps', 'target', 'targetast', 'targetapps', 'treble', 'mystery', 'hopper', 'grid', 'hilo', 'whoami', 'tally'];
+GM.HARD_MODES = ['ultimate', 'ultimateast', 'ultimateapps', 'target', 'targetast', 'targetapps', 'classic', 'classicast', 'classicapps',
+  'classicwild', 'classicwildast', 'classicwildapps', 'ultimatepure', 'ultimatepureast', 'ultimatepureapps',
+  'extreme', 'extremeast', 'extremeapps', 'purist', 'puristast', 'puristapps', 'treble', 'mystery', 'hopper', 'grid', 'hilo', 'whoami', 'tally'];
 GM.isHard = () => GM.store.get('hard', false);
 GM.setHard = v => GM.store.set('hard', !!v);
 
@@ -437,12 +562,17 @@ GM.lb = {
     if (k.startsWith('eyJ')) h.Authorization = 'Bearer ' + k; // legacy JWT anon keys
     return h;
   },
-  async submit(mode, score, name, meta) {
-    const r = await fetch(`${this.cfg.supabaseUrl}/rest/v1/scores`, {
-      method: 'POST', headers: { ...this.headers(), Prefer: 'return=minimal' },
-      body: JSON.stringify({ mode, score, name, meta }),
-    });
+  async rpc(fn, args) {
+    const r = await fetch(`${this.cfg.supabaseUrl}/rest/v1/rpc/${fn}`, { method: 'POST', headers: this.headers(), body: JSON.stringify(args) });
     if (!r.ok) throw new Error(await r.text());
+    return r.json();
+  },
+  // scores go through submit_score, which checks this device holds the name's key
+  async submit(mode, score, name, meta) {
+    const acc = GM.account();
+    if (!acc) throw new Error('no account');
+    const res = await this.rpc('submit_score', { p_username: acc.name, p_key: acc.key, p_mode: mode, p_score: score, p_meta: meta || null });
+    if (res !== 'ok') throw new Error(res);
   },
   async top(mode, limit = 25) {
     const r = await fetch(`${this.cfg.supabaseUrl}/rest/v1/best_scores?select=name,score,created_at&mode=eq.${encodeURIComponent(mode)}&order=score.desc,created_at.asc&limit=${limit}`,

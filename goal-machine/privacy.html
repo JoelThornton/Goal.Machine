@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Goal Machine – Privacy policy</title>
+  <meta name="theme-color" content="#eef2ee">
+  <link rel="icon" href="icons/icon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="style.css">
+  <script>
+    (function () { var t = 'light'; try { t = JSON.parse(localStorage.getItem('gm:theme')) || 'light'; } catch (e) { }
+      var dark = t === 'dark' || (t === 'auto' && matchMedia('(prefers-color-scheme: dark)').matches);
+      document.documentElement.setAttribute('data-theme', dark ? 'dark' : 'light'); })();
+  </script>
+</head>
+<body>
+  <main id="app" class="prose">
+    <div class="topbar"><a href="./#/settings" class="back">‹</a><h2>🔐 Privacy policy</h2><span></span></div>
+    <p class="muted">Goal Machine, by Opportunistic Games. Last updated 25 September 2026.</p>
+
+    <h3>The short version</h3>
+    <p>Goal Machine doesn't track you, show ads or use analytics. It keeps your games on your own device. The only things that leave it are the name and scores you choose to put on the leaderboard and the moves in online games.</p>
+
+    <h3>What stays on your device</h3>
+    <p>Your scores, album, streaks, daily results, settings, favourite club and any game in progress are saved in your browser or app storage on your phone. They never leave it unless you use a feature below. Clearing the app's data or your browser's site data deletes them.</p>
+
+    <h3>What we store on our server</h3>
+    <ul>
+      <li><b>Leaderboard name and scores.</b> When a game finishes, the score, game mode and date are posted under your leaderboard name, and anyone can see them on the leaderboards.</li>
+      <li><b>Your account key.</b> When you claim a name, your phone makes a random secret key. We store only a scrambled version of it (a hash), which proves scores come from you. We don't ask for your email, phone number or password.</li>
+      <li><b>Online games.</b> A game room holds the two players' names and their picks or running totals. Rooms are deleted two days after they were last used.</li>
+    </ul>
+    <p>This data is held by our database provider, Supabase, in the UK (London). We don't sell or share it, and we don't use it for advertising.</p>
+
+    <h3>Other services the game uses</h3>
+    <p>Player photos are loaded from the Premier League, Transfermarkt or Wikimedia Commons, and fonts from Google Fonts. Like any website, those servers see the usual technical details of a request (such as your IP address). We send them nothing about you.</p>
+
+    <h3>Children</h3>
+    <p>Goal Machine is a general-audience football quiz and isn't directed at children under 13. The only personal information it can hold is the leaderboard name you choose, so please don't use your full real name.</p>
+
+    <h3>Your choices</h3>
+    <ul>
+      <li>You can play without a leaderboard name. Just tap “Not now” when asked, and nothing is posted.</li>
+      <li>To have your leaderboard name and scores removed, open an issue at <a href="https://github.com/OpportunisticGames/opportunisticgames.github.io/issues">github.com/OpportunisticGames</a>, or email the address on the Google Play listing, with your leaderboard name. We'll delete them.</li>
+    </ul>
+
+    <h3>Changes</h3>
+    <p>If this policy changes, we'll update this page and the date at the top.</p>
+    <p class="muted">Goal Machine is a fan-made game and isn't affiliated with the Premier League, its clubs or FourFourTwo.</p>
+  </main>
+</body>
+</html>

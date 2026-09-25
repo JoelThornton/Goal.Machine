@@ -46,11 +46,13 @@
     document.body.classList.toggle('has-tabs', menu);
     tabbar.hidden = !menu;
     GM.$$('[data-tab]', tabbar).forEach(a => a.classList.toggle('on', a.dataset.tab === path));
+    GM.sound.scene(path);  // each game area has its own music
     GM.$('.cal-slot', tabbar).innerHTML = GM.calIcon();  // stays right past midnight
     switch (path) {
-      case 'draft': return GM.draft.start(app, ['target', 'treble', 'mystery', 'club'].includes(q.m) ? q.m : 'ultimate',
+      case 'draft': return GM.draft.start(app, ['target', 'treble', 'mystery', 'club', 'classic', 'classicwild', 'ultimatepure', 'extreme', 'purist'].includes(q.m) ? q.m : 'ultimate',
         { stat: q.s, seed: q.seed, vs: q.vs, vss: q.vss ? +q.vss : undefined, hard: q.seed ? q.h === '1' : GM.isHard(), club: q.c });
       case 'today': return GM.todayPage(app);
+      case 'online': return GM.onlinePage(app, q);
       case 'footle': return GM.footle(app, false);
       case 'clubfootle': return GM.footle(app, true);
       case 'daily': return GM.draft.start(app, 'daily');
@@ -62,7 +64,7 @@
       case 'tally': return GM.tally(app);
       case 'leaderboard': return leaderboard(q.m);
       case 'players': return playerIndex();
-      case 'album': return GM.album(app, GM.STATS[q.s] ? q.s : 'goals');
+      case 'album': return GM.album(app, GM.STATS[q.s] ? q.s : 'goals', q.b === 'purist' ? 'purist' : 'album');
       case 'about': return about();
       case 'credits': return credits();
       case 'h2h': return GM.h2h(app);
@@ -85,6 +87,17 @@
     const tile = (href, cls, icon, title, sub, best, extra = '') =>
       `<a class="tile ${cls}" href="${href}"><span class="tile-icon">${icon}</span>${best ? `<span class="tile-pb">PB ${best.toLocaleString()}</span>` : ''}<b>${title}</b><small>${sub}</small>${extra}</a>`;
     const album = GM.albumSummary();
+    // The main event: pick the player pool and whether wildcards are on - six modes in two small switches (remembered)
+    const POOLS = {
+      classic: { icon: '⭐', short: 'Classic', on: 'classicwild', off: 'classic', about: 'Every player with 50+ PL apps, and the better known they are, the more often they turn up' },
+      ultimate: { icon: '👑', short: 'Ultimate', on: 'ultimate', off: 'ultimatepure', about: 'Every player with 50+ PL apps, all equally likely, so find the stars among the journeymen' },
+      extreme: { icon: '⚡', short: 'Extreme', on: 'extreme', off: 'purist', about: 'Every one of the 5,000+ players ever to play in the PL, all equally likely. Mostly strangers' },
+    };
+    const pool = POOLS[GM.store.get('ultPool', 'ultimate')] ? GM.store.get('ultPool', 'ultimate') : 'ultimate';
+    const wild = GM.store.get('ultWild', true) !== false;
+    const ult = POOLS[pool][wild ? 'on' : 'off'];
+    const ultName = GM.MODES[ult].name;
+    const ultSub = `${POOLS[pool].about}. ${wild ? 'Wildcards on.' : 'No wildcards: just the reels and your knowledge.'}${ult === 'purist' ? ' Fills your 💎 Purist collection.' : ''}`;
     const streak = GM.streak();
     const dtile = (g, cls, sub) => {
       const G = GM.DAILY_GAMES[g], st = GM.dailyStatus(g), gs = GM.streak(g);
@@ -108,11 +121,13 @@
         <button class="${hard ? 'on' : ''}" data-hard="1">🥵 Hard<small>names &amp; positions only, fewer stars</small></button>
       </div>
       <div class="mode-card featured ultimate big-card">
-        <span class="mode-icon">👑</span>
-        <span class="mode-text"><span class="kicker">Main event</span><b>Ultimate Wildcard</b><small>Build the XI with the biggest total. Every player is equally likely, so find the stars among the journeymen.</small>
-          <span class="stat-pick">${statBtn('ultimate', 'goals')}${statBtn('ultimate', 'assists')}${statBtn('ultimate', 'apps')}</span></span>
+        <span class="mode-icon">${GM.MODES[ult].icon}</span>
+        <span class="mode-text"><span class="kicker">Main event</span><b>${ultName}</b><small>${ultSub}</small>
+          <span class="variant" role="group" aria-label="Players">${Object.entries(POOLS).map(([k, v]) => `<button data-pool="${k}" class="${k === pool ? 'on' : ''}"><span>${v.icon}</span>${v.short}</button>`).join('')}</span>
+          <span class="variant wild-switch" role="group" aria-label="Wildcards"><button data-wild="1" class="${wild ? 'on' : ''}">🃏 Wildcards on</button><button data-wild="0" class="${wild ? '' : 'on'}">🚫 No wildcards</button></span>
+          <span class="stat-pick">${statBtn(ult, 'goals')}${statBtn(ult, 'assists')}${statBtn(ult, 'apps')}</span></span>
       </div>
-      <a class="h2h-banner" href="#/h2h"><span>⚔️</span><span><b>Head to Head</b><small>${h2h ? `${GM.esc(h2h.names[0])} v ${GM.esc(h2h.names[1])}: tap to carry on` : 'Pass the phone · best of 5 random games'}</small></span><span>🏆</span></a>
+      <a class="h2h-banner" href="#/h2h"><span>⚔️</span><span><b>Head to Head</b><small>${h2h ? `${GM.esc(h2h.names[0])} v ${GM.esc(h2h.names[1])}: tap to carry on` : 'Pass the phone, or play a friend online'}</small></span><span>🏆</span></a>
       <h3 class="section-title"><a href="#/today">Today${streak ? ` <span class="streak-pill">🔥 ${streak}</span>` : ''}<span class="more">All dailies ›</span></a></h3>
       <div class="tiles">
         ${dtile('daily', 't-green', 'Same spins for everyone. One shot.')}
@@ -140,10 +155,12 @@
         <span class="stat-pick">${statBtn('club', 'goals')}${statBtn('club', 'assists')}${statBtn('club', 'apps')}</span></div>` : ''}
       <h3 class="section-title">Your collection</h3>
       <a class="tile t-purple wide album-tile" href="#/album"><span class="tile-icon">📒</span><b>Album & badges</b>
-        <small>${album.players.toLocaleString()}/${GM.players.length.toLocaleString()} players · ${album.badges}/${album.totalBadges} badges</small>
+        <small>${album.players.toLocaleString()}/${GM.players.length.toLocaleString()} players · ${album.badges}/${album.totalBadges} badges${album.purist ? ` · 💎 ${album.purist.toLocaleString()} purist` : ''}</small>
         <span class="bar"><i style="width:${(100 * album.players / GM.players.length).toFixed(1)}%"></i></span></a>
-      <footer class="muted center">Playing as <a href="#" id="rename">${GM.esc(GM.getName() || 'no name yet')}</a> · <a href="#/updates">v${GM.VERSION}</a></footer>`;
+      <footer class="muted center">Playing as <a href="#/settings">${GM.account() ? '🔒 ' : ''}${GM.esc(GM.getName() || 'no name yet')}</a> · <a href="#/updates">v${GM.VERSION}</a></footer>`;
     GM.$$('[data-hard]').forEach(b => b.onclick = () => { GM.setHard(b.dataset.hard === '1'); home(); });
+    GM.$$('[data-pool]').forEach(b => b.onclick = () => { GM.store.set('ultPool', b.dataset.pool); home(); });
+    GM.$$('[data-wild]').forEach(b => b.onclick = () => { GM.store.set('ultWild', b.dataset.wild === '1'); home(); });
     const ib = GM.$('#install');
     if (ib) {
       if (installEvt) ib.hidden = false;
@@ -161,11 +178,6 @@
     // hide the bar entirely on desktop until Chrome actually offers an install
     const bar = GM.$('.install-bar'); if (bar && ib && !installEvt) bar.hidden = true;
     window.addEventListener('beforeinstallprompt', () => { const b2 = GM.$('.install-bar'); if (b2 && !installHidden()) b2.hidden = false; }, { once: true });
-    GM.$('#rename').onclick = async e => {
-      e.preventDefault();
-      const n = await GM.prompt('Your leaderboard name', GM.getName(), 'e.g. Joel');
-      if (n != null && n.trim()) { GM.store.set('name', n.trim().slice(0, 20)); home(); }
-    };
   }
 
   /* ---------------------------------------------------------------- settings */
@@ -174,21 +186,27 @@
     const build = GM.appBuild(), snd = GM.sound.settings();
     app.innerHTML = `<div class="topbar"><a href="#/" class="back">‹</a><h2>⚙️ Settings</h2><span></span></div>
       <section class="settings">
+        <div class="setting"><b>Account</b>${GM.account()
+          ? `<small>Your leaderboard name is <b>🔒 ${GM.esc(GM.account().name)}</b>. It's yours alone: only this device can post scores with it.</small>
+            <div class="setting-btns"><button class="btn ghost small" id="s-move">📲 Move to another phone</button><button class="btn ghost small" id="s-name">✏️ New name</button></div>`
+          : `<small>${GM.getName() ? `You play as “${GM.esc(GM.getName())}”, but it isn't claimed yet.` : 'No leaderboard name yet.'} Claim a unique name so nobody else can post scores as you.</small>
+            <div class="setting-btns"><button class="btn small" id="s-name">🔒 Claim a name</button><button class="btn ghost small" id="s-code">🔑 I have a transfer code</button></div>`}</div>
         <div class="setting"><b>Appearance</b><small>Auto follows your phone's light or dark setting</small>${seg('s-theme', GM.THEMES, GM.getTheme())}</div>
         <div class="setting"><b>Favourite club</b><small>Unlocks Club Footle and Club XI, and brings your club's colours to the app</small>
           <select class="input" id="s-club"><option value="">None</option>${GM.clubOptions().map(c => `<option ${c === GM.favClub() ? 'selected' : ''}>${GM.esc(c)}</option>`).join('')}</select></div>
         <div class="setting"><b>Sound effects</b><small>Whistles, reels, the crowd and the goal horn</small>${seg('s-sfx', { true: '🔊 On', false: '🔇 Off' }, snd.sfx)}
           <label class="vol">🔈<input type="range" id="s-sfxvol" min="0" max="1" step="0.05" value="${snd.sfxVol}">🔊</label></div>
-        <div class="setting"><b>Music</b><small>A background track while you play</small>${seg('s-bg', { off: '🔇 Off', music: '🎵 On' }, snd.bg)}
-          <label class="vol">🔈<input type="range" id="s-bgvol" min="0" max="1" step="0.05" value="${snd.bgVol}">🔊</label></div>
+        <div class="setting"><b>Music</b><small id="s-bg-about"></small>${seg('s-bg', { off: '🔇 Off', music: '🎹 Game', tunes: '🎧 Soundtrack' }, snd.bg)}
+          <label class="vol">🔈<input type="range" id="s-bgvol" min="0" max="1" step="0.05" value="${snd.bgVol}">🔊</label>
+          <div class="now-playing" id="s-now" hidden><span></span><button class="btn ghost small" id="s-skip">⏭ Next song</button></div></div>
         <div class="setting"><b>Difficulty</b><small>Hard shows names and positions only, with fewer stars on the reels</small>${seg('s-hard', { false: '🙂 Normal', true: '🥵 Hard' }, GM.isHard())}</div>
         <div class="setting"><b>Vibration</b><small>A little buzz on taps, hops and wins (phones only)</small>${seg('s-buzz', { true: '📳 On', false: '🔕 Off' }, GM.store.get('buzz', true))}</div>
-        <div class="setting"><b>Leaderboard name</b><small>${GM.esc(GM.getName() || 'Not set yet')}</small><button class="btn ghost small" id="s-name">✏️ Change name</button></div>
       </section>
       <section class="settings links">
         <a href="#/updates">📰 Updates & version history ${GM.hasUnseenUpdate() ? '<i class="new-dot inline"></i>' : ''}<span>›</span></a>
         <a href="#/about">ℹ️ About the data<span>›</span></a>
         ${build == null ? `<a href="${GM.APK_URL}">🤖 Android app (APK)<span>›</span></a>` : ''}
+        <a href="privacy.html">🔐 Privacy policy<span>›</span></a>
       </section>
       <p class="muted center">Goal Machine v${GM.VERSION}${build != null ? ` · App build ${build}` : ''}<br>Made by Opportunistic Games</p>`;
     const wire = (id, fn) => GM.$$('#' + id + ' [data-v]').forEach(b => b.onclick = () => {
@@ -199,12 +217,42 @@
     wire('s-buzz', v => GM.store.set('buzz', v === 'true'));
     GM.$('#s-club').onchange = e => { GM.setFavClub(e.target.value); GM.sound.play('whistle'); if (e.target.value) GM.toast(`🏟️ Welcome, ${GM.esc(GM.clubShort(e.target.value))} fan!`); };
     wire('s-sfx', v => { GM.sound.set('sfx', v === 'true'); GM.sound.play('whistle'); });
-    wire('s-bg', v => GM.sound.set('bg', v));
+    const bgInfo = () => {
+      const v = GM.sound.settings().bg, t = GM.sound.nowPlaying();
+      GM.$('#s-bg-about').textContent = v === 'tunes' ? 'Real songs on shuffle, the same wherever you are in the game'
+        : 'Made for the game: Anthem on the menus, Matchday for team builders, Thinking Cap for puzzles and Derby for head-to-heads';
+      GM.$('#s-now').hidden = v !== 'tunes';
+      GM.$('#s-now span').innerHTML = t ? `🎧 <b>${GM.esc(t.title)}</b>${t.artist ? `<small>${GM.esc(t.artist)}</small>` : ''}` : '🎧 Tap anywhere to start';
+    };
+    bgInfo();
+    document.addEventListener('gm-tune', () => { if (GM.$('#s-now')) bgInfo(); });
+    wire('s-bg', v => { GM.sound.set('bg', v); bgInfo(); });
+    GM.$('#s-skip').onclick = () => GM.sound.skipTune();
     GM.$('#s-sfxvol').onchange = e => { GM.sound.set('sfxVol', +e.target.value); GM.sound.play('good'); };
     GM.$('#s-bgvol').oninput = e => GM.sound.set('bgVol', +e.target.value);
     GM.$('#s-name').onclick = async () => {
-      const n = await GM.prompt('Your leaderboard name', GM.getName(), 'e.g. Joel');
-      if (n != null && n.trim()) { GM.store.set('name', n.trim().slice(0, 20)); settings(); }
+      if (GM.account()) {  // a new name gets its own entry; scores already posted stay under the old one
+        GM.store.set('account', { ...GM.account(), name: '' });
+        const n = await GM.accountModal('Pick a new name. Scores you have already posted stay under your old one.');
+        if (!n) GM.store.set('account', { ...GM.account(), name: GM.store.get('name', '') });
+      } else await GM.askName();
+      settings();
+    };
+    const mv = GM.$('#s-move');
+    if (mv) mv.onclick = () => {
+      const code = GM.transferCode();
+      const m = GM.modal(`<h3>📲 Move to another phone</h3><p>On the new phone, open ⚙️ Settings → Account → <b>I have a transfer code</b> and paste this code:</p>
+        <div class="code-box">${code}</div><p class="muted">Keep it private: anyone with this code can post scores as you.</p>
+        <div class="row"><button class="btn ghost" data-close>Done</button><button class="btn" id="copycode">📋 Copy</button></div>`);
+      GM.$('#copycode', m.el).onclick = async () => { try { await navigator.clipboard.writeText(code); GM.toast('Copied'); } catch (e) { GM.toast('Press and hold the code to copy it'); } };
+    };
+    const cd = GM.$('#s-code');
+    if (cd) cd.onclick = async () => {
+      const code = await GM.prompt('Paste your transfer code', '', 'from Settings on your old phone', 200);
+      if (!code) return;
+      const r = await GM.useTransferCode(code);
+      GM.toast(r === 'ok' ? `🔒 Welcome back, ${GM.esc(GM.getName())}` : r === 'offline' ? 'Couldn’t reach the leaderboard – try again' : 'That code doesn’t match any account');
+      settings();
     };
   }
 
@@ -213,7 +261,7 @@
     if (m && m.startsWith('dailies')) return dailyBoard(m.split(':')[1]);
     const hard = m ? /^[a-z]+h$/.test(m) && GM.MODES[m] != null : GM.isHard();
     const club = GM.favClub();
-    const tabs = ['ultimate', 'ultimateast', 'ultimateapps', 'daily:' + GM.today(), 'footle:' + GM.today(), 'target', 'targetast', 'targetapps', 'treble', 'mystery', 'hopper', 'hilo', 'whoami', 'grid:' + GM.today(), 'grid', 'tally']
+    const tabs = ['ultimate', 'ultimateast', 'ultimateapps', 'ultimatepure', 'classicwild', 'classic', 'extreme', 'purist', 'daily:' + GM.today(), 'footle:' + GM.today(), 'target', 'targetast', 'targetapps', 'treble', 'mystery', 'hopper', 'hilo', 'whoami', 'grid:' + GM.today(), 'grid', 'tally']
       .concat(club ? ['club' + GM.slug(club)] : [])
       .map(k => hard && GM.HARD_MODES.includes(k) ? k + 'h' : k);
     m = m && tabs.includes(m) ? m : tabs[0];
@@ -226,7 +274,7 @@
       ${m.startsWith('footle:') ? '<p class="muted center">Footle scores: 8 for a first-guess win, down to 1 for getting it on the last guess.</p>' : ''}
       ${GM.lb.enabled ? `<h3 class="section-title">🌍 Global</h3><div id="global" class="lb"><div class="muted">Loading…</div></div>` :
         `<div class="banner">Global leaderboard isn’t switched on yet – use <b>⚔️ Challenge a friend</b> after a game to go head-to-head on the same spins.</div>`}
-      ${/^(ultimate|club)/.test(m) || m.startsWith('daily:') ? `<h3 class="section-title">📊 Your spread</h3>${m.startsWith('daily:') ? GM.distHtml('daily', 'goals')
+      ${/^(ultimate|club|classic|extreme|purist)/.test(m) || m.startsWith('daily:') ? `<h3 class="section-title">📊 Your spread</h3>${m.startsWith('daily:') ? GM.distHtml('daily', 'goals')
         : GM.distHtml(m, /apps(h)?$/.test(m) ? 'apps' : /ast(h)?$/.test(m) ? 'assists' : 'goals')}` : ''}
       <h3 class="section-title">📱 Your best on this device</h3>
       <div class="lb">${local.length ? local.slice(0, 10).map((h, i) => `<div class="lb-row"><span>${i + 1}</span><span>${new Date(h.t).toLocaleDateString()}</span><b>${h.s}</b></div>`).join('') : '<div class="muted">No games yet</div>'}</div>`;
@@ -293,9 +341,15 @@
       <p>Stats are stitched together from public datasets: the official premierleague.com player pages (1992–2020), Fantasy Premier League gameweek data (2016–today) and Understat season stats (2014–2016). Which club a player was at in each season (for chemistry and title badges) comes from Transfermarkt transfer records. Assists after 2020 are FPL assists, which run slightly higher than the official count. A handful of players’ early seasons are estimated from minutes played, so the odd tally might be off by a game or a goal.</p>
       <p>Only Premier League appearances and goals count – no cups, Europe or Championship seasons.</p>
       <p>📸 Player photos come from the Premier League, Transfermarkt and Wikimedia Commons (<a href="#/credits">photo credits</a>). Players without a photo show their initials in their club colours.</p>
-      <p>📲 Android app: <a href="${GM.APK_URL}">download the latest APK</a>. Game updates arrive automatically in the app.</p>
+      ${GM.playSafe ? '' : `<p>📲 Android app: <a href="${GM.APK_URL}">download the latest APK</a>. Game updates arrive automatically in the app.</p>`}
+      <p>🎧 Soundtrack music from <a href="https://www.epidemicsound.com/">Epidemic Sound</a>: <span id="tune-credits">the songs in the playlist</span>.</p>
+      <p>🔐 <a href="privacy.html">Privacy policy</a></p>
       <p>This is a fan-made game inspired by FourFourTwo’s 442GOALS and is not affiliated with the Premier League or FourFourTwo.</p>
       </div>`;
+    GM.sound.tuneList().then(list => {
+      const el = GM.$('#tune-credits');
+      if (el && list && list.length) el.innerHTML = list.map(t => `“${GM.esc(t.title)}”${t.artist ? ' by ' + GM.esc(t.artist) : ''}`).join(', ');
+    });
   }
 
   // Wikimedia Commons photos are freely licensed but need crediting

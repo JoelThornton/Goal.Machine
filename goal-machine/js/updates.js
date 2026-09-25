@@ -4,6 +4,20 @@
 (function () {
   GM.UPDATES = [
     {
+      v: 15, date: '2026-09-25', title: 'Online duels, new modes + fair spins',
+      items: [
+        '🌐 Play a friend online: a Draft Duel (take turns picking from the same reels) or a Live Race (same spins, watch their total), from the Head to Head banner',
+        '⚖️ Fair spins: challenge links and daily games give everyone the same players on the same spin, whatever you picked before',
+        '🎛️ Six ways to play the main event: pick the players (⭐ Classic: well-known players more likely, 👑 Ultimate: everyone with 50+ apps equally likely, ⚡ Extreme: every one of the 5,157 PL players) and switch wildcards on or off',
+        '💎 Extreme Purist (every PL player, no wildcards) fills its own Purist collection',
+        '🔒 Accounts: claim a unique leaderboard name, and move it to a new phone with a transfer code',
+        '🎵 Four music tracks: Anthem, Matchday, Thinking Cap and Derby, each for its own part of the game',
+        '🎧 Soundtrack: switch the music to real songs on shuffle in ⚙️ Settings, with a skip button',
+        '📸 Faces are centred in the circles, player names on the pitch are easier to read, and the draft fits on one screen',
+        '👎 The full-time report\'s \'one bad thing\' is a real weakness now, and Dave Watson is no longer a goalkeeper',
+      ],
+    },
+    {
       v: 14, date: '2026-09-25', title: 'Daily games, streaks + your club',
       items: [
         '🟩 Footle: a new daily game. Guess the mystery Premier League player in 8 tries, with clues on position, nationality, clubs, debut, apps and goals',
@@ -130,7 +144,7 @@
   // Once per release, players who have played before get a quick "what's new" pop-up
   GM.maybeShowWhatsNew = function () {
     const seen = GM.store.get('seenVersion', 0), latest = GM.UPDATES[0];
-    if (seen >= latest.v) return;
+    if (seen >= latest.v || location.hash.replace(/^#\/?/, '')) return;  // only on the home screen
     if (!seen && !GM.store.get('played', 0)) { GM.store.set('seenVersion', latest.v); return; }  // brand new player
     GM.store.set('seenVersion', latest.v);
     GM.modal(`<div class="whats-new"><div class="wn-kicker">What's new · v${latest.v}</div><h3>${GM.esc(latest.title)}</h3>

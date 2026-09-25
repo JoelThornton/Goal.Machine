@@ -22,18 +22,42 @@ jobs:
 
       - uses: gradle/actions/setup-gradle@v4
         with:
-          gradle-version: '8.9'
+          gradle-version: '8.11.1'
 
-      - name: Build signed APK
+      # Private signing keys come from repository secrets when they are set (see android/store/README.md):
+      # UPLOAD_KEYSTORE_B64 / UPLOAD_KEYSTORE_PASSWORD / UPLOAD_KEY_ALIAS for the Google Play bundle, and optionally
+      # SIDELOAD_KEYSTORE_B64 / SIDELOAD_KEYSTORE_PASSWORD / SIDELOAD_KEY_ALIAS for the APK.
+      - name: Signing keys
+        env:
+          UPLOAD_B64: ${{ secrets.UPLOAD_KEYSTORE_B64 }}
+          SIDELOAD_B64: ${{ secrets.SIDELOAD_KEYSTORE_B64 }}
+        run: |
+          if [ -n "$UPLOAD_B64" ]; then echo "$UPLOAD_B64" | base64 -d > "$RUNNER_TEMP/upload.keystore"; echo "UPLOAD_KEYSTORE_FILE=$RUNNER_TEMP/upload.keystore" >> "$GITHUB_ENV";
+          else echo "::warning::No UPLOAD_KEYSTORE_B64 secret: the Play bundle is signed with the public repo key (fine for testing, don't upload it)"; fi
+          if [ -n "$SIDELOAD_B64" ]; then echo "$SIDELOAD_B64" | base64 -d > "$RUNNER_TEMP/sideload.keystore"; echo "SIDELOAD_KEYSTORE_FILE=$RUNNER_TEMP/sideload.keystore" >> "$GITHUB_ENV"; fi
+
+      - name: Build the APK and the Google Play bundle
         working-directory: android
-        run: gradle --no-daemon assembleRelease
+        env:
+          UPLOAD_KEYSTORE_PASSWORD: ${{ secrets.UPLOAD_KEYSTORE_PASSWORD }}
+          UPLOAD_KEY_ALIAS: ${{ secrets.UPLOAD_KEY_ALIAS }}
+          SIDELOAD_KEYSTORE_PASSWORD: ${{ secrets.SIDELOAD_KEYSTORE_PASSWORD }}
+          SIDELOAD_KEY_ALIAS: ${{ secrets.SIDELOAD_KEY_ALIAS }}
+        run: gradle --no-daemon assembleSideloadRelease bundlePlayRelease
 
-      - run: cp android/app/build/outputs/apk/release/app-release.apk goal-machine.apk
+      - run: |
+          cp android/app/build/outputs/apk/sideload/release/app-sideload-release.apk goal-machine.apk
+          cp android/app/build/outputs/bundle/playRelease/app-play-release.aab goal-machine-play.aab
 
       - uses: actions/upload-artifact@v4
         with:
           name: goal-machine-apk
           path: goal-machine.apk
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: goal-machine-play-bundle
+          path: goal-machine-play.aab
 
       # On master, publish/refresh the "Goal Machine for Android" release so this link always has the newest APK:
       # https://github.com/OpportunisticGames/opportunisticgames.github.io/releases/latest/download/goal-machine.apk

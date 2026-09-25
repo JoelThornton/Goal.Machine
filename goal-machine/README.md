@@ -10,6 +10,8 @@ Live: `https://opportunisticgames.github.io/goal-machine/` (a free site by Oppor
 | Mode | What it is |
 | --- | --- |
 | 👑 Ultimate Wildcard | The main game. Build the XI with the biggest total of PL **goals**, **assists** or **appearances** (you choose). Every 50+ app player is equally likely, so you have to find the stars among the journeymen. Your score is the total |
+| 🎛️ The six biggest-total modes | Two switches on the main card. **Players:** ⭐ Classic (50+ apps, well-known players more likely), 👑 Ultimate (50+ apps, all equally likely), ⚡ Extreme (all 5,157 players to play in the PL, equally likely). **Wildcards:** on or off. That gives Classic Wildcard / Classic, Ultimate Wildcard / Ultimate, Extreme Wildcard / Extreme Purist. Extreme Purist fills its own **Purist collection** |
+| 🌐 Online | **Draft Duel** (take turns picking from one set of reels, and a player your rival signs is gone) or **Live Race** (both play the same spins at once), via a 5-letter room code |
 | 📅 Daily Ultimate | Ultimate Wildcard (goals) with the same spins for everyone that day and one attempt |
 | 🎯 Target | Hit the number: **500 goals**, **350 assists** or **3,750 apps**. The reels lean towards well-known players. Closeness scores up to 1,000 points, and hitting it exactly adds a +500 bullseye bonus |
 | 🏆 The Treble | One XI, three targets: **400 goals, 300 assists and 3,300 apps**. Up to 333 points per stat. All three within 3% wins the Treble (+500), and two within 3% is the Double (+150) |
@@ -24,6 +26,8 @@ Live: `https://opportunisticgames.github.io/goal-machine/` (a free site by Oppor
 | ⚔️ Head to Head | Two players, one phone. A best-of-3, 5 or 7 series of random quick games (Higher or Lower, a 3-player Who Am I?, a 5-player Guess the Tally, a 60-second Club Hopper). Each player gets their own questions, the higher score takes the round, and draws mean an extra round |
 
 **Sound:** everything is synthesised with Web Audio in `js/audio.js`, so there are no audio files. Sound effects include the referee's whistle, spinning and landing reels, signings, wildcards, right and wrong answers, the Club Hopper clock, a goal horn with crowd roar for a bullseye, and a trophy fanfare. Optional background music is a 56-bar song at 122 bpm, about 1 min 50 s: intro, groove, lift, breakdown, chorus, a groove with a new bassline, chorus and a turnaround, with a written chorus tune and arpeggios that vary on each pass. Effects are on and music is off by default, with volumes in ⚙️ Settings. Audio starts on the first tap (a browser rule) and pauses when the app is in the background. `GM.sound.renderDemo()` renders everything to a buffer for checking without speakers.
+
+**Soundtrack:** Settings → Music has a third option, 🎧 Soundtrack, which plays real recorded songs from `music/` on shuffle instead of the synthesised tracks. To add a song, put the `.mp3` in `music/` and add a line to `music/playlist.json` (`file`, `title`, `artist`). The song credits on the About page come from the same list. Only add music that is licensed for use in the game; keep files around 5 MB (128–192 kbps) so they stream quickly.
 
 **📅 Today:** the daily games (Daily Ultimate, Footle, Daily Club Grid and Club Footle) with Wordle-style 🔥 streaks and a 4-week calendar. Dailies save after every move, so you can leave and carry on, and a finished daily stays viewable until midnight. Results go in a local log (`gm:dlog`).
 
@@ -101,6 +105,12 @@ Faces are tried in this order, and if one won't load the next is used, falling b
 4. A freely licensed Wikimedia Commons photo, credited on the in-game **Photo credits** page (reached from About)
 
 The **Find player photos** workflow runs `fetch_photos.py` weekly. It only looks up players without an FPL photo and retries misses every 60 days.
+
+**Fair spins:** every spin has a fixed, seeded running order of players drawn from the whole field, and the reels are the first ones who fit your open positions. So on a challenge link or daily, everyone sees the same players on the same spin wherever their positions allow, and identical decisions always give identical games.
+
+**Accounts:** a leaderboard name is claimed once. The device keeps a random key, the server stores only its hash (`players` table), and scores go through the `submit_score` function, which checks it. Settings → Account gives a transfer code for moving to a new phone.
+
+**Google Play:** see [`android/store/README.md`](../android/store/README.md) for the checklist, listing text and the answers for the Play Console forms.
 
 ## Global leaderboard
 

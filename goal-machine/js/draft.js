@@ -43,6 +43,17 @@
     mystery: { max: false, mystery: true, weight: p => p.fame, noWild: [] },
   };
   RULES.daily = RULES.ultimate;
+  // Classic: Ultimate without the wildcards - the biggest total from the 50+ app players, all equally likely
+  // The biggest-total modes come in three player pools, each with and without wildcards:
+  //   Classic (50+ apps, well-known players more likely)  classicwild / classic
+  //   Ultimate (50+ apps, all equally likely)             ultimate / ultimatepure
+  //   Extreme (every PL player, all equally likely)       extreme / purist
+  RULES.classicwild = { max: true, weight: p => p.fame, fame: true, noWild: ['rotation', 'bus'] };
+  RULES.classic = { max: true, weight: p => p.fame, fame: true, noWild: [], wild: false };
+  RULES.ultimatepure = { max: true, weight: () => 1, noWild: [], wild: false };
+  // Every player to have played in the PL (1+ apps), all equally likely: Extreme has wildcards, Purist has none
+  RULES.extreme = { max: true, weight: () => 1, noWild: ['rotation', 'bus'], all: true };
+  RULES.purist = { max: true, weight: () => 1, noWild: [], wild: false, all: true };
   // Club XI: Ultimate Wildcard with only players who turned out for one club
   RULES.club = { max: true, weight: () => 1, noWild: ['rotation', 'bus'], club: true };
 
@@ -61,6 +72,13 @@
   function start(el, mode, opts = {}) {
     root = el;
     if (!RULES[mode]) mode = 'ultimate';
+    if (RULES[mode].all && !GM.allPlayers) {  // fetch every PL player first
+      root.innerHTML = `<div class="topbar"><a href="#/" class="back">‹</a><h2>${GM.MODES[mode].icon} ${GM.MODES[mode].name}</h2><span></span></div>
+        <div class="loading-all"><div class="splash-bar"><i></i></div><p class="muted">Loading every Premier League player…</p></div>`;
+      GM.loadAll().then(() => { if (root === el && location.hash.includes('m=' + mode)) start(el, mode, opts); })
+        .catch(() => { root.innerHTML += '<p class="center">Couldn’t load the player list. Check your connection and try again.</p>'; });
+      return;
+    }
     const seed = mode === 'daily' ? 'daily:' + GM.today() : (opts.seed || GM.newSeed());
     let stat = mode === 'daily' ? 'goals' : (GM.STATS[opts.stat] ? opts.stat : 'goals');
     let target = RULES[mode] && !RULES[mode].max ? TARGETS[stat] : null;
@@ -95,7 +113,9 @@
       inv: [], modifier: null, subbing: false, used: [], last: null,
       phase: 'spin', vs: opts.vs, vss: opts.vss, log: [], pending: null, wildUsed: 0, coinWin: false,
       hard: mode !== 'daily' && !!opts.hard, club,
+      online: opts.online || null,  // Live Race: { code, token, seat, opp }
     };
+    if (S.online) root.className = 'page-draft page-online';
     render();
   }
 
@@ -104,7 +124,7 @@
   const distKey = () => S.mode === 'daily' ? 'daily' : modeKey();
   // Hard mode flattens the star bias in the target modes (Shearer ~4x an average player instead of ~16x) but keeps the
   // same targets - big numbers are rarer, so one wrong pick can put the target out of reach.
-  const reelWeight = () => (S.hard && !S.rules.max ? p => Math.sqrt(S.rules.weight(p)) : S.rules.weight);
+  const reelWeight = () => (S.hard && (!S.rules.max || S.rules.fame) ? p => Math.sqrt(S.rules.weight(p)) : S.rules.weight);
   // what wildcard descriptions talk about: in the Treble a wildcard affects all three numbers
   const wst = () => S.rules.treble ? { ...S.st, label: 'numbers', bigLabel: 'goals' } : S.st;
   const modeName = () => S.mode === 'club' ? GM.MODES[modeKey()].name : GM.MODES[S.mode === 'daily' ? 'daily' : (S.rules.treble || S.rules.mystery) ? S.mode : S.mode + statSuffix(S.stat)].name;
@@ -113,47 +133,74 @@
   const tot = k => S.xi.reduce((t, s) => t + (s.v ? s.v[k] : 0), 0);
   const total = () => tot(S.stat);
   const openPos = () => [...new Set(S.xi.filter(s => s.p == null).map(s => s.pos))];
-  const byId = id => GM.players[id];
+  // Extreme and Purist draw from every PL player; everything else from the 50+ app list
+  const PL = () => (S && S.rules && S.rules.all ? GM.allPlayers : GM.players);
+  const byId = id => PL()[id];
   const fits = (p, open) => p.poss.some(x => open.includes(x));
   const emptySlots = () => S.xi.filter(s => s.p == null).length;
   const fmt = n => n.toLocaleString();
 
   /* ---------------------------------------------------------------- reel generation */
+  // Fair deals. Every spin has its own fixed running order of players, drawn from the whole field and seeded by the
+  // game seed + spin number (+ which re-roll or special spin it is). The reels are the first players in that order who
+  // fit your open positions. So two people on the same seed see the same players on the same spin wherever their
+  // positions allow - if Shearer is 1st in spin 3's order, everyone with a striker slot open on spin 3 gets him -
+  // and identical decisions always give identical games. Wildcards depend on the spin alone.
+  const samplers = new Map();
+  function sampler(key, list, w) {
+    if (!samplers.has(key)) {
+      const cum = []; let t = 0;
+      for (const p of list) { t += w(p); cum.push(t); }
+      samplers.set(key, { list, cum, t });
+    }
+    const sm = samplers.get(key);
+    return u => {  // binary search the cumulative weights
+      let lo = 0, hi = sm.cum.length - 1; const x = u * sm.t;
+      while (lo < hi) { const mid = (lo + hi) >> 1; if (sm.cum[mid] < x) lo = mid + 1; else hi = mid; }
+      return sm.list[lo];
+    };
+  }
   function makeReels(special) {
-    const r = GM.rng(`${S.seed}|${S.stat}|${S.spin}|${S.respins}|${special || ''}`);
+    const tag = `${S.seed}|${S.stat}|${S.spin}|${S.spinRespins || 0}|${special || ''}`;
+    const r = GM.rng(tag), rw = GM.rng(tag + '|wild');
     const open = openPos();
     const used = new Set(S.used.concat(S.xi.filter(s => s.p != null).map(s => s.p)));
-    let pool = GM.players.filter(p => fits(p, open) && !used.has(p.id));
-    if (S.club) {  // Club XI: only the club's players, unless it has nobody left for the open positions
-      const mine = pool.filter(p => p.clubs.includes(S.club));
-      if (mine.length) pool = mine;
-    }
+    const ok = p => fits(p, open) && !used.has(p.id);
     const wc = special && WILDCARDS[special];
     const n = (wc && wc.reels) || 3;
-    const reels = [];
-    let wildShown = !!special;
+    // the field: everyone (or the club's players in Club XI, or a wildcard's theme), as long as it still has someone who fits
+    let field = PL(), fkey = S.rules.all ? 'every' : 'all';
+    if (S.club) {
+      const mine = PL().filter(p => p.clubs.includes(S.club));
+      if (mine.some(ok)) { field = mine; fkey = 'club:' + S.club; }
+    }
+    if (wc && wc.filter) {
+      const themed = field.filter(p => wc.filter(p, wst()));
+      if (themed.some(ok)) { field = themed; fkey += '|' + special; }
+    }
+    const draw = sampler(`${fkey}|${S.mode}|${S.hard ? 'h' : ''}`, field, reelWeight());
+    // wildcard: reel 1 or 2 on 28% of spins each, decided by the spin number only
+    let wildAt = -1, wild = null;
+    if (!special && S.spin >= 1 && S.rules.wild !== false) {
+      if (rw() < 0.28) wildAt = 0; else if (rw() < 0.28) wildAt = 1;
+      const types = Object.keys(WILDCARDS).filter(t => !S.rules.noWild.includes(t));
+      wild = rw.weighted(types, t => WILDCARDS[t].w);
+    }
+    const reels = [], taken = new Set();
     for (let i = 0; i < n; i++) {
-      if (S.spin >= 1 && !wildShown && i < 2 && r() < 0.28) {
-        const types = Object.keys(WILDCARDS).filter(t => !S.rules.noWild.includes(t));
-        reels.push({ wild: r.weighted(types, t => WILDCARDS[t].w) });
-        wildShown = true;
-        continue;
+      if (i === wildAt) { reels.push({ wild }); continue; }
+      let p = null;
+      for (let tries = 0; tries < 800 && !p; tries++) { const c = draw(r()); if (ok(c) && !taken.has(c.id)) p = c; }
+      if (!p) {  // very few players left who fit: pick from them directly
+        const rest = field.filter(c => ok(c) && !taken.has(c.id));
+        if (!rest.length) break;
+        p = r.weighted(rest, reelWeight());
       }
-      const taken = new Set(reels.filter(x => x.id != null).map(x => x.id));
-      let cands = pool.filter(p => !taken.has(p.id));
-      let mate = null;
-      if (wc && wc.filter) {
-        const themed = cands.filter(p => wc.filter(p, wst()));
-        if (themed.length) cands = themed;
-      } else if (i === 1 && S.last != null && r() < 0.35) {
-        const lp = byId(S.last);
-        const mates = cands.filter(p => p.first <= lp.last && p.last >= lp.first && p.clubs.some(c => lp.clubs.includes(c)));
-        if (mates.length) { cands = mates; mate = lp; }
-      }
-      if (!cands.length) break;
-      const p = r.weighted(cands, reelWeight());
+      taken.add(p.id);
       const x = { id: p.id };
-      if (mate) x.mate = { name: mate.name, club: p.clubs.find(c => mate.clubs.includes(c)) };
+      // chemistry hint (a label only, so it doesn't change who you're offered): played with your last signing
+      const lp = S.last != null ? byId(S.last) : null;
+      if (lp && p.first <= lp.last && p.last >= lp.first && p.clubs.some(c => lp.clubs.includes(c))) x.mate = { name: lp.name, club: p.clubs.find(c => lp.clubs.includes(c)) };
       reels.push(x);
     }
     return reels;
@@ -177,7 +224,7 @@
 
   async function animateReels() {
     const cards = GM.$$('.reel', root);
-    const names = GM.players;
+    const names = PL();
     const stops = cards.map((c, i) => 500 + i * 250);
     const t0 = performance.now();
     let frame = 0;
@@ -276,7 +323,9 @@
   }
 
   function completePick() {
+    if (S.online && GM.online) GM.online.pushRace(S);
     S.xi.forEach(s => { s.fresh = false; });
+    S.spinRespins = 0;
     S.spin++;
     S.reels = [];
     S.selected = -1;
@@ -299,9 +348,9 @@
         break;
       case 'respin':
         if (S.phase !== 'pick') { GM.toast('Spin first, then Roll Again if you don’t like them'); return; }
-        S.respins++; consume(); doSpin(); return;
+        S.respins++; S.spinRespins = (S.spinRespins || 0) + 1; consume(); doSpin(); return;
       case 'special':
-        S.respins++; consume(); doSpin(w); return;
+        S.respins++; S.spinRespins = (S.spinRespins || 0) + 1; consume(); doSpin(w); return;
       case 'sub':
         if (!S.xi.some(s => s.p != null)) { GM.toast('No one to release yet'); return; }
         S.subbing = k; S.pending = null; render(); GM.toast('Tap a player on the pitch to release him'); return;
@@ -317,7 +366,7 @@
         if (!idx.length) { GM.toast(w === 'gegenpress' ? 'Your LM and RM slots are already filled' : 'No free attacking slots to drop back'); return; }
         idx.forEach(i => { S.xi[i].pos = w === 'gegenpress' ? 'ST' : 'CB'; });
         GM.toast(w === 'gegenpress' ? `⚡ Gegenpress! ${idx.length} midfield slot${idx.length > 1 ? 's' : ''} → strikers` : `🚌 Bus parked: ${idx.length} slot${idx.length > 1 ? 's' : ''} → defence`);
-        if (S.phase === 'pick' && !S.reels.some(x => x.wild || fits(byId(x.id), openPos()))) { S.respins++; consume(); doSpin(); return; }
+        if (S.phase === 'pick' && !S.reels.some(x => x.wild || fits(byId(x.id), openPos()))) { S.respins++; S.spinRespins = (S.spinRespins || 0) + 1; consume(); doSpin(); return; }
         break;
       }
     }
@@ -377,7 +426,7 @@
         rating: rating.score, pairs: rating.pairs.length, wildUsed: S.wildUsed, coinWin: S.coinWin,
         bull: sc.diff === 0, closeness: sc.closeness != null ? sc.closeness : null, treble: !!(sc.hits && sc.hits.length === 3),
       });
-      S.collected = { n: S.collected.newPlayers.length, total: S.collected.total, badges: S.collected.fresh.map(x => x.icon + ' ' + x.name) };
+      S.collected = { n: S.collected.newPlayers.length, total: S.collected.total, badges: S.collected.fresh.map(x => x.icon + ' ' + x.name), book: S.collected.book };
     }
     if (S.mode === 'daily') {
       GM.store.set('daily2:' + GM.today(), { ...S, rules: undefined });
@@ -385,6 +434,7 @@
       GM.markDaily('daily', sc.t);
     }
     render();
+    if (S.online && GM.online) GM.online.pushRace(S);
     GM.sound.play('fulltime');
     const bull = sc.diff === 0;
     if (bull) setTimeout(() => GM.sound.play('horn'), 1700);
@@ -525,20 +575,20 @@
     root.innerHTML = `
       <div class="topbar"><a href="#/" class="back">‹</a><h2>${icon} ${modeName()}${S.hard ? ' · Hard' : ''}</h2><button class="icon-btn" id="help">?</button></div>
       ${S.vs ? `<div class="banner">⚔️ Beat <b>${GM.esc(S.vs)}</b>’s score of <b>${GM.esc(S.vss)}</b></div>` : ''}
+      ${S.online ? `<div class="opp-bar" id="oppbar">🌐 Racing <b>${GM.esc(S.online.opp)}</b>…</div>` : ''}
       ${counterHtml()}
       ${pitchHtml()}
-      <div class="inv"><span class="inv-label">Wildcards ${S.inv.length}/3</span>${S.inv.length ? S.inv.map((w, k) =>
+      ${S.rules.wild === false ? '' : `<div class="inv"><span class="inv-label">Wildcards ${S.inv.length}/3</span>${S.inv.length ? S.inv.map((w, k) =>
       `<button class="wild-btn ${S.subbing === k ? 'active' : ''}" data-w="${k}" title="${GM.esc(WILDCARDS[w].desc(wst()))}">${WILDCARDS[w].icon}<small>${WILDCARDS[w].name}</small></button>`).join('')
-        : '<span class="muted">none yet – they appear on the reels</span>'}${S.subbing !== false ? '<button class="btn small ghost" id="cancel-sub">Cancel</button>' : ''}</div>
+        : '<span class="muted">none yet · they turn up on the reels</span>'}${S.subbing !== false ? '<button class="btn small ghost" id="cancel-sub">Cancel</button>' : ''}</div>`}
       ${sp && S.phase !== 'spin' ? `<div class="special-banner">${sp.icon} ${sp.name}</div>` : ''}
-      <div class="reels">${Array.from({ length: nReels }, (_, i) => {
+      ${S.phase === 'spin' ? `<div class="spin-zone"><button class="btn big spin" id="spin">🎰 SPIN</button></div>` : `<div class="reels">${Array.from({ length: nReels }, (_, i) => {
           const x = S.reels[i];
           if (S.phase === 'spinning') return `<div class="reel spinning"><div class="reel-spin">…</div></div>`;
           if (!x) return `<div class="reel idle"><div class="reel-q">?</div></div>`;
           return `<button class="reel ${x.wild ? 'is-wild' : ''} ${S.selected === i || S.pending === i ? 'selected' : ''} ${S.phase === 'reveal' && S.selected !== i ? 'dim' : ''} ${S.hard ? 'hard' : ''}" data-reel="${i}">${reelInner(x)}</button>`;
-        }).join('')}</div>
+        }).join('')}</div>`}
       <div class="actions">
-        ${S.phase === 'spin' ? `<button class="btn big spin" id="spin">🎰 SPIN</button>` : ''}
         ${S.phase === 'pick' && S.pending == null ? `<div class="hint">Tap a player, then tap the slot he’ll play in${S.reels.some(r => r.wild) ? ' – or grab the wildcard' : ''}</div>` : ''}
         ${S.phase === 'pick' && S.pending != null ? `<div class="hint">📍 Now tap a highlighted slot on the pitch for <b>${GM.esc(byId(S.reels[S.pending].id).name)}</b> (${byId(S.reels[S.pending].id).poss.join(' / ')})</div>` : ''}
       </div>`;
@@ -589,11 +639,11 @@
         <div class="muted">Personal best: ${fmt(Math.max(best, sc.total))}</div>
       </div>
       ${S.rules.max ? GM.distHtml(distKey(), S.stat, sc.t) : ''}
-      ${S.collected ? `<a class="collected" href="#/album">📒 ${S.collected.n ? `<b>+${S.collected.n}</b> new player${S.collected.n === 1 ? '' : 's'} for your album` : 'No new players this time'} · ${S.collected.total.toLocaleString()} collected${S.collected.badges.length ? `<br>🏅 ${S.collected.badges.join(' · ')}` : ''} ›</a>` : ''}
+      ${S.collected ? `<a class="collected" href="#/album${S.collected.book === 'purist' ? '?b=purist' : ''}">📒 ${S.collected.n ? `<b>+${S.collected.n}</b> new player${S.collected.n === 1 ? '' : 's'} for your album` : 'No new players this time'} · ${S.collected.total.toLocaleString()} collected${S.collected.badges.length ? `<br>🏅 ${S.collected.badges.join(' · ')}` : ''} ›</a>` : ''}
       ${GM.report ? GM.report(xi, S.st, S.rules.treble) : ''}
       ${pitchHtml()}
       <div class="actions col">
-        ${S.mode !== 'daily' ? `<button class="btn big" id="again">🔁 Play again</button>` : `<div class="muted">New Daily Ultimate tomorrow</div>`}
+        ${S.online ? '<div id="race-result"></div><a class="btn big" href="#/online">🌐 New online game</a>' : S.mode !== 'daily' ? `<button class="btn big" id="again">🔁 Play again</button>` : `<div class="muted">New Daily Ultimate tomorrow</div>`}
         <button class="btn" id="challenge">⚔️ Challenge a friend (same spins)</button>
         <button class="btn ghost" id="share">📤 Share result</button>
         <a class="btn ghost" href="#/leaderboard?m=${encodeURIComponent(modeKey())}">🏆 Leaderboard</a>

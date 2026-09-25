@@ -4,7 +4,10 @@ import android.app.Activity;
 import android.content.ActivityNotFoundException;
 import android.content.Intent;
 import android.net.Uri;
+import android.os.Build;
 import android.os.Bundle;
+import android.view.WindowInsets;
+import android.widget.FrameLayout;
 import android.webkit.JavascriptInterface;
 import android.webkit.WebChromeClient;
 import android.webkit.WebResourceError;
@@ -66,7 +69,19 @@ public class MainActivity extends Activity {
         if (link != null) web.loadUrl(link);
         else if (savedInstanceState != null) web.restoreState(savedInstanceState);
         else web.loadUrl(URL);
-        setContentView(web);
+        // Android 15+ draws apps edge to edge, under the status and navigation bars. Keep the page clear of them by
+        // padding a frame around the WebView by the system bar (and camera cut-out) sizes; the green shows behind.
+        FrameLayout frame = new FrameLayout(this);
+        frame.setBackgroundColor(0xFF07261D);
+        frame.addView(web, new FrameLayout.LayoutParams(FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.MATCH_PARENT));
+        if (Build.VERSION.SDK_INT >= 30) {
+            frame.setOnApplyWindowInsetsListener((v, insets) -> {
+                android.graphics.Insets bars = insets.getInsets(WindowInsets.Type.systemBars() | WindowInsets.Type.displayCutout() | WindowInsets.Type.ime());
+                v.setPadding(bars.left, bars.top, bars.right, bars.bottom);
+                return WindowInsets.CONSUMED;
+            });
+        }
+        setContentView(frame);
     }
 
     /** A Goal Machine link (e.g. a friend's challenge) tapped while the app is already open. */
@@ -126,6 +141,11 @@ public class MainActivity extends Activity {
         }
 
         /** The app's build number, so the site can tell players when a newer APK is worth downloading. */
+        @JavascriptInterface
+        public String channel() {
+            return BuildConfig.CHANNEL;  // "play" or "sideload"
+        }
+
         @JavascriptInterface
         public int version() {
             return BuildConfig.VERSION_CODE;

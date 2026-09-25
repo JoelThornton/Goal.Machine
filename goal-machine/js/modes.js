@@ -94,7 +94,7 @@
       // hard: start vague, clubs only as the last clue and no initials
       return hard ? [pos, nat, era, rec, clubs] : [clubs, pos, nat, rec, ini];
     };
-    const isMatch = p => p.id === target.id ||
+    const isMatch = p => p.id === target.id || (hard && p.name === target.name) ||
       (p.clubs.join() === target.clubs.join() && p.first === target.first && p.last === target.last && p.poss.join() === target.poss.join());
 
     function render() {
@@ -105,7 +105,7 @@
         <div class="guess-box"><input class="input" id="wg" placeholder="Type a player…" autocomplete="off"><div class="ac" id="wac" hidden></div></div>
         <div class="actions row2"><button class="btn ghost" id="wclue">${clue < 4 ? '💡 Another clue' : '🏳️ Give up'}</button></div>
         <div id="wover"></div>`;
-      GM.autocomplete(GM.$('#wg', root), GM.$('#wac', root), guess, { exclude: p => wrong.includes(p) });
+      GM.autocomplete(GM.$('#wg', root), GM.$('#wac', root), guess, { exclude: p => wrong.includes(p), plain: hard });
       GM.$('#wclue', root).onclick = () => (clue < 4 ? (clue++, render()) : endRound(false));
       setTimeout(() => GM.$('#wg', root) && GM.$('#wg', root).focus(), 30);
     }

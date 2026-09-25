@@ -258,11 +258,12 @@ GM.search = function (q, limit = 8, pool = GM.players) {
   return res.slice(0, limit).map(r => r[1]);
 };
 
-GM.autocomplete = function (input, box, onPick, { exclude } = {}) {
+// plain: names only (no flag, positions or years) so the suggestions don't give clues away
+GM.autocomplete = function (input, box, onPick, { exclude, plain } = {}) {
   let items = [], active = 0;
   const render = () => {
     box.innerHTML = items.map((p, i) => `<button type="button" class="ac-item ${i === active ? 'active' : ''}" data-i="${i}">
-      <span>${GM.flag(p.nat)} ${GM.esc(p.name)}</span><small>${p.poss.join('/')} · ${GM.era(p)}</small></button>`).join('');
+      ${plain ? `<span>${GM.esc(p.name)}</span>` : `<span>${GM.flag(p.nat)} ${GM.esc(p.name)}</span><small>${p.poss.join('/')} · ${GM.era(p)}</small>`}</button>`).join('');
     box.hidden = !items.length;
   };
   input.addEventListener('input', () => {

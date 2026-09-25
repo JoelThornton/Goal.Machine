@@ -67,7 +67,13 @@
     document.body.classList.toggle('has-tabs', menu);
     tabbar.hidden = !menu;
     GM.$$('[data-tab]', tabbar).forEach(a => a.classList.toggle('on', a.dataset.tab === path));
-    GM.sound.scene(path);  // each game area has its own music
+    GM.sound.scene(path === 'draft' && q.m === 'chaos' ? 'chaos' : path);  // each game area has its own music (CHAOS has Mayhem)
+    const chaos = path === 'draft' && q.m === 'chaos';
+    if (chaos !== document.body.classList.contains('chaos-mode')) {
+      document.body.classList.toggle('chaos-mode', chaos);
+      // CHAOS always sits on the dark look (its neon needs it); leaving puts your own look back
+      if (chaos) { document.documentElement.dataset.theme = 'dark'; GM.app('setBars', '#12001f', false); } else GM.applyTheme();
+    }
     GM.$('.cal-slot', tabbar).innerHTML = GM.calIcon();  // stays right past midnight
     switch (path) {
       case 'draft': return GM.draft.start(app, ['target', 'treble', 'mystery', 'club', 'classic', 'classicwild', 'ultimatepure', 'extreme', 'purist', 'chaos'].includes(q.m) ? q.m : 'ultimate',

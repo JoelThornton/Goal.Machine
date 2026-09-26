@@ -2,7 +2,8 @@
 
 This repo is mostly **Goal Machine** (`goal-machine/`), a Premier League XI-draft game. It is a static PWA served by
 GitHub Pages at https://opportunisticgames.github.io/goal-machine/, with an Android WebView wrapper (`android/`).
-The other files at the root are an older, unrelated site: leave them alone. `goal-machine/README.md` describes every
+The root `index.html` is the Opportunistic Games studio page (contact opportunisticyp@gmail.com), which Google Play
+uses as the developer website (verified in Google Search Console). `goal-machine/README.md` describes every
 game mode for players; this file is about how to work on it.
 
 ## Rules the owner has set

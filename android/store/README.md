@@ -83,7 +83,9 @@ It's doable, but a few things need you (accounts and keys) and there are two rea
 > player. Player statistics are compiled from public sources.
 
 - **Category:** Games → Trivia (or Word/Puzzle). **Tags:** football, soccer, quiz, trivia.
-- **Contact email:** a business email for Opportunistic Games (it's shown publicly).
+- **Contact email:** opportunisticyp@gmail.com (shown publicly).
+- **Website:** https://opportunisticgames.github.io/
+- **Account deletion URL:** https://opportunisticgames.github.io/goal-machine/privacy.html#delete
 - **Privacy policy URL:** https://opportunisticgames.github.io/goal-machine/privacy.html
 
 ## Play Console answers

@@ -1,30 +1,89 @@
 <!DOCTYPE html>
-<html lang="en" dir="ltr">
-  <head>
-    <link rel="stylesheet" type="text/css" href="stylesheet.css">
-    <link rel="stylesheet" type="text/css" href="opportunities.css">
-    <link rel="stylesheet" type="text/css" href="login.css">
-    <script type="text/javascript" src="opps_data.js"></script>
-    <script defer type="text/javascript" src="index.js"></script>
-    <meta charset="utf-8">
-    <title>YAP</title>
-  </head>
-  <body>
-    <div id="loginLinks">
-      <a href="login.html"><input type="button" id="loginLink" value="Login"></a>
-      <a href="register.html"><input type="button" id="registerLink" value="Sign Up"></a>
+<html lang="en-GB">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Opportunistic Games</title>
+  <meta name="description" content="Opportunistic Games makes small, free football games. Our first is Goal Machine: build the biggest-scoring XI from 5,000+ real players.">
+  <meta property="og:title" content="Opportunistic Games">
+  <meta property="og:description" content="Small, free football games. Home of Goal Machine.">
+  <meta property="og:image" content="https://opportunisticgames.github.io/goal-machine/icons/icon-512.png">
+  <link rel="icon" href="goal-machine/icons/icon-192.png">
+  <style>
+    :root { --bg: #f4f7f5; --panel: #fff; --ink: #0b2a20; --muted: #4d6a5e; --edge: #d6e3dc; --accent: #0b6e4f; --lime: #c8ff3d; --hero: #07261d; }
+    @media (prefers-color-scheme: dark) { :root { --bg: #06140f; --panel: #0d2219; --ink: #eaf6f0; --muted: #9dc2b1; --edge: #1d3a2e; --accent: #c8ff3d; } }
+    * { box-sizing: border-box; }
+    body { margin: 0; background: var(--bg); color: var(--ink); font: 17px/1.55 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+    a { color: var(--accent); }
+    .wrap { max-width: 880px; margin: 0 auto; padding: 0 16px; }
+    header.hero { background: var(--hero); color: #f2fbf6; padding: 56px 0 64px; }
+    .brand { display: flex; align-items: center; gap: 10px; font-weight: 800; letter-spacing: .02em; color: var(--lime); text-transform: uppercase; font-size: .85rem; }
+    .brand i { font-style: normal; font-size: 1.3rem; }
+    h1 { font-size: clamp(2rem, 7vw, 3.2rem); line-height: 1.1; margin: 14px 0 12px; }
+    .hero p { color: #b9d6c8; max-width: 560px; margin: 0; font-size: 1.1rem; }
+    main { padding: 8px 0 40px; }
+    h2 { font-size: 1.35rem; margin: 40px 0 12px; }
+    .game { display: grid; grid-template-columns: 120px 1fr; gap: 20px; align-items: start; background: var(--panel); border: 1px solid var(--edge); border-radius: 20px; padding: 22px; margin-top: -36px; box-shadow: 0 6px 24px rgba(0, 0, 0, .08); }
+    .game img { width: 120px; height: 120px; border-radius: 26px; display: block; }
+    .game h3 { margin: 0 0 6px; font-size: 1.5rem; }
+    .game p { margin: 0 0 12px; color: var(--muted); }
+    .game ul { margin: 0 0 16px; padding-left: 20px; color: var(--muted); }
+    .btns { display: flex; flex-wrap: wrap; gap: 10px; }
+    .btn { display: inline-block; padding: 12px 18px; border-radius: 12px; font-weight: 700; text-decoration: none; background: var(--lime); color: #0a2a1f; }
+    .btn.ghost { background: transparent; color: var(--ink); border: 1px solid var(--edge); }
+    .btn.soon { background: transparent; color: var(--muted); border: 1px dashed var(--edge); cursor: default; }
+    .cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 14px; }
+    .card { background: var(--panel); border: 1px solid var(--edge); border-radius: 16px; padding: 18px; }
+    .card h3 { margin: 0 0 6px; font-size: 1.05rem; }
+    .card p { margin: 0; color: var(--muted); font-size: .95rem; }
+    footer { border-top: 1px solid var(--edge); padding: 22px 0 36px; color: var(--muted); font-size: .9rem; }
+    footer p { margin: 4px 0; }
+    @media (max-width: 560px) { .game { grid-template-columns: 1fr; } .game img { width: 88px; height: 88px; border-radius: 20px; } }
+  </style>
+</head>
+<body>
+  <header class="hero">
+    <div class="wrap">
+      <div class="brand"><i>⚽</i> Opportunistic Games</div>
+      <h1>Small, free football games.</h1>
+      <p>We make quick, clever games for people who know their football. No ads, no tracking, just the game.</p>
     </div>
-    <div id="content">
-      <div id="filter">
-        <input type="checkbox" checked="true" value="A-Level" class="filtration"> A-Level<br>
-        <input type="checkbox" checked="true" value="BTEC" class="filtration"> BTEC<br>
-        <input type="checkbox" checked="true" value="Education" class="filtration"> Education<br>
-        <input type="checkbox" checked="true" value="Exercise" class="filtration"> Exercise<br>
-        <input type="checkbox" checked="true" value="Gym" class="filtration"> Gym<br>
-        <input type="checkbox" checked="true" value="Sport" class="filtration"> Sport<br>
-        <input type="button" value="Filter" onclick="filterOpps()">
+  </header>
+
+  <main class="wrap">
+    <section class="game" id="goal-machine">
+      <img src="goal-machine/icons/icon-512.png" alt="Goal Machine icon" width="120" height="120">
+      <div>
+        <h3>Goal Machine</h3>
+        <p>Spin the reels and build an XI from 5,000+ real players since 1992. Can you find the goal machines among the journeymen?</p>
+        <ul>
+          <li>Draft modes, targets, the Treble and CHAOS</li>
+          <li>Daily games with streaks, including Footle and the Club Grid</li>
+          <li>Play friends online in Draft Duels and Live Races</li>
+        </ul>
+        <div class="btns">
+          <a class="btn" href="goal-machine/">▶ Play in your browser</a>
+          <span class="btn soon">Coming soon to Google Play</span>
+        </div>
       </div>
-      <div id="opportunities"></div>
+    </section>
+
+    <h2>About us</h2>
+    <p>Opportunistic Games is a small independent studio in the UK. Our games are free, fan-made and unofficial: they aren't affiliated with, or endorsed by, any league, club or player. Player statistics are compiled from public sources.</p>
+
+    <h2>Help and privacy</h2>
+    <div class="cards">
+      <div class="card"><h3>✉️ Contact</h3><p>Questions, bugs or ideas: <a href="mailto:opportunisticyp@gmail.com">opportunisticyp@gmail.com</a></p></div>
+      <div class="card"><h3>🔐 Privacy</h3><p>What Goal Machine stores and why: <a href="goal-machine/privacy.html">privacy policy</a></p></div>
+      <div class="card"><h3>🗑️ Delete your account</h3><p>In the game: ⚙️ Settings → Account → Delete my account. Or <a href="goal-machine/privacy.html#delete">ask us to do it</a>.</p></div>
     </div>
-  </body>
+  </main>
+
+  <footer>
+    <div class="wrap">
+      <p>© 2026 Opportunistic Games. Opportunistic Games is a trading name of Opportunistic Ltd.</p>
+      <p><a href="goal-machine/privacy.html">Privacy policy</a> · <a href="mailto:opportunisticyp@gmail.com">opportunisticyp@gmail.com</a></p>
+    </div>
+  </footer>
+</body>
 </html>

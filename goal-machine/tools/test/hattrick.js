@@ -12,13 +12,13 @@ const ok = (c, msg) => { console.log((c ? '✓ ' : '✗ ') + msg); if (!c) proce
   const pg = await ctx.newPage(); pg.on('pageerror', e => errs.push(e.message));
   await pg.goto(U); await pg.evaluate(() => { localStorage.setItem('gm:seenVersion', '99'); localStorage.setItem('gm:welcomed', '1'); });
   const sim = await pg.evaluate(() => {
-    const R = GM.hattrickRules, out = { hands: 0, bad: [], bids: [], tricksLed: 0, legendLeadEarly: 0, deckOk: true };
+    const R = GM.hattrickRules, out = { hands: 0, bad: [], bids: [], tricksLed: 0, legendLeadEarly: 0, deckOk: true, jokers: 0 };
     for (let h = 0; h < 200; h++) {
       const stat = ['goals', 'assists', 'apps'][h % 3];
       const hands = R.deal('sim' + h, stat);
-      const ids = new Set(hands.flat().map(c => c.id)), pks = new Set(hands.flat().map(c => c.pk));
-      if (ids.size !== 52 || pks.size !== 52 || hands.some(x => x.length !== 13)) out.deckOk = false;
-      const G = { hard: false, hands, bids: [null, null, null, null], won: [0, 0, 0, 0], trick: [], played: [], broken: false, dealer: 0, turn: 1, phase: 'bid' };
+      const ids = new Set(hands.flat().map(c => c.id)), pks = new Set(hands.flat().filter(c => c.pk).map(c => c.pk));
+      if (ids.size !== 52 || pks.size !== 50 || hands.flat().filter(c => c.s === 'J').length !== 2 || hands.some(x => x.length !== 13)) out.deckOk = false;
+      const G = { hard: false, level: 'hard', hands, bids: [null, null, null, null], won: [0, 0, 0, 0], trick: [], played: [], broken: false, dealer: 0, turn: 1, phase: 'bid' };
       R.state = G;
       for (let s = 0; s < 4; s++) G.bids[(1 + s) % 4] = R.cpuBid((1 + s) % 4);
       out.bids.push(G.bids.reduce((a, x) => a + x, 0));
@@ -27,15 +27,22 @@ const ok = (c, msg) => { console.log((c ? '✓ ' : '✗ ') + msg); if (!c) proce
         for (let k = 0; k < 4; k++) {
           const s = (lead + k) % 4, legal = R.legal(s), c = R.cpuPlay(s);
           if (!legal.some(x => x.id === c.id)) out.bad.push(`seat ${s} played illegal ${c.id}`);
-          if (k === 0 && c.s === 'L' && !G.broken && G.hands[s].some(x => x.s !== 'L')) out.legendLeadEarly++;
+          if (k === 0 && c.s === 'L' && !G.broken && G.hands[s].some(x => x.s !== 'L' && x.s !== 'J')) out.legendLeadEarly++;
+          if (k === 0 && c.s === 'J' && G.hands[s].some(x => x.s !== 'J')) out.bad.push('led a joker');
+          if (c.j) out.jokers++;
           G.hands[s] = G.hands[s].filter(x => x.id !== c.id);
           if (c.s === 'L') G.broken = true;
           G.trick.push({ seat: s, c });
         }
         const w = R.winning(G.trick);
         // the winner really is the best card: best Legend, else best of the suit led
-        const led = G.trick[0].c.s, L = G.trick.filter(x => x.c.s === 'L'), pool = L.length ? L : G.trick.filter(x => x.c.s === led);
-        if (pool.sort((a, b2) => b2.c.rank - a.c.rank)[0].seat !== w.seat) out.bad.push('wrong winner');
+        const sub = G.trick.find(x => x.c.j === 'sub'), nj = G.trick.filter(x => x.c.s !== 'J'), led = nj.length && nj[0].c.s;
+        let exp;
+        if (sub) exp = sub.seat;
+        else if (!nj.length) exp = G.trick[0].seat;
+        else if (G.trick.some(x => x.c.j === 'var')) exp = nj.filter(x => x.c.s === led).sort((a, b2) => a.c.rank - b2.c.rank)[0].seat;
+        else { const L = nj.filter(x => x.c.s === 'L'), pool = L.length ? L : nj.filter(x => x.c.s === led); exp = pool.sort((a, b2) => b2.c.rank - a.c.rank)[0].seat; }
+        if (exp !== w.seat) out.bad.push('wrong winner');
         G.won[w.seat]++; G.played.push(...G.trick.map(x => x.c)); G.trick = []; lead = w.seat; out.tricksLed++;
       }
       if (G.won.reduce((a, x) => a + x, 0) !== 13) out.bad.push('tricks do not add to 13');
@@ -45,7 +52,8 @@ const ok = (c, msg) => { console.log((c ? '✓ ' : '✗ ') + msg); if (!c) proce
     delete out.bids;
     return out;
   });
-  ok(sim.deckOk, 'every deal: 52 different players, 13 each');
+  ok(sim.deckOk, 'every deal: 50 different players + 2 jokers, 13 each');
+  ok(sim.jokers === 400, 'both jokers get played in every hand (' + sim.jokers + ' of 400)');
   ok(!sim.bad.length, `200 computer hands, every play legal and every trick to the right card ${sim.bad.slice(0, 3).join('; ')}`);
   ok(sim.legendLeadEarly === 0, 'nobody leads a Legend before they’re broken');
   ok(+sim.avgBid >= 8 && +sim.avgBid <= 14, 'sensible table bids (average ' + sim.avgBid + ' of 13)');

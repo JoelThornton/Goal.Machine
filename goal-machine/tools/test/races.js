@@ -30,8 +30,8 @@ async function playDraft(pg, tag) {
   const A = await phone(b, 'Alice', 'a'.repeat(28), errs), B = await phone(b, 'Bob', 'b'.repeat(28), errs);
   for (const kind of ['target', 'chaos']) {
     await A.goto(U + '#/online'); await A.waitForTimeout(900);
-    await A.click('#onew'); await A.waitForTimeout(300); await A.fill('#nname', 'Bob'); await A.click(`#nkind [data-v="${kind}"]`);
-    const desc = await A.$eval('#nkdesc', e => e.innerText);
+    await A.click('#onew'); await A.waitForTimeout(300); await A.fill('#nname', 'Bob'); await A.evaluate(() => { const d = document.querySelector('.ng-more'); if (d) d.open = true; }); await A.click(`.ng-game[data-k="${kind}"]`);
+    const desc = await A.$eval(`.ng-game[data-k="${kind}"] small`, e => e.innerText);
     await A.click('#ngo'); await A.waitForTimeout(1500);
     const code = Object.keys(server.rooms).find(c => server.rooms[c].variant === kind);
     const room = server.rooms[code];

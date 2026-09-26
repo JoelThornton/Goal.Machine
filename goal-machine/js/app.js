@@ -91,7 +91,6 @@
     }
     GM.sound.scene(path === 'draft' && q.m === 'chaos' ? 'chaos' : path);  // each game area has its own music (CHAOS has Mayhem)
     GM.chaosLook(path === 'draft' && q.m === 'chaos');
-    document.body.classList.toggle('ht-mode', path === 'hattrick');  // Hat-Trick has its own calm card-table look
     GM.$('.cal-slot', tabbar).innerHTML = GM.calIcon();  // stays right past midnight
     switch (path) {
       case 'draft': return GM.draft.start(app, ['target', 'treble', 'mystery', 'club', 'classic', 'classicwild', 'ultimatepure', 'extreme', 'purist', 'chaos'].includes(q.m) ? q.m : 'ultimate',

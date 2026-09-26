@@ -45,7 +45,7 @@ game mode for players; this file is about how to work on it.
 - `hattrick.js` – 🃏 Hat-Trick (beta): football Spades, you + a computer partner v two computer rivals. `deal`
   (52 players, 4 suits, ⭐ Legends are trumps), `legal`, `winning`, `cpuBid`, `cpuPlay`, Spades scoring (bags = 🟨,
   10 = −100), first to 250. Menu: opponents Easy/Medium/Hard (`ht:level`), card numbers shown/hidden (`ht:hidden`, hidden scores go to `hattrickh`). Saved in `ht:save`. Dark card-table look via `body.ht-mode`; sounds `card`, `trickwin`, `tricklose`. Board: winning margin.
-  Online idea: you + computer partner v a friend + computer partner.
+  Two jokers (`Jsub` wins the trick, `Jvar` gives it to the lowest of the suit led; playable any time, not as a lead); the lowest Defender and Midfielder make way. Cards: kit per suit, number/suit/name in the left strip (`.htc-edge`) so a fanned hand reads. Online (`GM.hattrickOnline`): a duel room with variant `hattrick`; only the humans' moves are stored ({t:'b',n} / {t:'p',c}, s = host/guest), and `replay` rebuilds the game from the room seed with the computers (seats 2, 3) on the never-random Hard play, so both phones agree. The final mover posts both team scores (p_all) and gm_finalise gives the higher 100–0.
 - `modes.js` – quick games (Club Hopper, Higher or Lower, Who Am I?, Club Grid, Guess the Tally); `h2h.js` – pass-the-phone series.
 - `daily.js` – Today page, Footle, daily streaks. `collection.js` – Album, badges, Dream XIs. `report.js` – full-time report.
 - `picture.js` – share-a-picture of your XI. `audio.js` – synthesised sound + music. `updates.js` – changelog.
@@ -84,6 +84,7 @@ There's no unit test suite; test in a real browser with Playwright (Chromium is 
    Supabase RPCs in memory (test accounts Alice/Bob/Cara), so nothing touches the real database.
    - `sweep.js` – opens every page in light, dark and club themes: page errors and sideways overflow.
    - `races.js` – two phones play a Target Race and a CHAOS Race end to end.
+   - `htonline.js` – two phones play Hat-Trick online to full time.
    - `hattrick.js` – 200 computer hands check the Hat-Trick rules, then a hand is played through the screen.
    - `features.js` – CHAOS formations, Target percentages, the Players filter, feedback and badges.
    - `cards.js` – every reel card fits, even with bigger text (`FS=130% node cards.js`).

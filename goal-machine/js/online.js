@@ -637,7 +637,33 @@
   }
   GM.online.duelState = duelState;  // for tests
 
-  /* ================================================================ "your move" badge + notifications */
+  /* ================================================================ notifications (Android app) */
+  // The app checks the server's app_inbox every ~15 minutes. It sends your choices from Settings, your time zone
+  // and your daily streak, and the server decides what to notify about (see app_inbox in Supabase).
+  GM.notify = {
+    KINDS: [
+      ['move', '⚔️ Your move', 'It’s your turn in an online game'],
+      ['friends', '👋 Challenges and friends', 'A friend challenges you or adds you'],
+      ['results', '🏁 Results', 'An online game finishes'],
+      ['modes', '🆕 New game modes', 'When something new comes out'],
+      ['streak', '🔥 Streak reminder', 'At 8pm, if your daily streak is about to end'],
+      ['comeback', '💤 Come back', 'If you haven’t played for a few days'],
+    ],
+    prefs() { return { move: true, friends: true, results: true, modes: true, streak: true, comeback: true, daily: null, ...GM.store.get('notif', {}) }; },
+    set(k, v) { GM.store.set('notif', { ...GM.store.get('notif', {}), [k]: v }); GM.notify.sync(); },
+    sync() {
+      const a = GM.account();
+      if (!a || !GM.lb.enabled || !window.AndroidApp) return;
+      const today = GM.today(), log = GM.dailyLog ? GM.dailyLog() : {};
+      const state = { day: Object.keys(log[today] || {}).length ? today : '', streak: GM.streak ? GM.streak() : 0, played: GM.store.get('lastPlayed', '') };
+      let tz = 'Europe/London'; try { tz = Intl.DateTimeFormat().resolvedOptions().timeZone || tz; } catch (e) { }
+      const cfg = { url: GM.lb.cfg.supabaseUrl, key: GM.lb.cfg.supabaseAnonKey, rpc: 'app_inbox', args: { p_user: a.name, p_prefs: GM.notify.prefs(), p_state: state, p_tz: tz } };
+      if (typeof window.AndroidApp.setInbox === 'function') GM.app('setInbox', JSON.stringify(cfg));
+      else GM.app('watchGames', a.name, GM.lb.cfg.supabaseUrl, GM.lb.cfg.supabaseAnonKey);
+    },
+  };
+
+  /* ================================================================ "your move" badge */
   GM.online.setWaiting = n => {
     GM.store.set('onlineWaiting', n);
     GM.$$('.online-badge').forEach(b => { b.textContent = n; b.hidden = !n; });
@@ -646,8 +672,7 @@
   GM.online.check = async function () {
     const a = GM.account();
     if (!a || !GM.lb.enabled) return;
-    // the Android app checks every 15 minutes and notifies; the server's app_inbox decides what about (build 12+)
-    GM.app('watchGames', a.name, GM.lb.cfg.supabaseUrl, GM.lb.cfg.supabaseAnonKey);
+    GM.notify.sync();
     const lastCheck = GM.online._checked || 0;
     if (Date.now() - lastCheck < 30000) return GM.online._pending;  // a check just ran (or is running): share it
     GM.online._checked = Date.now();

@@ -36,25 +36,6 @@ go.** Each idea keeps its notes and questions so a later session can pick it up.
 - **Questions:** cosmetic only, or can unlocks change gameplay (a new wildcard)? Should secrets be shareable
   ("I found the hidden mode") to spread word of mouth?
 
-### Version numbers and the Updates page
-- **Owner's point:** we're going through 4.1, 4.2 … quickly. Either define versions better, or use something like
-  4.11 for very minor (bug-fix) updates.
-- **Suggestion:** three levels, like most apps:
-  - **5.0**: a big change to how the game plays (a new kind of game, a redesign)
-  - **4.10, 4.11**: new features or modes
-  - **4.10.1**: bug fixes and polish only
-- On the Updates page, fix-only releases fold into the release above ("+ 2 fix-ups") so the list stays about the
-  new things.
-- The release waiting now (fixes + notification repair) would be **4.9.1** under this scheme.
-
-### Daily games reminder notification
-- **Owner's expectation:** a notification about the daily games. There isn't one yet: notifications only cover
-  online games (your move, challenges, results, new friends).
-- **Notes:** can be done on the server alone (no new app). `app_inbox` adds one item a day, e.g. "📅 Today's
-  Footle and Daily Ultimate are ready", if you haven't posted a daily score yet and it's after a set time. Questions:
-  what time (e.g. 10:00 UK)? Only if you have a streak going ("🔥 Keep your 12-day streak alive")? A setting to turn
-  it off? Later-evening "last chance" nudge for streaks?
-
 ### CHAOS: random formations
 - **Owner's idea:** CHAOS should randomise the formation: 4-4-2, 4-5-1, 3-5-2, 5-4-1 and so on.
 - **Notes:** fits CHAOS well. The pitch already supports formation changes (Gegenpress and Park the Bus move
@@ -107,4 +88,9 @@ _None yet._
 
 ## ✅ Shipped
 
-_None yet._
+- **Version numbers** (4.10): three levels (5.0 big, 4.10 features, 4.10.1 fixes); fix-ups fold into their
+  release on the Updates page.
+- **Notification choices and reminders** (4.10): owner's spec. Each kind can be switched off in Settings. On by
+  default: friend invites and challenges, your move, new game modes, come back (from noon on the 4th day without a
+  game, and again after 2 weeks) and an 8pm streak reminder if the streak is about to end. Results are also on. There's
+  a daily reminder at a chosen time (off by default). Announce a new mode by adding a row to `announcements`.

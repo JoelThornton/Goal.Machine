@@ -287,7 +287,9 @@
         <div class="setting"><b>Music</b><small id="s-bg-about"></small>${seg('s-bg', GM.playSafe ? { off: '🔇 Off', music: '🎹 Game' } : { off: '🔇 Off', music: '🎹 Game', tunes: '🎧 Soundtrack' }, snd.bg)}
           <label class="vol">🔈<input type="range" id="s-bgvol" min="0" max="1" step="0.05" value="${snd.bgVol}">🔊</label>
           <div class="now-playing" id="s-now" hidden><span></span><button class="btn ghost small" id="s-skip">⏭ Next song</button></div></div>
-        ${GM.app('notificationsAllowed') !== undefined ? `<div class="setting"><b>Notifications</b><small>A whistle when a friend challenges you, it's your move, or a game finishes. The app checks about every 15 minutes while it's closed.</small>
+        ${GM.app('notificationsAllowed') !== undefined ? `<div class="setting"><b>Notifications</b><small>A whistle for the things you choose below. The app checks about every 15 minutes while it's closed.</small>
+          <div class="ntoggles">${GM.notify.KINDS.map(([k, l, d]) => `<label><span><b>${l}</b><small>${d}</small></span><input type="checkbox" data-nk="${k}" ${GM.notify.prefs()[k] ? 'checked' : ''}></label>`).join('')}
+            <label><span><b>📅 Daily reminder</b><small>A nudge to play the daily games, if you haven't yet</small></span><select class="input" id="s-ndaily"><option value="">Off</option>${Array.from({ length: 31 }, (_, i) => { const t = String(7 + Math.floor(i / 2)).padStart(2, '0') + (i % 2 ? ':30' : ':00'); return `<option ${GM.notify.prefs().daily === t ? 'selected' : ''}>${t}</option>`; }).join('')}</select></label></div>
           <div id="s-nstatus" class="nstatus"></div>
           <div class="setting-btns"><button class="btn ghost small" id="s-ntest">🔔 Send a test</button><button class="btn ghost small" id="s-ncheck">🔄 Check now</button><button class="btn ghost small" id="s-notif">⚙️ Phone settings</button></div></div>` : ''}
         <div class="setting"><b>Difficulty</b><small>Hard hides clubs, years and appearances: names and positions only. In the Target games, big-name players turn up less often too. Hard scores have their own leaderboards</small>${seg('s-hard', { false: '🙂 Normal', true: '🥵 Hard' }, GM.isHard())}</div>
@@ -306,6 +308,8 @@
       fn(b.dataset.v); GM.buzz(); GM.$$('#' + id + ' button').forEach(x => x.classList.toggle('on', x === b));
     });
     const nb = GM.$('#s-notif'); if (nb) nb.onclick = () => GM.app('openNotificationSettings');
+    GM.$$('[data-nk]').forEach(c => c.onchange = () => { GM.notify.set(c.dataset.nk, c.checked); GM.buzz(); });
+    const nd = GM.$('#s-ndaily'); if (nd) nd.onchange = () => { GM.notify.set('daily', nd.value || null); GM.toast(nd.value ? `📅 Daily reminder at ${nd.value}` : 'Daily reminder off'); };
     // notification health, from the app (build 16+): permission, the 15-minute check, and what it last found
     const nstatus = () => {
       const el = GM.$('#s-nstatus'); if (!el) return;

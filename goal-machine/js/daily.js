@@ -65,6 +65,7 @@
     const l = log();
     l[day] = { ...(l[day] || {}), [game]: value };
     store.set('dlog', l);
+    if (GM.notify) GM.notify.sync();  // no streak or daily reminder once you've played today
   };
   GM.dailyResult = (game, day = GM.today()) => (log()[day] || {})[game];
 

@@ -1,13 +1,23 @@
 /* Goal Machine – what's new. Add an entry at the top for every release.
    v     = the ?v= number in index.html (bumped by tools/bump_version.py on every release; phones use it to fetch fresh files)
-   label = the version players see. A new whole number for a big change to how the game plays (1 launch, 2 Android app,
-           3 new look, 4 online); otherwise the next .1 (4.1, 4.2 …). Small fixes can share the next release's entry. */
+   label = the version players see, in three levels:
+           5.0    a big change to how the game plays (1 launch, 2 Android app, 3 new look, 4 online)
+           4.10   new features or modes (the next .1 after the last feature release: 4.9 → 4.10 → 4.11)
+           4.10.1 bug fixes and polish only; the Updates page folds these into the release they patch */
 'use strict';
 
 (function () {
   GM.UPDATES = [
     {
-      v: 25, label: '4.10', date: '2026-09-26', app: 16, title: 'Cards that always fit',
+      v: 26, label: '4.10', date: '2026-09-26', app: 16, title: 'Choose your notifications',
+      items: [
+        '🔔 ⚙️ Settings → Notifications: pick what the Android app whistles about. Your move, challenges and friends, results, new game modes, a come-back nudge and an 8pm streak reminder are on to start with',
+        '📅 A daily reminder at the time you choose, if you haven’t played the daily games yet (off to start with)',
+        '🔥 The streak reminder only comes if your streak is about to end, and none of the reminders come once you’ve played that day',
+      ],
+    },
+    {
+      v: 25, label: '4.9.1', date: '2026-09-26', app: 16, title: 'Cards that always fit',
       items: [
         '🃏 Player cards on the reels always show the stat box now, even with a two-line name or bigger text on your phone (the club badges and photo shrink to make room)',
         '🩹 Wildcards show their full description instead of cutting off after a few words',
@@ -232,13 +242,21 @@
   GM.hasUnseenUpdate = () => GM.store.get('seenVersion', 0) < GM.UPDATES[0].v;
 
   const ERAS = { 1: 'The launch', 2: 'The Android app', 3: 'New look, sound + dailies', 4: 'Online' };
-  const releaseCard = (u, open) => `<article class="release ${u.v === GM.VERSION ? 'current' : ''}">
+  const when = d => new Date(d + 'T12:00:00').toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' });
+  const releaseCard = (u, open) => `<article class="release ${u.v === GM.VERSION || (u.fixes || []).some(f => f.v === GM.VERSION) ? 'current' : ''}">
       <header><span class="ver ${/\.0$/.test(u.label) ? 'major' : ''}">v${u.label}</span><b>${GM.esc(u.title)}</b>
-        <small>${new Date(u.date + 'T12:00:00').toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' })}${u.app ? ` · 🤖 App build ${u.app}` : ''}</small></header>
-      <ul ${open ? '' : 'class="short"'}>${u.items.map(i => `<li>${i}</li>`).join('')}</ul></article>`;
+        <small>${when(u.date)}${u.app ? ` · 🤖 App build ${u.app}` : ''}</small></header>
+      <ul ${open ? '' : 'class="short"'}>${u.items.map(i => `<li>${i}</li>`).join('')}</ul>
+      ${(u.fixes || []).length ? `<details class="fixups"><summary>🔧 ${u.fixes.length} fix-up${u.fixes.length > 1 ? 's' : ''} (v${u.fixes.map(f => f.label).join(', v')})</summary>
+        ${u.fixes.map(f => `<p class="fix-head"><b>v${f.label}</b> · ${GM.esc(f.title)} <small>${when(f.date)}</small></p><ul>${f.items.map(i => `<li>${i}</li>`).join('')}</ul>`).join('')}</details>` : ''}</article>`;
 
   GM.updatesPage = function (root) {
     const build = GM.appBuild();
+    // fix-only releases (4.9.1, 4.9.2 …) ride along with the release they patch
+    const isFix = u => u.label.split('.').length > 2, base = u => u.label.split('.').slice(0, 2).join('.');
+    const releases = GM.UPDATES.filter(u => !isFix(u)).map(u => ({ ...u, fixes: GM.UPDATES.filter(f => isFix(f) && base(f) === u.label) }));
+    GM.UPDATES.filter(f => isFix(f) && !releases.some(u => u.label === base(f))).forEach(f => releases.push({ ...f, fixes: [] }));  // an orphan fix-up shows on its own
+    releases.sort((a, b) => b.v - a.v);
     root.innerHTML = `<div class="topbar"><a href="#/" class="back">‹</a><h2>📰 Updates</h2><span></span></div>
       <div class="version-strip">
         <div><small>Game version</small><b>v${GM.versionLabel}</b></div>
@@ -246,8 +264,8 @@
       </div>
       ${GM.appOutdated() ? `<a class="btn big" href="${GM.APK_URL}">📲 Get the newest Android app</a>` : ''}
       <p class="muted center">Game updates arrive automatically. The Android app only needs updating when it says <b>🤖 App build</b>.</p>
-      <div class="releases">${GM.UPDATES.map((u, i) => {
-        const major = u.label.split('.')[0], prev = i && GM.UPDATES[i - 1].label.split('.')[0];
+      <div class="releases">${releases.map((u, i) => {
+        const major = u.label.split('.')[0], prev = i && releases[i - 1].label.split('.')[0];
         return (major !== prev ? `<h3 class="section-title era">Version ${major}<span class="more">${ERAS[major] || ''}</span></h3>` : '') + releaseCard(u, i < 3);
       }).join('')}</div>`;
     GM.store.set('seenVersion', GM.UPDATES[0].v);

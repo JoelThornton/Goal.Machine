@@ -788,6 +788,8 @@ GM.recordScore = async function (mode, score, meta = {}) {
   const isBest = score > GM.best(mode);
   if (isBest) GM.store.set('best:' + mode, score);
   GM.store.set('played', GM.store.get('played', 0) + 1);
+  GM.store.set('lastPlayed', GM.today());
+  if (GM.notify) GM.notify.sync();  // the app's reminders know you've played (streak, come back)
   GM.backup.save(true);
   if (GM.lb.enabled && score > 0) {
     const name = await GM.askName();

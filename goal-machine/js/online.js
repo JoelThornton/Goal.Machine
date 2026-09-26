@@ -25,6 +25,11 @@
   // Hat-Trick online is a duel room too (turn by turn), with variant 'hattrick'
   const gk = g => (['scout', 'target', 'chaos', 'hattrick'].includes(g.variant) ? g.variant : g.kind);
   const serverKind = k => (k === 'scout' || k === 'hattrick' ? 'duel' : k === 'target' || k === 'chaos' ? 'race' : k);
+  // Quick match's game of the day (UTC, so everyone everywhere is on the same one); plus = days ahead
+  const QM_DAYS = ['race', 'hattrick', 'chaos', 'duel', 'target', 'scout'];
+  const qmToday = (plus = 0) => QM_DAYS[(Math.floor(Date.now() / 864e5) + plus) % QM_DAYS.length];
+  const QM_BANNER = { race: 'Same spins, fastest to the biggest XI', hattrick: 'Football Spades with a computer partner each', chaos: 'Storms, events and bonus points on shared spins',
+    duel: 'Take turns and nick the player they wanted', target: 'One target number. Closest wins', scout: 'No names, just scouting clues' };
   const raceMode = r => (r.variant === 'target' ? 'target' : r.variant === 'chaos' ? 'chaos' : 'ultimate');
   const rpc = (f, a) => GM.lb.rpc(f, a);
   const auth = () => { const a = GM.account(); return a ? { p_user: a.name, p_key: a.key } : null; };
@@ -140,7 +145,8 @@
       const block = (title, list, empty) => `<h3 class="section-title">${title}${list.length && list === yours ? ` <span class="count">${list.length}</span>` : ''}</h3>
         ${list.length ? `<div class="og-list">${list.map(line).join('')}</div>` : `<p class="muted center">${empty}</p>`}`;
       const quick = friends.slice(0, 5);
-      const qmCard = `<button class="og-qm" id="oqm"><span>🎲</span><span><b>Quick match</b><small>Play someone new – we’ll find you a game</small></span><span>›</span></button>`;
+      const qt = qmToday(), qn = qmToday(1), qb = QM_BANNER[qt];
+      const qmCard = `<button class="og-qm qm-day qm-${qt}" id="oqm"><span class="qm-big">${KIND[qt].icon}</span><span class="qm-txt"><small class="qm-kick">🎲 Quick match · today</small><b>${KIND[qt].name}</b><small>${qb}</small><small class="qm-next">Tomorrow: ${KIND[qn].icon} ${KIND[qn].name}</small></span><span class="qm-go">Play ›</span></button>`;
       GM.$('#olists').innerHTML = (quick.length ? `<div class="og-quick"><small>⚡ Play again</small><div>${quick.map(f => `<button data-quick="${esc(f.name)}">${GM.userPic(f.name)}<span>${esc(f.name)}</span></button>`).join('')}</div></div>` : '') + qmCard
         + (yours.length ? block('👉 Your move', yours, '')
           : !rows.length ? `<div class="og-empty og-first"><b>Play your mates online</b>
@@ -192,25 +198,14 @@
       ['chaos', 'CHAOS on the same spins, events and storms. Most points wins.'],
       ['auction', '£200m each and secret bids on every player.'],
     ];
-    // 🎲 Quick match: pick a game, and you're paired with whoever's waiting (or you wait for the next player)
-    function quickMatch() {
-      let kind = ['race', 'hattrick', 'duel'].includes(GM.store.get('qmKind')) ? GM.store.get('qmKind') : 'race', stat = GM.store.get('onlineStat', 'goals');
-      const QM = GAMES.filter(g => ['race', 'hattrick', 'duel'].includes(g[0]));
-      const card = ([k, d]) => `<button class="ng-game ${k === kind ? 'on' : ''}" data-k="${k}"><span>${KIND[k].icon}</span><b>${KIND[k].name}</b><small>${d}</small></button>`;
-      const m = GM.modal(`<h3>🎲 Quick match</h3><p class="muted small">We’ll pair you with someone waiting for the same game. No chat, just football.</p>
-        <div class="ng-games">${QM.map(card).join('')}</div>
-        <div class="ng-stat"><small>Counting</small><div class="seg stat-seg" id="qstat">${Object.entries(GM.STATS).map(([k, s]) => `<button data-v="${k}" class="${k === stat ? 'on' : ''}"><i class="sb-ico">${s.icon}</i>${s.name}</button>`).join('')}</div></div>
-        <div class="row"><button class="btn ghost" data-close>Cancel</button><button class="btn" id="qgo">🔎 Find me a game</button></div>`);
-      GM.$$('.ng-game', m.el).forEach(b => b.onclick = () => { kind = b.dataset.k; GM.store.set('qmKind', kind); GM.$$('.ng-game', m.el).forEach(x => x.classList.toggle('on', x === b)); GM.sound.play('tick'); });
-      GM.$$('#qstat button', m.el).forEach(b => b.onclick = () => { stat = b.dataset.v; GM.store.set('onlineStat', stat); GM.$$('#qstat button', m.el).forEach(x => x.classList.toggle('on', x === b)); });
-      GM.$('#qgo', m.el).onclick = async () => {
-        let r;
-        try { r = await rpc('quick_match', { ...auth(), p_kind: serverKind(kind), p_stat: stat, p_variant: kind === 'hattrick' ? 'hattrick' : null }); } catch (e) { GM.toast('Couldn’t reach the server – try again'); return; }
-        if (!r || !r.code) { GM.toast('Couldn’t start a quick match'); return; }
-        m.close();
-        if (r.matched) { GM.toast(`⚔️ You’re playing ${esc(r.opp)}!`); GM.sound.play('whistle'); }
-        location.hash = '#/online?room=' + r.code;
-      };
+    // 🎲 Quick match: one game a day for everyone, so everybody looking is in the same queue
+    async function quickMatch() {
+      const kind = qmToday();
+      let r;
+      try { r = await rpc('quick_match', { ...auth(), p_kind: serverKind(kind), p_stat: 'goals', p_variant: kind === serverKind(kind) ? null : kind }); } catch (e) { GM.toast('Couldn’t reach the server – try again'); return; }
+      if (!r || !r.code) { GM.toast('Couldn’t start a quick match'); return; }
+      if (r.matched) { GM.toast(`⚔️ You’re playing ${esc(r.opp)}!`); GM.sound.play('whistle'); }
+      location.hash = '#/online?room=' + r.code;
     }
     function newGame(opp) {
       if (opp == null) opp = friends.length ? friends[0].name : '';  // most people play the same mates: the latest is picked
@@ -299,8 +294,8 @@
 
   const QM_WAIT = 60;
   const inviteBar = r => (r.guest ? '' : r.quick ? `<div class="banner qm-wait"><span class="qm-spin">🔎</span><span><b>Finding you an opponent…</b> <i id="qm-t">0:00</i>
-      <small id="qm-more">Anyone who taps Quick match for the same game joins you here.</small></span>
-      <div id="qm-cpu" class="qm-cpu" hidden><b>Nobody’s about right now.</b><button class="btn small" id="qm-play">${r.kind === 'race' ? '⚽ Play on your own instead' : '🤖 Play the computer instead'}</button><small>…or keep waiting: we’ll let you know when someone joins.</small></div></div>` : `<div class="banner invite"><span class="inv-text">🔗 Nobody’s joined yet. Send your mate the invite: they tap the link and they’re in.</span><span class="inv-code">Code <b>${r.code}</b></span>
+      <small id="qm-more">Anyone who taps Quick match today joins you here.</small></span>
+      <div id="qm-cpu" class="qm-cpu" hidden><b>Nobody’s about right now.</b><button class="btn small" id="qm-play">${r.variant === 'hattrick' ? '🤖 Play the computer instead' : '⚽ Play on your own instead'}</button><small>…or keep waiting: we’ll let you know when someone joins.</small></div></div>` : `<div class="banner invite"><span class="inv-text">🔗 Nobody’s joined yet. Send your mate the invite: they tap the link and they’re in.</span><span class="inv-code">Code <b>${r.code}</b></span>
       <button class="btn small" id="oshare">📤 Send invite</button></div>`);
   let qmTimer = null;
   function wireInvite(root, r) {
@@ -318,7 +313,7 @@
         try { await rpc('online_resign', { ...auth(), p_code: r.code }); } catch (e) { }
         clearInterval(qmTimer);
         if (r.variant === 'hattrick') { GM.store.set('ht:autostart', 1); location.hash = '#/hattrick'; }
-        else location.hash = '#/draft?m=ultimate' + (r.stat && r.stat !== 'goals' ? '&s=' + r.stat : '');
+        else location.hash = '#/draft?m=' + raceMode(r) + (r.stat && r.stat !== 'goals' ? '&s=' + r.stat : '');
       };
     }
     const b = GM.$('#oshare', root);

@@ -1341,3 +1341,19 @@ button.icon-btn.lb-btn { font: inherit; font-size: 1.1rem; cursor: pointer; }
 .ht-trick .htc-face .avatar.htc-face-pic { width: 30px; height: 30px; }
 .ht-fan .htc-face .avatar.htc-face-pic { width: 30px; height: 30px; }
 .ob-leave { flex: none; margin-left: auto; width: 28px; height: 28px; border: 0; border-radius: 50%; background: rgba(0, 0, 0, .18); color: inherit; font-size: .85rem; cursor: pointer; }
+/* Quick match: each day's game has its own banner */
+.og-qm.qm-day { position: relative; overflow: hidden; padding: 14px 14px 14px 12px; color: #fff; box-shadow: 0 4px 0 rgba(0, 0, 0, .35); }
+.og-qm.qm-day::after { content: ''; position: absolute; inset: 0; pointer-events: none; background: repeating-linear-gradient(115deg, rgba(255, 255, 255, .07) 0 14px, transparent 14px 28px); }
+.og-qm.qm-day > span { position: relative; z-index: 1; }
+.og-qm.qm-day .qm-big { font-size: 2.3rem; filter: drop-shadow(0 3px 4px rgba(0, 0, 0, .35)); }
+.og-qm.qm-day .qm-txt small { display: block; }
+.og-qm.qm-day .qm-kick { font-weight: 800; letter-spacing: .06em; text-transform: uppercase; font-size: .68rem; opacity: .9; }
+.og-qm.qm-day b { font-size: 1.35rem; line-height: 1.15; }
+.og-qm.qm-day .qm-next { margin-top: 3px; font-size: .72rem; opacity: .7; }
+.og-qm.qm-day .qm-go { font: 700 .9rem Oswald, sans-serif; opacity: 1; padding: 6px 10px; border-radius: 999px; background: rgba(255, 255, 255, .92); color: #0a2a1f; }
+.og-qm.qm-race { background: linear-gradient(135deg, #0b6e4f, #13a26f 60%, #c8ff3d); }
+.og-qm.qm-hattrick { background: linear-gradient(135deg, #0a3d2a, #1f7a4a 55%, #d4a52c); }
+.og-qm.qm-chaos { background: linear-gradient(135deg, #3b0a52, #b0127a 55%, #ff7a18); }
+.og-qm.qm-duel { background: linear-gradient(135deg, #0b2a6e, #1e63c9 60%, #4fd1ff); }
+.og-qm.qm-target { background: linear-gradient(135deg, #6e0b1a, #d0302f 55%, #ffb03d); }
+.og-qm.qm-scout { background: linear-gradient(135deg, #1a1a2e, #3a3f58 55%, #8a9bb8); }

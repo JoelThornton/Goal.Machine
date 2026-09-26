@@ -15,12 +15,19 @@ const ok = (c, msg) => { console.log((c ? '✓ ' : '✗ ') + msg); if (!c) proce
     await pg.goto(U); await pg.evaluate(([n, k]) => { localStorage.setItem('gm:seenVersion', '99'); localStorage.setItem('gm:welcomed', '1'); localStorage.setItem('gm:account', JSON.stringify({ name: n, key: k })); }, [name, key]);
     return pg;
   };
+  // Quick match plays one game a day: set the phone's date to a day when it's this game
+  const DAYS = ['race', 'hattrick', 'chaos', 'duel', 'target', 'scout'];
+  const dayFor = kind => { let d = Math.floor(Date.now() / 864e5); while (d % DAYS.length !== DAYS.indexOf(kind)) d++; return d * 864e5 + 43200e3; };
   const quick = async (P, kind) => {
+    await P.clock.setSystemTime(dayFor(kind));
     await P.goto(U + '#/online?tab=games'); await P.waitForTimeout(800);
-    await P.click('#oqm'); await P.waitForTimeout(300); await P.click(`.ng-game[data-k="${kind}"]`); await P.click('#qgo'); await P.waitForTimeout(1500);
+    await P.click('#oqm'); await P.waitForTimeout(1500);
     return P.evaluate(() => location.hash.split('room=')[1]);
   };
   const A = await phone('Alice', 'a'.repeat(28)), B = await phone('Bob', 'b'.repeat(28)), C = await phone('Cara', 'c'.repeat(28)), D = await phone('Dani', 'd'.repeat(28));
+  await A.clock.setSystemTime(dayFor('chaos')); await A.goto(U + '#/online?tab=games'); await A.waitForTimeout(800);
+  ok((await A.textContent('#oqm')).includes('CHAOS Race') && (await A.textContent('#oqm')).includes('Tomorrow: 🤝 Draft Duel') && !!(await A.$('#oqm.qm-chaos')), 'Quick match shows today’s game with its own banner, and tomorrow’s');
+  await A.screenshot({ path: 'lay/qm_banner.png' });
   const codeA = await quick(A, 'hattrick');
   ok(!!(await A.$('.qm-wait')) && /0:0\d/.test(await A.textContent('#qm-t')), 'Alice is finding an opponent, with a clock running');
   ok(await A.$eval('#qm-cpu', e => e.hidden), 'the computer offer waits for a minute');
@@ -50,10 +57,15 @@ const ok = (c, msg) => { console.log((c ? '✓ ' : '✗ ') + msg); if (!c) proce
   const codeE = await quick(C, 'duel');
   server.rooms[codeE].created = new Date(Date.now() - 70000).toISOString();
   await C.reload(); await C.waitForTimeout(2200);
-  ok(!(await C.$eval('#qm-cpu', e => e.hidden)), 'Draft Duel: after a minute with nobody about, the computer is offered');
+  ok(!(await C.$eval('#qm-cpu', e => e.hidden)), 'Draft Duel: after a minute with nobody about, playing on your own is offered');
   await C.screenshot({ path: 'lay/qm_cpu.png' });
   await C.click('#qm-play'); await C.waitForTimeout(1200);
   ok((await C.evaluate(() => location.hash)).startsWith('#/draft?m=ultimate') && !server.rooms[codeE], 'it falls back to a draft, and the waiting game is cancelled');
+  const codeG = await quick(D, 'chaos');
+  ok(server.rooms[codeG].kind === 'race' && server.rooms[codeG].variant === 'chaos', 'on a CHAOS day, Quick match finds a CHAOS Race');
+  server.rooms[codeG].created = new Date(Date.now() - 70000).toISOString();
+  await D.reload(); await D.waitForTimeout(2200); await D.click('#qm-play'); await D.waitForTimeout(1000);
+  ok((await D.evaluate(() => location.hash)).startsWith('#/draft?m=chaos'), 'nobody about: play CHAOS on your own');
   const codeD = await quick(D, 'hattrick');
   server.rooms[codeD].created = new Date(Date.now() - 70000).toISOString();
   await D.reload(); await D.waitForTimeout(2200); await D.click('#qm-play'); await D.waitForTimeout(1000);

@@ -366,10 +366,21 @@
     tunes.on = true;
     if (!tunes.list) await loadTunes();
     if (!tunes.on) return;
+    clearInterval(tuneFade);
     if (!tunes.el || !tunes.el.src) nextTune();
     else { tuneVolume(); tunes.el.play().catch(() => { }); }
   }
-  function stopTunes() { tunes.on = false; if (tunes.el) tunes.el.pause(); }
+  // fade the song out over a moment rather than cutting it dead (a hard stop pops)
+  let tuneFade = null;
+  function stopTunes() {
+    tunes.on = false; clearInterval(tuneFade);
+    const el = tunes.el; if (!el || el.paused) return;
+    tuneFade = setInterval(() => {
+      if (tunes.on) { clearInterval(tuneFade); tuneVolume(); return; }
+      el.volume = Math.max(0, el.volume - 0.08);
+      if (el.volume <= 0.01) { clearInterval(tuneFade); el.pause(); }
+    }, 16);
+  }
 
   function syncBg() {
     if (!live) return;
@@ -397,7 +408,7 @@
   function applyVolumes() {
     if (!live) return;
     const s = GM.sound.settings();
-    live.sfx.gain.value = s.sfx ? s.sfxVol : 0;
+    live.sfx.gain.setTargetAtTime(s.sfx ? s.sfxVol : 0, live.ctx.currentTime, 0.02);
     live.bg.gain.setTargetAtTime(s.bgVol * 0.8, live.ctx.currentTime, 0.1);
     tuneVolume();
   }
@@ -438,10 +449,20 @@
 
   // sound only starts after the first tap (browser rule); pause everything when the app goes to the background
   ['pointerdown', 'keydown'].forEach(e => document.addEventListener(e, unlock, { capture: true, passive: true }));
+  let hideTimer = null;
   document.addEventListener('visibilitychange', () => {
     if (!live) return;
-    if (document.hidden) { live.ctx.suspend(); stopBg(); stopTunes(); }
-    else { live.ctx.resume(); syncBg(); }
+    // fade everything down before pausing, and back up on return: stopping mid-wave is what made it pop
+    const c = live.ctx, t = c.currentTime;
+    clearTimeout(hideTimer);
+    if (document.hidden) {
+      [live.bg, live.sfx].forEach(g => { g.gain.cancelScheduledValues(t); g.gain.setValueAtTime(g.gain.value, t); g.gain.linearRampToValueAtTime(0.0001, t + 0.15); });
+      stopBg(); stopTunes();
+      hideTimer = setTimeout(() => { if (document.hidden) c.suspend(); }, 250);
+    } else {
+      [live.bg, live.sfx].forEach(g => { g.gain.cancelScheduledValues(t); g.gain.setValueAtTime(0.0001, t); });
+      c.resume().then(applyVolumes, applyVolumes); syncBg();
+    }
   });
   // a soft click on buttons and tiles (sounds tied to specific actions play on top)
   document.addEventListener('click', e => {

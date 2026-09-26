@@ -9,6 +9,14 @@
 (function () {
   GM.UPDATES = [
     {
+      v: 28, label: '4.12', date: '2026-09-26', title: '🃏 Hat-Trick gets its kit on',
+      items: [
+        '⚽ Hat-Trick is now played on a Goal Machine pitch: the trick goes down in the centre circle, with a proper scoreboard. Us in lime, them in orange',
+        '🎨 New cards, a kit for each suit: gold foil ⭐ Legends, red striped ⚽ Forwards, blue hooped ⚙️ Midfielders and green checked 🛡️ Defenders. The number, suit and name run down the edge, so you can read your whole hand at a glance',
+        '🃏 Two jokers in the deck: 🦸 Super-Sub wins the trick, whatever else is played; 📺 VAR hands the trick to the lowest card of the suit led. Play them any time, but you can’t lead with one',
+      ],
+    },
+    {
       v: 27, label: '4.11', date: '2026-09-26', app: 23, title: '🃏 Hat-Trick (beta) and a tidier Album',
       items: [
         '🃏 NEW: Hat-Trick, football Spades (beta). You and Skipper against the Gaffer and the Pundit, with a deck of 52 real PL players in four suits and ⭐ Legends as trumps. Bid your tricks, follow suit, first to 250. Each game picks goals, assists or appearances as the card strength',

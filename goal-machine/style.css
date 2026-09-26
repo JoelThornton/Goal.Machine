@@ -1127,3 +1127,8 @@ button.icon-btn.lb-btn { font: inherit; font-size: 1.1rem; cursor: pointer; }
 .release .fixups .fix-head { margin: 8px 0 2px; font-size: .85rem; }
 .release .fixups .fix-head small { color: var(--muted); }
 .release .fixups ul { margin: 0; font-size: .85rem; }
+/* Settings menu: each row shows its current value */
+.settings.smenu a { display: grid; grid-template-columns: 1fr auto; align-items: center; column-gap: 8px; }
+.settings.smenu a small { grid-column: 1; grid-row: 2; color: var(--muted); font-size: .8rem; font-weight: 400; margin-top: 1px; }
+.settings.smenu a span { grid-column: 2; grid-row: 1 / span 2; }
+.settings[hidden], .sgroup[hidden] { display: none !important; }

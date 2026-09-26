@@ -4,14 +4,29 @@ Ideas for Goal Machine and future games. **Nothing here gets built until we've t
 go.** Each idea keeps its notes and questions so a later session can pick it up. Status: 💬 to discuss · 🟢 agreed
 (ready to build) · 🚧 being built · ✅ shipped · 🧊 parked.
 
-## 💬 To discuss
+## 🗺️ Priority order (agreed with the owner as we go)
 
-### Settings: a sub-menu system
-- **Owner's idea:** Settings is getting long and needs sub-menus.
-- **Proposal:** the Settings page becomes a short menu, each row showing its current value, with one sub-page each:
-  👤 Account ("🔒 Joel") · 🎨 Look & club ("Dark · Arsenal") · 🔊 Sound & vibration ("Music: Game") ·
-  🔔 Notifications, app only ("6 of 7 on") · 🎮 Gameplay ("Normal"). The links underneath (share, how it works,
-  updates, about, privacy) stay as they are. ‹ on a sub-page goes back to Settings.
+Aim: have a sticky, polished game for the Play closed test (12 testers × 14 days), then launch.
+
+**Now: quick wins (hours each)**
+1. Target games: show the percentage (e.g. 97.6%) in history, PB and boards, and rebalance the appearances target
+2. Players page: ✅ signed / ❌ not yet filter
+3. In-app feedback button *(Claude's idea)*: "🐞 Report a bug / 💡 Suggest something" in Settings, saved to the
+   database with the version and phone, so closed-test testers can tell us things without WhatsApp
+4. CHAOS random formations
+
+**Next: medium (a day or two each), a reason to come back**
+5. Badges round 2: online badges, secret "???" badges (the first step of *hidden things*) and categories
+6. Weekly Premier League quiz, generated from our own data, with a weekly leaderboard
+7. Share your whole day *(Claude's idea)*: one post for the group chat with every daily result ("Goal Machine ·
+   26 Sep 🟩 Footle 3/8 · ⚽ Daily Ultimate 512 · #️⃣ Grid 7/9 · 🔥 12"), our best free advertising
+
+**Later: big, design first**
+8. Money games rework (an AI rival, hidden values, a deadline-day squeeze)
+9. Top Trumps-style card game (vs the computer and online), maybe using your Album as your deck
+10. Manager mode
+
+## 💬 To discuss
 
 ### Money games need more depth (Moneyball, Transfer Window, Auction)
 - **Owner's take:** there's something there, but it isn't satisfying. By two-thirds of the way through you're often
@@ -89,12 +104,23 @@ go.** Each idea keeps its notes and questions so a later session can pick it up.
   strength, manage a budget and transfers between gameweeks? It's a big feature, so a small first version would help
   work out whether it's fun.
 
+### In-app feedback *(Claude's idea)*
+- A "🐞 Report a bug / 💡 Suggest something" button in Settings: a short form saved to a `feedback` table with the
+  game version, app build, phone and current page. It lands in our bug and idea banks during the closed test.
+
+### Share your whole day *(Claude's idea)*
+- Footle and the drafts already have share buttons. This adds one "Share my day" on the Today page: every daily
+  result plus your streak in one spoiler-free post, with the link. One post a day in a group chat is how Wordle
+  spread.
+
 ## 🟢 Agreed
 
 _None yet._
 
 ## ✅ Shipped
 
+- **Settings sub-menus** (4.10): a menu of Account, Look & club, Sound & vibration, Notifications and Gameplay,
+  each showing its current value.
 - **Version numbers** (4.10): three levels (5.0 big, 4.10 features, 4.10.1 fixes); fix-ups fold into their
   release on the Updates page.
 - **Notification choices and reminders** (4.10): owner's spec. Each kind can be switched off in Settings. On by

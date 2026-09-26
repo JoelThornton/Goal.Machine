@@ -171,7 +171,7 @@
       }
     }
     const club = mode === 'club' ? (opts.club && GM.clubs.includes(opts.club) ? opts.club : GM.favClub()) : null;
-    if (mode === 'club' && !club) { location.hash = '#/settings'; GM.toast('Pick your favourite club first'); return; }
+    if (mode === 'club' && !club) { location.hash = '#/settings?s=look'; GM.toast('Pick your favourite club first'); return; }
     S = {
       mode, stat, seed, rules: RULES[mode], st: { ...GM.STATS[stat], id: stat },
       target, spin: 0, respins: 0, revealStage: mode === 'mystery' ? 'intro' : null,

@@ -14,6 +14,7 @@
         '🔔 ⚙️ Settings → Notifications: pick what the Android app whistles about. Your move, challenges and friends, results, new game modes, a come-back nudge and an 8pm streak reminder are on to start with',
         '📅 A daily reminder at the time you choose, if you haven’t played the daily games yet (off to start with)',
         '🔥 The streak reminder only comes if your streak is about to end, and none of the reminders come once you’ve played that day',
+        '⚙️ Settings is now a tidy menu: Account, Look & club, Sound & vibration, Notifications and Gameplay, each showing what it’s set to',
       ],
     },
     {

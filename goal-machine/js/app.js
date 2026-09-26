@@ -227,7 +227,7 @@
       <a class="tile t-navy wide" href="#/players"><span class="tile-icon">📖</span><b>Player index</b><small>All ${GM.allPlayers ? GM.allPlayers.length.toLocaleString() : '5,000+'} Premier League players, and how often you've signed them</small></a>
       </div>
       <button class="btn ghost share-game" id="share-game">📣 Share Goal Machine with your mates</button>
-      <footer class="muted center">Playing as <a href="#/settings">${GM.account() ? '🔒 ' : ''}${GM.esc(GM.getName() || 'no name yet')}</a> · <a href="#/updates">v${GM.versionLabel}</a></footer>`;
+      <footer class="muted center">Playing as <a href="#/settings?s=account">${GM.account() ? '🔒 ' : ''}${GM.esc(GM.getName() || 'no name yet')}</a> · <a href="#/updates">v${GM.versionLabel}</a></footer>`;
     const showTab = t => {
       GM.store.set('homeTab', t);
       GM.$$('#htabs button').forEach(b => b.classList.toggle('on', b.dataset.t === t));
@@ -266,9 +266,22 @@
   function settings() {
     const seg = (id, opts, on) => `<div class="seg" id="${id}">${Object.entries(opts).map(([k, l]) => `<button data-v="${k}" class="${k === String(on) ? 'on' : ''}">${l}</button>`).join('')}</div>`;
     const build = GM.appBuild(), snd = GM.sound.settings();
-    app.innerHTML = `<div class="topbar"><a href="#/" class="back">‹</a><h2>⚙️ Settings</h2><span></span></div>
-      <section class="settings">
-        <div class="setting"><b>Account</b>${GM.account()
+    // Settings is a short menu; each row opens one group (#/settings?s=account …). All groups are drawn and the
+    // others hidden, so the wiring below works the same on every sub-page.
+    const inApp = GM.app('notificationsAllowed') !== undefined, np = GM.notify.prefs();
+    const GROUPS = [
+      ['account', '👤 Account', GM.account() ? '🔒 ' + GM.esc(GM.account().name) : 'No name claimed yet'],
+      ['look', '🎨 Look & club', `${GM.THEMES[GM.getTheme()] || ''} · ${GM.favClub() ? GM.esc(GM.clubShort(GM.favClub())) : 'No club'}`],
+      ['sound', '🔊 Sound & vibration', `Effects ${snd.sfx ? 'on' : 'off'} · Music: ${{ off: 'off', music: 'game', tunes: 'soundtrack' }[snd.bg]}`],
+      ...(inApp ? [['notify', '🔔 Notifications', `${GM.notify.KINDS.filter(([k]) => np[k]).length + (np.daily ? 1 : 0)} of ${GM.notify.KINDS.length + 1} on`]] : []),
+      ['play', '🎮 Gameplay', GM.isHard() ? '🥵 Hard' : '🙂 Normal'],
+    ];
+    const sub = GROUPS.some(g => g[0] === parseHash().q.s) ? parseHash().q.s : '';
+    const grp = (g, html) => `<div class="sgroup" ${g === sub ? '' : 'hidden'}>${html}</div>`;
+    app.innerHTML = `<div class="topbar"><a href="${sub ? '#/settings' : '#/'}" class="back">‹</a><h2>${sub ? GROUPS.find(g => g[0] === sub)[1] : '⚙️ Settings'}</h2><span></span></div>
+      ${sub ? '' : `<section class="settings links smenu">${GROUPS.map(([k, l, v]) => `<a href="#/settings?s=${k}">${l}<small>${v}</small><span>›</span></a>`).join('')}</section>`}
+      <section class="settings" ${sub ? '' : 'hidden'}>
+        ${grp('account', `<div class="setting"><b>Account</b>${GM.account()
           ? `<small>Your leaderboard name is <b>🔒 ${GM.esc(GM.account().name)}</b>. It's yours alone: only this device can post scores with it.</small>
             <div class="pic-row">${GM.userPic(GM.account().name, 'lg')}<div><b>Profile picture</b><small>Friends and opponents see it in online games and your weekly league</small>
               <div class="setting-btns"><label class="btn small">📷 Choose a photo<input type="file" id="s-pic" accept="image/*" hidden></label><button class="btn ghost small" id="s-picdel">Remove</button></div></div></div>
@@ -278,24 +291,24 @@
             <small>${GM.store.get('backupAt', 0) ? `Last backup: ${new Date(GM.store.get('backupAt')).toLocaleString(undefined, { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}. ` : ''}Your album, stats, streaks and scores back up automatically after games.</small>
             <button class="btn ghost small danger" id="s-delete">🗑️ Delete my account</button>`
           : `<small>${GM.getName() ? `You play as “${GM.esc(GM.getName())}”, but it isn't claimed yet.` : 'No leaderboard name yet.'} Claim a unique name so nobody else can post scores as you.</small>
-            <div class="setting-btns"><button class="btn small" id="s-name">🔒 Claim a name</button><button class="btn ghost small" id="s-code">🔑 I have a transfer code</button></div>`}</div>
-        <div class="setting"><b>Appearance</b><small>Auto follows your phone's light or dark setting. Club paints the game in your favourite club's colours</small>${seg('s-theme', GM.THEMES, GM.getTheme())}</div>
+            <div class="setting-btns"><button class="btn small" id="s-name">🔒 Claim a name</button><button class="btn ghost small" id="s-code">🔑 I have a transfer code</button></div>`}</div>`)}
+        ${grp('look', `<div class="setting"><b>Appearance</b><small>Auto follows your phone's light or dark setting. Club paints the game in your favourite club's colours</small>${seg('s-theme', GM.THEMES, GM.getTheme())}</div>
         <div class="setting"><b>Favourite club</b><small>Unlocks Club Footle and Club XI, and brings your club's colours to the app</small>
-          <select class="input" id="s-club"><option value="">None</option>${GM.clubOptions().map(c => `<option ${c === GM.favClub() ? 'selected' : ''}>${GM.esc(c)}</option>`).join('')}</select></div>
-        <div class="setting"><b>Sound effects</b><small>Whistles, reels, the crowd and the goal horn</small>${seg('s-sfx', { true: '🔊 On', false: '🔇 Off' }, snd.sfx)}
+          <select class="input" id="s-club"><option value="">None</option>${GM.clubOptions().map(c => `<option ${c === GM.favClub() ? 'selected' : ''}>${GM.esc(c)}</option>`).join('')}</select></div>`)}
+        ${grp('sound', `<div class="setting"><b>Sound effects</b><small>Whistles, reels, the crowd and the goal horn</small>${seg('s-sfx', { true: '🔊 On', false: '🔇 Off' }, snd.sfx)}
           <label class="vol">🔈<input type="range" id="s-sfxvol" min="0" max="1" step="0.05" value="${snd.sfxVol}">🔊</label></div>
         <div class="setting"><b>Music</b><small id="s-bg-about"></small>${seg('s-bg', GM.playSafe ? { off: '🔇 Off', music: '🎹 Game' } : { off: '🔇 Off', music: '🎹 Game', tunes: '🎧 Soundtrack' }, snd.bg)}
           <label class="vol">🔈<input type="range" id="s-bgvol" min="0" max="1" step="0.05" value="${snd.bgVol}">🔊</label>
           <div class="now-playing" id="s-now" hidden><span></span><button class="btn ghost small" id="s-skip">⏭ Next song</button></div></div>
-        ${GM.app('notificationsAllowed') !== undefined ? `<div class="setting"><b>Notifications</b><small>A whistle for the things you choose below. The app checks about every 15 minutes while it's closed.</small>
+          <div class="setting"><b>Vibration</b><small>A little buzz on taps, hops and wins (phones only)</small>${seg('s-buzz', { true: '📳 On', false: '🔕 Off' }, GM.store.get('buzz', true))}</div>`)}
+        ${inApp ? grp('notify', `<div class="setting"><b>Notifications</b><small>A whistle for the things you choose below. The app checks about every 15 minutes while it's closed.</small>
           <div class="ntoggles">${GM.notify.KINDS.map(([k, l, d]) => `<label><span><b>${l}</b><small>${d}</small></span><input type="checkbox" data-nk="${k}" ${GM.notify.prefs()[k] ? 'checked' : ''}></label>`).join('')}
             <label><span><b>📅 Daily reminder</b><small>A nudge to play the daily games, if you haven't yet</small></span><select class="input" id="s-ndaily"><option value="">Off</option>${Array.from({ length: 31 }, (_, i) => { const t = String(7 + Math.floor(i / 2)).padStart(2, '0') + (i % 2 ? ':30' : ':00'); return `<option ${GM.notify.prefs().daily === t ? 'selected' : ''}>${t}</option>`; }).join('')}</select></label></div>
           <div id="s-nstatus" class="nstatus"></div>
-          <div class="setting-btns"><button class="btn ghost small" id="s-ntest">🔔 Send a test</button><button class="btn ghost small" id="s-ncheck">🔄 Check now</button><button class="btn ghost small" id="s-notif">⚙️ Phone settings</button></div></div>` : ''}
-        <div class="setting"><b>Difficulty</b><small>Hard hides clubs, years and appearances: names and positions only. In the Target games, big-name players turn up less often too. Hard scores have their own leaderboards</small>${seg('s-hard', { false: '🙂 Normal', true: '🥵 Hard' }, GM.isHard())}</div>
-        <div class="setting"><b>Vibration</b><small>A little buzz on taps, hops and wins (phones only)</small>${seg('s-buzz', { true: '📳 On', false: '🔕 Off' }, GM.store.get('buzz', true))}</div>
+          <div class="setting-btns"><button class="btn ghost small" id="s-ntest">🔔 Send a test</button><button class="btn ghost small" id="s-ncheck">🔄 Check now</button><button class="btn ghost small" id="s-notif">⚙️ Phone settings</button></div></div>`) : ''}
+        ${grp('play', `<div class="setting"><b>Difficulty</b><small>Hard hides clubs, years and appearances: names and positions only. In the Target games, big-name players turn up less often too. Hard scores have their own leaderboards</small>${seg('s-hard', { false: '🙂 Normal', true: '🥵 Hard' }, GM.isHard())}</div>`)}
       </section>
-      <section class="settings links">
+      <section class="settings links" ${sub ? 'hidden' : ''}>
         <a href="#" id="s-share">📣 Share Goal Machine with a friend<span>›</span></a>
         <a href="#" id="s-howto">❓ How Goal Machine works<span>›</span></a>
         <a href="#/updates">📰 Updates & version history ${GM.hasUnseenUpdate() ? '<i class="new-dot inline"></i>' : ''}<span>›</span></a>
@@ -303,7 +316,7 @@
         ${build == null ? `<a href="${GM.APK_URL}">🤖 Android app (APK)<span>›</span></a>` : ''}
         <a href="privacy.html">🔐 Privacy policy<span>›</span></a>
       </section>
-      <p class="muted center">Goal Machine v${GM.versionLabel}${build != null ? ` · App build ${build}` : ''}<br>Made by Opportunistic Games</p>`;
+      ${sub ? '' : `<p class="muted center">Goal Machine v${GM.versionLabel}${build != null ? ` · App build ${build}` : ''}<br>Made by Opportunistic Games</p>`}`;
     const wire = (id, fn) => GM.$$('#' + id + ' [data-v]').forEach(b => b.onclick = () => {
       fn(b.dataset.v); GM.buzz(); GM.$$('#' + id + ' button').forEach(x => x.classList.toggle('on', x === b));
     });

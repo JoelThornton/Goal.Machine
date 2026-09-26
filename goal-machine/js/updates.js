@@ -7,6 +7,13 @@
 (function () {
   GM.UPDATES = [
     {
+      v: 21, label: '4.6', date: '2026-09-26', app: 16, title: 'Target and CHAOS online',
+      items: [
+        '🎯 Target Race: a new online game. A different target every game (some much harder than others), the same spins for both of you, and whoever finishes closest wins',
+        '🌪️ CHAOS Race: Ultimate Wildcard CHAOS online, with the same spins, events and storms for both of you. Most CHAOS points wins, and it comes with the full neon look and Mayhem',
+      ],
+    },
+    {
       v: 20, label: '4.5', date: '2026-09-26', app: 16, title: 'No more flickering faces',
       items: [
         '🖼️ Fixed player pictures flickering during a game: a photo that didn’t load was being tried again every time you tapped, and faces were re-centred each time. Now each photo is worked out once and stays put',

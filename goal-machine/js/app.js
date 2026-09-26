@@ -89,12 +89,7 @@
       if (GM.online && GM.online.check) GM.online.check();
     }
     GM.sound.scene(path === 'draft' && q.m === 'chaos' ? 'chaos' : path);  // each game area has its own music (CHAOS has Mayhem)
-    const chaos = path === 'draft' && q.m === 'chaos';
-    if (chaos !== document.body.classList.contains('chaos-mode')) {
-      document.body.classList.toggle('chaos-mode', chaos);
-      // CHAOS always sits on the dark look (its neon needs it); leaving puts your own look back
-      if (chaos) { document.documentElement.dataset.theme = 'dark'; GM.app('setBars', '#12001f', false); } else GM.applyTheme();
-    }
+    GM.chaosLook(path === 'draft' && q.m === 'chaos');
     GM.$('.cal-slot', tabbar).innerHTML = GM.calIcon();  // stays right past midnight
     switch (path) {
       case 'draft': return GM.draft.start(app, ['target', 'treble', 'mystery', 'club', 'classic', 'classicwild', 'ultimatepure', 'extreme', 'purist', 'chaos'].includes(q.m) ? q.m : 'ultimate',
@@ -127,6 +122,13 @@
   }
 
   /* ---------------------------------------------------------------- home */
+  // CHAOS always sits on the dark look (its neon needs it); leaving puts your own look back. A CHAOS Race turns it on too.
+  GM.chaosLook = function (chaos) {
+    if (chaos === document.body.classList.contains('chaos-mode')) return;
+    document.body.classList.toggle('chaos-mode', chaos);
+    if (chaos) { document.documentElement.dataset.theme = 'dark'; GM.app('setBars', '#12001f', false); } else GM.applyTheme();
+  };
+
   function home() {
     const hard = GM.isHard();
     const pb = k => GM.best(hard && GM.HARD_MODES.includes(k) ? k + 'h' : k);

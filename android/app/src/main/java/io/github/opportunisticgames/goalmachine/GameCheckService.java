@@ -54,15 +54,23 @@ public class GameCheckService extends JobService {
             else {
                 js.cancel(OLD_JOB_ID);
                 if (js.getPendingJob(JOB_ID) != null) return;  // already scheduled: nothing to do
-                int r = js.schedule(new JobInfo.Builder(JOB_ID, new ComponentName(ctx, GameCheckService.class))
-                    .setRequiredNetworkType(JobInfo.NETWORK_TYPE_ANY)
-                    .setPeriodic(15 * 60 * 1000L)
-                    .setPersisted(true)  // survives a phone restart (RECEIVE_BOOT_COMPLETED)
-                    .build());
+                int r;
+                try { r = js.schedule(job(ctx, true)); }
+                // belt and braces: if the phone still won't allow a network condition, check anyway (a check with no
+                // connection just fails quietly and tries again 15 minutes later)
+                catch (SecurityException e) { r = js.schedule(job(ctx, false)); }
                 result = r == JobScheduler.RESULT_SUCCESS ? "scheduled" : "Android refused the schedule";
             }
         } catch (Exception e) { result = "schedule error: " + e.getClass().getSimpleName() + " " + e.getMessage(); }
         p.edit().putString("sched", result).putLong("schedAt", System.currentTimeMillis()).apply();
+    }
+
+    private static JobInfo job(Context ctx, boolean needNetwork) {
+        JobInfo.Builder b = new JobInfo.Builder(JOB_ID, new ComponentName(ctx, GameCheckService.class))
+            .setPeriodic(15 * 60 * 1000L)
+            .setPersisted(true);  // survives a phone restart (RECEIVE_BOOT_COMPLETED)
+        if (needNetwork) b.setRequiredNetworkType(JobInfo.NETWORK_TYPE_ANY);
+        return b.build();
     }
 
     @Override

@@ -37,14 +37,21 @@ public class PushService extends FirebaseMessagingService {
     private static String str(String s, String fallback) { return s == null || s.isEmpty() ? fallback : s; }
 
     static void saveToken(Context ctx, String token) {
-        ctx.getSharedPreferences(GameCheckService.PREFS, MODE_PRIVATE).edit().putString("pushToken", token).apply();
+        ctx.getSharedPreferences(GameCheckService.PREFS, MODE_PRIVATE).edit().putString("pushToken", token).putString("pushErr", "").apply();
     }
 
     /** Ask Firebase for this phone's token (it arrives a moment later and is saved). */
     static void fetchToken(Context ctx) {
         try {
-            FirebaseMessaging.getInstance().getToken().addOnSuccessListener(t -> saveToken(ctx, t));
-        } catch (Exception e) { /* no Google Play services on this phone: the 15-minute check still works */ }
+            FirebaseMessaging.getInstance().getToken()
+                .addOnSuccessListener(t -> saveToken(ctx, t))
+                // why not (shown in Settings): usually Google Play services missing, out of date or blocked from the network
+                .addOnFailureListener(e -> err(ctx, e.getClass().getSimpleName() + ": " + e.getMessage()));
+        } catch (Exception e) { err(ctx, e.getClass().getSimpleName() + ": " + e.getMessage()); }  // the 15-minute check still works
+    }
+
+    static void err(Context ctx, String why) {
+        ctx.getSharedPreferences(GameCheckService.PREFS, MODE_PRIVATE).edit().putString("pushErr", why == null ? "" : why).apply();
     }
 
     static String token(Context ctx) {

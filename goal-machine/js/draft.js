@@ -63,8 +63,63 @@
     box: { icon: '🎁', name: 'Mystery box', w: 0.9, desc: () => 'A free CHAOS wildcard for your bag.' },
     masked: { icon: '🎭', name: 'Masked men', w: 0.8, desc: () => 'This spin’s players wear masks: no names until you sign one.' },
   };
-  // the CHAOS meter: every event, storm and CHAOS card charges it; full, it unleashes ×2 on your next two signings
-  const METER = 5;
+  // the CHAOS meter: taking or playing a wildcard (and every storm) charges it; full, the next spin opens with a big
+  // CHAOS moment. Now and then a smaller match-day event (above) strikes too. Only ever one thing at a time.
+  const METER = 4;
+  const HURT = ['rotation', 'zero', 'injured', 'halved'];
+  // the big moments the meter sets off (need: filled slots, empty slots)
+  const MOMENTS = {
+    unleash: { icon: '💥', name: 'CHAOS UNLEASHED', w: 1.1, tone: 'unleash' },
+    tornado: { icon: '🌪️', name: 'Tornado!', w: 1, tone: 'bad', need: n => n >= 3 },
+    lightning: { icon: '⚡', name: 'Lightning strike', w: 0.9, tone: 'weird', need: n => n >= 2 },
+    parade: { icon: '🚌', name: 'Open-top bus parade', w: 0.8, tone: 'good', need: n => n >= 1 },
+    deadline: { icon: '⏰', name: 'Deadline day', w: 0.9, tone: 'good', need: (n, left) => left >= 1 },
+    sacked: { icon: '📰', name: 'Manager sacked!', w: 0.8, tone: 'weird', need: () => !!(S && S.manager) },
+  };
+  // CHAOS managers: you appoint one at kick-off. Each brings a perk and a catch, worked out on your XI as bonus points
+  // (per-player amounts are in goals and scale to the stat; percentages are of your XI's own numbers)
+  const grpSum = (x, gs) => x.slots.filter(s => gs.includes(GM.GROUP[s.pos])).reduce((a, s) => a + s.g, 0);
+  const count = (x, f) => x.ps.filter(f).length;
+  const vet = p => Math.min(p.last, GM.currentSeason) - p.first + 1 >= 10;
+  const MANAGERS = {
+    fergie: { icon: '⌚', name: 'Sir Alex Ferguson', perk: '+20 for every Man Utd player', catch: 'The hairdryer: your lowest scorer counts for nothing',
+      likes: p => p.clubs.includes('Manchester United'),
+      lines: x => { const n = count(x, p => p.clubs.includes('Manchester United')); return [[`⌚ Fergie’s Man Utd players (${n})`, 20 * x.u * n], ['💨 The hairdryer: lowest scorer dropped', x.slots.length > 1 ? -Math.min(...x.slots.map(s => s.g)) : 0]]; } },
+    wenger: { icon: '🧥', name: 'Arsène Wenger', perk: '+20 for every Arsenal player', catch: '“I didn’t see it”: −30 if any of your players got halved or zeroed',
+      likes: p => p.clubs.includes('Arsenal'),
+      lines: x => { const n = count(x, p => p.clubs.includes('Arsenal')); return [[`🧥 Wenger’s Arsenal players (${n})`, 20 * x.u * n], ['🙈 “I didn’t see it”', x.slots.some(s => HURT.includes(s.mod)) ? -30 * x.u : 0]]; } },
+    mourinho: { icon: '🚌', name: 'José Mourinho', perk: 'Defenders and keeper +50%', catch: 'Third-season syndrome: strikers −25%',
+      likes: p => ['D', 'G'].includes(p.pos), hates: p => p.pos === 'F',
+      lines: x => [['🚌 Mourinho’s back line +50%', 0.5 * grpSum(x, ['D', 'G'])], ['📉 Third-season syndrome: strikers −25%', -0.25 * grpSum(x, ['F'])]] },
+    pep: { icon: '🧠', name: 'Pep Guardiola', perk: 'Midfielders +50%', catch: 'Overthinking it: strikers −20%',
+      likes: p => p.pos === 'M', hates: p => p.pos === 'F',
+      lines: x => [['🧠 Pep’s midfield +50%', 0.5 * grpSum(x, ['M'])], ['🤔 Overthinking it: strikers −20%', -0.2 * grpSum(x, ['F'])]] },
+    klopp: { icon: '🤘', name: 'Jürgen Klopp', perk: 'Heavy metal: teammate pairs count double', catch: 'Full throttle: −10 for every ten-season veteran',
+      hates: vet,
+      lines: x => [[`🤘 Heavy metal chemistry (${x.pairs} pair${x.pairs === 1 ? '' : 's'})`, 12 * x.u * x.pairs], ['🏃 Full throttle: veterans', -10 * x.u * count(x, vet)]] },
+    ranieri: { icon: '🦊', name: 'Claudio Ranieri', perk: 'The fairytale: +40 for every Leicester player', catch: 'Dilly ding: title medals are worth nothing',
+      likes: p => p.clubs.includes('Leicester City'), hates: p => (p.hon.P || 0) > 0,
+      lines: x => { const n = count(x, p => p.clubs.includes('Leicester City')), m = x.ps.reduce((a, p) => a + (p.hon.P || 0), 0); return [[`🦊 The fairytale: Leicester players (${n})`, 40 * x.u * n], ['🔔 Dilly ding: no title medal bonus', -4 * x.u * m]]; } },
+    keegan: { icon: '📺', name: 'Kevin Keegan', perk: '“I would love it”: strikers +40%', catch: 'All-out attack: defenders −30%',
+      likes: p => p.pos === 'F', hates: p => p.pos === 'D',
+      lines: x => [['📺 “I would love it”: strikers +40%', 0.4 * grpSum(x, ['F'])], ['🕳️ All-out attack: defenders −30%', -0.3 * grpSum(x, ['D'])]] },
+    allardyce: { icon: '🍷', name: 'Sam Allardyce', perk: '+15 for every player with 4+ PL clubs', catch: 'No big egos: −10 for every Hall of Famer',
+      likes: p => p.clubs.length >= 4, hates: p => !!p.hon.H,
+      lines: x => [[`🍷 Big Sam’s journeymen (${count(x, p => p.clubs.length >= 4)})`, 15 * x.u * count(x, p => p.clubs.length >= 4)], ['🙅 No big egos: Hall of Famers', -10 * x.u * count(x, p => p.hon.H)]] },
+    redknapp: { icon: '🚗', name: 'Harry Redknapp', perk: 'Wheeler-dealer: starts you with ⏰ Deadline Day and 🎰 Roll Again', catch: '“He’d have sold them”: −10 for every one-club man',
+      hates: p => p.clubs.length === 1,
+      lines: x => [['🚗 “He’d have sold them”: one-club men', -10 * x.u * count(x, p => p.clubs.length === 1)]] },
+    moyes: { icon: '🧱', name: 'David Moyes', perk: 'Steady: +12 for every ten-season veteran', catch: 'No superstars: your top scorer −20%',
+      likes: vet,
+      lines: x => [[`🧱 Steady veterans (${count(x, vet)})`, 12 * x.u * count(x, vet)], ['⭐ No superstars: top scorer −20%', x.slots.length ? -0.2 * Math.max(...x.slots.map(s => s.g)) : 0]] },
+    ancelotti: { icon: '🤨', name: 'Carlo Ancelotti', perk: 'The raised eyebrow: +8 for every PL title medal', catch: 'No journeymen: −10 for every player with 5+ clubs',
+      likes: p => (p.hon.P || 0) > 0, hates: p => p.clubs.length >= 5,
+      lines: x => { const m = x.ps.reduce((a, p) => a + (p.hon.P || 0), 0); return [[`🤨 Title medals (${m})`, 8 * x.u * m], ['🧳 No journeymen', -10 * x.u * count(x, p => p.clubs.length >= 5)]]; } },
+    hodgson: { icon: '🦁', name: 'Roy Hodgson', perk: 'Three Lions: +12 for every England player', catch: '−4 for every player from anywhere else',
+      likes: p => p.nat === 'England', hates: p => p.nat !== 'England',
+      lines: x => [[`🦁 Three Lions (${count(x, p => p.nat === 'England')})`, 12 * x.u * count(x, p => p.nat === 'England')], ['🌍 Players from abroad', -4 * x.u * count(x, p => p.nat !== 'England')]] },
+  };
+  const mgrShort = m => m.name.split(' ').slice(-1)[0];
   // CHAOS bonus points, in "goals": assists and apps games scale them to their stat
   const CHAOS_UNIT = { goals: 1, assists: 0.7, apps: 8 };
 
@@ -189,13 +244,14 @@
       form, xi: form.map(pos => ({ pos, p: null, g: 0, mod: null, as: null })),
       reels: [], selected: -1, revealed: false, revealNext: false, special: null,
       inv: [], modifier: null, subbing: false, used: [], last: null,
-      phase: 'spin', vs: opts.vs, vss: opts.vss, log: [], pending: null, wildUsed: 0, coinWin: false, bonus: [], hot: 0, event: null, meter: 0, unleash: 0, golden: false, masked: false, chaosCount: 0,
+      phase: 'spin', vs: opts.vs, vss: opts.vss, log: [], pending: null, wildUsed: 0, coinWin: false, bonus: [], hot: 0, event: null, meter: 0, unleash: 0, golden: false, masked: false, chaosCount: 0, manager: null, moments: [], chaosDue: false, momentSpin: -1, forceSpecial: null,
       hard: mode !== 'daily' && !dailyChaos && !!opts.hard, club, dailyChaos, day: GM.today(),
       online: opts.online ? { ...opts.online, ms: 0, lastT: Date.now() } : null,  // Live Race: { code, seat, opp } + time taken
     };
     if (S.online) root.className = 'page-draft page-online';
     render();
-    if (RULES[mode] && RULES[mode].chaos) setTimeout(() => GM.toast(`🌪️ Formation: <b style="white-space:nowrap">${['D', 'M', 'F'].map(g => form.filter(p => GM.GROUP[p] === g).length).join('-')}</b>`), 400);
+    const me = S;
+    if (RULES[mode] && RULES[mode].chaos) setTimeout(() => { if (S === me && onThisGame() && !S.manager && S.spin === 0) pickManager(); }, 350);
   }
 
   const modeKey = () => (S.dailyChaos ? 'dchaos:' + S.day : keyFor(S.mode, S.stat, S.hard, S.club));
@@ -220,6 +276,7 @@
   const fits = (p, open) => p.poss.some(x => open.includes(x));
   const emptySlots = () => S.xi.filter(s => s.p == null).length;
   const fmt = n => n.toLocaleString();
+  const signed = n => (n < 0 ? '−' : '+') + Math.abs(n).toLocaleString();
 
   /* ---------------------------------------------------------------- reel generation */
   // Fair deals. Every spin has its own fixed running order of players, drawn from the whole field and seeded by the
@@ -251,11 +308,11 @@
     const n = (wc && wc.reels) || 3;
     const wildTypes = () => Object.keys(WILDCARDS).filter(t => !S.rules.noWild.includes(t) && (!WILDCARDS[t].chaos || S.rules.chaos) && t !== 'storm');
     // a wildcard storm: every reel is a wildcard (the Storm card, or 1 spin in 10 in CHAOS)
-    if ((wc && wc.storm) || (S.rules.chaos && !special && S.spin >= 2 && GM.rng(tag + '|storm')() < 0.1)) {
+    if ((wc && wc.storm) || (S.rules.chaos && !special && S.spin >= 2 && S.momentSpin !== S.spin && GM.rng(tag + '|storm')() < 0.1)) {
       const rs = GM.rng(tag + '|stormcards'), types = wildTypes(), out = [];
       while (out.length < 3) { const t = rs.weighted(types, k => WILDCARDS[k].w); if (!out.some(x => x.wild === t)) out.push({ wild: t }); }
       S.storm = true;
-      if (S.rules.chaos) setTimeout(() => { fx('storm', '🌪️'); }, 200);
+      if (S.rules.chaos) setTimeout(() => { fx('storm', '🌪️', 8); }, 200);
       charge();
       return out;
     }
@@ -299,11 +356,13 @@
 
   /* ---------------------------------------------------------------- actions */
   async function doSpin(special) {
-    if (S.phase !== 'spin' && S.phase !== 'pick') return;
-    S.special = special || null;
+    if (busy || (S.phase !== 'spin' && S.phase !== 'pick')) return;
+    if (S.rules.chaos && !S.manager && S.spin === 0 && !special) { await pickManager(); if (!onThisGame()) return; }
     S.pending = null;
     S.event = null;
-    if (S.rules.chaos && !special && !(S.spinRespins > 0) && S.spin >= 2) chaosEvent();
+    if (S.rules.chaos && !special && !(S.spinRespins > 0) && S.spin >= 2 && S.momentSpin !== S.spin) { await chaosTurn(); if (!onThisGame()) return; }
+    if (!special && S.forceSpecial) { special = S.forceSpecial; S.forceSpecial = null; }
+    S.special = special || null;
     S.reels = makeReels(special);
     S.selected = -1;
     S.revealed = S.revealNext; S.revealNext = false;
@@ -315,74 +374,232 @@
     render();
   }
 
-  function chaosEvent() {
+  // before a spin: a big moment if the meter's full, otherwise (now and then) a match-day event; never both, and
+  // never on the spin straight after a big one
+  async function chaosTurn() {
+    if (S.chaosDue) { S.chaosDue = false; S.momentSpin = S.spin; return bigMoment(); }
+    if (S.lastBig === S.spin - 1) return;
     const r = GM.rng(`${S.seed}|chaos|${S.spin}`);
-    if (r() >= 0.3) return;
+    if (r() >= 0.22) return;
+    S.momentSpin = S.spin;
+    return chaosEvent(r);
+  }
+  const filledIdx = () => S.xi.map((x, i) => i).filter(i => S.xi[i].p != null);
+  const scale = (x, f, mod) => { STAT_KEYS.forEach(k => { x.v[k] = Math.floor(x.v[k] * f); }); x.g = x.v[S.stat]; if (mod) x.mod = mod; };
+  const nm = i => GM.esc(byId(S.xi[i].p).name);
+
+  function chaosEvent(r) {
     let e = r.weighted(Object.keys(EVENTS), k => EVENTS[k].w); const ev = EVENTS[e];
-    let note = ev.desc(wst());
+    const before = snap();
+    let note = ev.desc(wst()), run = null, reveal = null, tone = null;
     if (e === 'redcard' || e === 'derby') {
       if (S.modifier) note = 'But you already had a modifier lined up, so it slips by.';
       else S.modifier = e === 'redcard' ? 'rotation' : 'captain';
     } else if (e === 'injury') {
-      const filled = S.xi.filter(x => x.p != null && x.mod !== 'injured');
+      const filled = filledIdx().filter(i => S.xi[i].mod !== 'injured');
       if (!filled.length) note = 'Nobody to injure yet. Phew.';
       else {
-        const x = filled[Math.floor(r() * filled.length)];
-        STAT_KEYS.forEach(k => { x.v[k] = Math.floor(x.v[k] / 2); });
-        x.g = x.v[S.stat]; x.mod = 'injured';
-        note = `${byId(x.p).name} is crocked: his ${S.st.label} are halved.`;
+        const i = filled[Math.floor(r() * filled.length)];
+        scale(S.xi[i], 0.5, 'injured');
+        note = `${nm(i)} is crocked: his ${S.st.label} are halved.`;
+        run = c => c.visit(i, '🚑', 'drive');
       }
     } else if (e === 'taxman') {
       if (!S.inv.length) note = 'Your wildcard bag is empty, so he leaves with nothing.';
-      else { const k = Math.floor(r() * S.inv.length), w = S.inv.splice(k, 1)[0]; note = `He takes your ${WILDCARDS[w].icon} ${WILDCARDS[w].name}.`; }
+      else { const k = Math.floor(r() * S.inv.length), w = S.inv.splice(k, 1)[0]; note = `He takes your ${WILDCARDS[w].icon} ${WILDCARDS[w].name} from your bag.`; run = c => c.bag('🧾'); }
     } else if (e === 'golden') {
       S.golden = true;
     } else if (e === 'var') {
-      const x = S.xi.find(y => y.p === S.last && y.p != null);
-      if (!x) note = 'Nothing to review yet.';
+      const i = S.xi.findIndex(y => y.p === S.last && y.p != null);
+      if (i < 0) note = 'Nothing to review yet.';
       else {
         const given = r() < 0.5;
-        STAT_KEYS.forEach(k => { x.v[k] = given ? x.v[k] * 2 : Math.floor(x.v[k] / 2); }); x.g = x.v[S.stat];
-        note = given ? `${byId(x.p).name}: GOAL GIVEN! His ${S.st.label} double.` : `${byId(x.p).name}: DISALLOWED. His ${S.st.label} are halved.`;
+        scale(S.xi[i], given ? 2 : 0.5, given ? 'boosted' : 'halved');
+        note = `Checking ${nm(i)}…`;
+        reveal = { text: given ? `${nm(i)}: <b>GOAL GIVEN!</b> His ${S.st.label} double.` : `${nm(i)}: <b>DISALLOWED.</b> His ${S.st.label} are halved.`, tone: given ? 'good' : 'bad' };
+        run = c => c.visit(i, '📺', 'frame');
         e = given ? 'var+' : 'var-';
       }
     } else if (e === 'box') {
       const cards = Object.keys(WILDCARDS).filter(k => WILDCARDS[k].chaos), w = cards[Math.floor(r() * cards.length)];
       if (S.inv.length >= 3) note = 'But your bag is full, so it’s empty. Typical.';
-      else { S.inv.push(w); note = `Inside: ${WILDCARDS[w].icon} ${WILDCARDS[w].name}!`; }
+      else { S.inv.push(w); note = `Inside: ${WILDCARDS[w].icon} ${WILDCARDS[w].name}! It goes in your bag.`; run = c => c.bag('🎁'); }
     } else if (e === 'masked') {
       S.masked = true;
     } else if (e === 'windfall') {
       const pts = Math.round(20 * CHAOS_UNIT[S.stat]);
       S.bonus.push([`💰 TV money (spin ${S.spin + 1})`, pts]);
       note = `+${pts} bonus points.`;
+      run = c => c.rain('💰');
     }
-    S.event = { icon: ev.icon, name: ev.name, note };
+    S.event = { icon: ev.icon, name: ev.name, note: (reveal ? reveal.text : note).replace(/<[^>]+>/g, '') };
     S.log.push(ev.icon);
     S.chaosCount = (S.chaosCount || 0) + 1;
     const good = ['windfall', 'derby', 'golden', 'var+', 'box'].includes(e);
-    fx(good ? 'good' : e === 'masked' ? 'weird' : 'bad', ev.icon);
-    charge();
+    tone = good ? 'good' : e === 'masked' || e === 'var-' || e === 'var+' ? 'weird' : 'bad';
+    return moment({ icon: ev.icon, name: ev.name, text: note, tone, before, run, reveal, small: true });
   }
-  // CHAOS meter and effects
+
+  async function bigMoment() {
+    const r = GM.rng(`${S.seed}|moment|${S.spin}`), filled = filledIdx(), left = emptySlots();
+    const keys = Object.keys(MOMENTS).filter(k => !MOMENTS[k].need || MOMENTS[k].need(filled.length, left));
+    const k = r.weighted(keys, x => MOMENTS[x].w), m = MOMENTS[k], before = snap();
+    const o = { icon: m.icon, name: m.name, tone: m.tone, before, big: true };
+    S.lastBig = S.spin;
+    S.chaosCount = (S.chaosCount || 0) + 1; S.log.push(m.icon);
+    if (k === 'unleash') {
+      S.unleash = (S.unleash || 0) + 2;
+      o.text = 'The meter blows! Your next two signings count <b>DOUBLE</b>.';
+      o.run = c => c.rain('💥');
+    } else if (k === 'tornado') {
+      const hits = filled.map(i => ({ i, up: r() < 0.5 }));
+      hits.forEach(({ i, up }) => scale(S.xi[i], up ? 2 : 0.5, up ? 'boosted' : 'halved'));
+      const ups = hits.filter(h => h.up).length;
+      o.text = `It rips through your XI: <b>${ups}</b> player${ups === 1 ? '' : 's'} doubled, <b>${hits.length - ups}</b> halved.`;
+      o.run = c => c.sweep('🌪️');
+    } else if (k === 'lightning') {
+      const by = filled.slice().sort((a, b) => S.xi[b].g - S.xi[a].g), top = by[0], low = by[by.length - 1];
+      scale(S.xi[top], 0.5, 'halved'); scale(S.xi[low], 3, 'boosted');
+      o.text = `${nm(top)} is struck: <b>halved</b>. ${nm(low)} is charged up: <b>×3</b>!`;
+      o.run = c => { c.visit(top, '⚡', 'strike'); c.visit(low, '✨', 'strike', 900); };
+    } else if (k === 'parade') {
+      const medals = S.xi.reduce((a, x) => a + (x.p != null ? (byId(x.p).hon.P || 0) : 0), 0), pts = Math.round(Math.max(15, 8 * medals) * CHAOS_UNIT[S.stat]);
+      S.bonus.push([`🚌 Bus parade (spin ${S.spin + 1})`, pts]);
+      o.text = `The fans are out: <b>+${pts}</b> bonus points${medals ? ` for your ${medals} title medal${medals === 1 ? '' : 's'}` : ''}.`;
+      o.run = c => c.sweep('🚌');
+    } else if (k === 'deadline') {
+      S.forceSpecial = 'deadline';
+      o.text = 'The window’s about to slam shut: this spin has <b>FIVE</b> players to choose from.';
+    } else if (k === 'sacked') {
+      const old = MANAGERS[S.manager];
+      o.text = `${old.name} has been sacked. Pick his replacement:`;
+      o.pick = mgrChoices(S.manager);
+      o.onPick = appoint;
+    }
+    if (!o.pick) S.event = { icon: m.icon, name: m.name, note: o.text.replace(/<[^>]+>/g, '') };
+    return moment(o);
+  }
+
+  // three managers to choose from (the same three for everyone on this seed and spin)
+  function mgrChoices(not) {
+    const r = GM.rng(`${S.seed}|mgr|${S.spin}`), out = [];
+    const keys = Object.keys(MANAGERS).filter(k => k !== not);
+    while (out.length < 3) { const k = keys[Math.floor(r() * keys.length)]; if (!out.includes(k)) out.push(k); }
+    return out;
+  }
+  function appoint(k) {
+    S.manager = k; S.log.push('👔');
+    if (k === 'redknapp') ['deadline', 'respin'].forEach(w => { if (S.inv.length < 3) S.inv.push(w); });
+  }
+  function pickManager() {
+    const shape = ['D', 'M', 'F'].map(g => S.form.filter(p => GM.GROUP[p] === g).length).join('-');
+    return moment({ icon: '👔', name: 'Kick-off', tone: 'good', before: snap(), text: `Formation <b>${shape}</b>. Appoint your manager: each has a perk and a catch.`, pick: mgrChoices(null), onPick: appoint, quiet: true });
+  }
+
+  /* ---------------------------------------------------------------- CHAOS moments: one at a time, on the pitch
+     A moment is applied to the state first, then shown: a card over the reels, a bit of action on the pitch, and every
+     number that changed counting from its old value to its new one. Tap to skip; nothing else can happen meanwhile. */
+  let busy = false;
+  const snap = () => ({ g: S.xi.map(x => x.g), t: total(), b: S.rules.chaos ? scoreFor(S).bonus : 0 });
+  function countTo(el, from, to, ms, fmtFn = fmt) {
+    if (!el) return;
+    const t0 = performance.now();
+    const step = now => { const f = Math.min(1, (now - t0) / ms), e = 1 - Math.pow(1 - f, 3); el.textContent = fmtFn(Math.round(from + (to - from) * e)); if (f < 1 && el.isConnected) requestAnimationFrame(step); };
+    requestAnimationFrame(step);
+  }
+  const coinHtml = heads => `<div class="coin" style="--end:${heads ? 1800 : 1980}deg"><div class="coin-f h">⚽<b>HEADS</b></div><div class="coin-f t">🧤<b>TAILS</b></div></div>`;
+  const mgrCard = k => { const m = MANAGERS[k]; return `<button class="mgr" data-mgr="${k}"><span class="mgr-ico">${m.icon}</span><b>${m.name}</b><small class="up">✅ ${m.perk}</small><small class="down">⚠️ ${m.catch}</small></button>`; };
+  function moment(o) {
+    return new Promise(done => {
+      busy = true;
+      render();
+      const pitch = GM.$('.pitch', root), timers = [], later = (ms, f) => timers.push(setTimeout(f, ms));
+      const slotEl = i => GM.$(`.slot[data-slot="${i}"]`, root);
+      const b = o.before || snap(), changed = S.xi.map((x, i) => i).filter(i => b.g[i] !== S.xi[i].g);
+      // wind the changed numbers (and the counter) back to where they were; they count to their new values on cue
+      changed.forEach(i => { const n = GM.$('.sg', slotEl(i)); if (n) n.textContent = fmt(b.g[i]); });
+      const cn = GM.$('.counter-num b', root), cb = GM.$('.chaos-pts b', root), now = snap();
+      if (cn) cn.textContent = fmt(b.t);
+      if (cb) cb.textContent = signed(b.b);
+      const hitDone = new Set();
+      const hit = i => {
+        if (hitDone.has(i) || !changed.includes(i)) return; hitDone.add(i);
+        const el = slotEl(i); if (!el) return;
+        el.classList.add(S.xi[i].g > b.g[i] ? 'hit-up' : 'hit-down');
+        countTo(GM.$('.sg', el), b.g[i], S.xi[i].g, 700);
+        GM.sound.play(S.xi[i].g > b.g[i] ? 'good' : 'bad');
+      };
+      const totals = () => { countTo(cn, b.t, now.t, 900); countTo(cb, b.b, now.b, 900, signed); };
+      const fxEl = (cls, txt, x, y) => { if (!pitch) return null; const e = document.createElement('span'); e.className = 'cm-fx ' + cls; e.textContent = txt; if (x != null) { e.style.left = x + 'px'; e.style.top = y + 'px'; } pitch.appendChild(e); return e; };
+      const at = i => { const el = slotEl(i), pr = pitch.getBoundingClientRect(), r = el.getBoundingClientRect(); return [r.left - pr.left + r.width / 2, r.top - pr.top + r.height / 2, (r.left + r.width / 2 - pr.left) / pr.width]; };
+      const c = {
+        // something crosses the whole pitch, hitting each changed player as it passes
+        sweep(icon, ms = 1500) {
+          const e = fxEl('sweep', icon); if (!e) return;
+          e.style.animationDuration = ms + 'ms';
+          changed.forEach(i => { const [, , f] = at(i); later(ms * (0.08 + 0.84 * f), () => hit(i)); });
+        },
+        // something arrives at one player
+        visit(i, icon, kind = 'pop', delay = 0) {
+          later(delay, () => { if (!slotEl(i)) return; const [x, y] = at(i); fxEl('visit ' + kind, icon, x, y); });
+          later(delay + (kind === 'frame' ? 1250 : 650), () => hit(i));
+        },
+        bag(icon) { const inv = GM.$('.inv', root); if (inv) { inv.classList.remove('robbed'); void inv.offsetWidth; inv.classList.add('robbed'); } fxEl('visit pop', icon, pitch ? pitch.clientWidth / 2 : 0, pitch ? pitch.clientHeight - 30 : 0); },
+        rain(icon) { if (!pitch) return; for (let k = 0; k < 7; k++) { const e = fxEl('rain', icon, Math.random() * pitch.clientWidth, -30); if (e) e.style.animationDelay = (k * 0.08) + 's'; } },
+      };
+      const el = document.createElement('div');
+      el.className = `cm cm-${o.tone || 'weird'} ${o.big ? 'cm-big' : ''} ${o.pick ? 'cm-pick' : ''}`;
+      el.innerHTML = `<div class="cm-card"><div class="cm-icon">${o.icon}</div><div class="cm-name">${o.name}</div><div class="cm-text">${o.text || ''}</div>
+        ${o.coin != null ? coinHtml(o.coin) : ''}${o.pick ? `<div class="mgr-list">${o.pick.map(mgrCard).join('')}</div>` : '<small class="cm-skip">Tap to carry on</small>'}</div>`;
+      document.body.appendChild(el);
+      if (!o.quiet) fx(o.tone === 'unleash' ? 'unleash' : o.tone || 'weird', o.icon);
+      let over = false;
+      const finish = () => {
+        if (over) return; over = true;
+        timers.forEach(clearTimeout); window.removeEventListener('hashchange', finish);
+        el.classList.add('out'); setTimeout(() => el.remove(), 250);
+        busy = false;
+        if (S.rules.chaos && (o.text || o.reveal)) S.moments = (S.moments || []).concat([{ icon: o.icon, name: o.name, text: (o.after || (o.reveal && o.reveal.text) || o.text).replace(/<[^>]+>/g, '') }]);
+        render(); done();
+      };
+      window.addEventListener('hashchange', finish);
+      if (o.pick) {
+        GM.$$('[data-mgr]', el).forEach(bt => bt.onclick = () => { o.onPick(bt.dataset.mgr); GM.sound.play('whistle'); finish(); });
+        return;
+      }
+      // the action starts once the card is up (after a coin has landed)
+      const start = o.coin != null ? 1650 : 350;
+      if (o.coin != null) {
+        for (let k = 0; k < 8; k++) later(k * 170, () => GM.sound.play('tick'));
+        later(start - 100, () => {
+          const t = GM.$('.cm-text', el); if (t) t.innerHTML = o.after;
+          el.className = el.className.replace(/cm-(good|bad|weird|unleash)/, 'cm-' + (o.coin ? 'good' : 'bad'));
+          fx(o.coin ? 'good' : 'bad', o.coin ? '⚽' : '🧤');
+        });
+      }
+      if (o.reveal) later(1150, () => { const t = GM.$('.cm-text', el); if (t) t.innerHTML = o.reveal.text; el.className = el.className.replace(/cm-(good|bad|weird|unleash)/, 'cm-' + o.reveal.tone); fx(o.reveal.tone, o.icon); });
+      later(start, () => { if (o.run) o.run(c); changed.forEach(i => later(o.run ? 1700 : 300, () => hit(i))); totals(); });
+      later(start + (o.small ? 1900 : 2300), finish);
+      el.onclick = finish;
+    });
+  }
+  // CHAOS meter
   function charge(n = 1) {
     if (!S.rules.chaos) return;
     S.meter = (S.meter || 0) + n;
-    if (S.meter >= METER) {
-      S.meter = 0; S.unleash = (S.unleash || 0) + 2;
-      setTimeout(() => { fx('unleash', '💥'); GM.toast('💥 <b>CHAOS UNLEASHED!</b> Your next two signings count DOUBLE', 3200); }, 700);
-    }
+    if (S.meter >= METER && !S.chaosDue) { S.meter = 0; S.chaosDue = true; GM.sound.play('siren'); }
   }
-  function fx(kind, icon) {
+  function fx(kind, icon, rain = 0) {
     if (!S.rules.chaos) return;
     const app = document.getElementById('app');
     if (kind === 'bad' || kind === 'unleash') { app.classList.remove('shake'); void app.offsetWidth; app.classList.add('shake'); }
+    if (!icon) return;
     const flash = document.createElement('div');
     flash.className = 'chaos-flash ' + kind;
     document.body.appendChild(flash);
     setTimeout(() => flash.remove(), 700);
     const emojis = kind === 'good' ? [icon, '💰', '🔥', '⭐'] : kind === 'unleash' ? ['💥', '⚡', '🌪️', '🔥'] : kind === 'storm' ? ['🌪️', '🃏', '💨'] : kind === 'weird' ? [icon, '❓', '🤡'] : [icon, '💀', '😱'];
-    for (let i = 0; i < (kind === 'unleash' ? 26 : 14); i++) {
+    for (let i = 0; i < rain; i++) {
       const e = document.createElement('span');
       e.className = 'chaos-emoji';
       e.textContent = emojis[i % emojis.length];
@@ -428,13 +645,14 @@
   // Tapping a player selects him; his possible open slots light up on the pitch and you tap one to sign him.
   function sign(i) {
     const reel = S.reels[i];
-    if (!reel || S.phase !== 'pick' || S.subbing !== false) return;
+    if (busy || !reel || S.phase !== 'pick' || S.subbing !== false) return;
     if (reel.wild) {
       if (S.inv.length >= 3 && !S.storm) { GM.toast('Your wildcard bag is full (3) – use one first'); return; }
       if (S.inv.length >= 3) { const gone = S.inv.shift(); GM.toast(`Bag full: your ${WILDCARDS[gone].icon} ${WILDCARDS[gone].name} blows away in the storm`); }
       S.pending = null;
       S.inv.push(reel.wild);
       S.log.push('🃏');
+      charge();
       if (GM.trackPick) GM.trackPick(null, S.reels.filter(x => !x.wild).map(x => byId(x.id)));
       GM.sound.play('wild');
       GM.toast(`${WILDCARDS[reel.wild].icon} ${WILDCARDS[reel.wild].name} added to your bag`);
@@ -452,8 +670,8 @@
 
   const targetSlots = p => S.xi.map((s, i) => i).filter(i => S.xi[i].p == null && p.poss.includes(S.xi[i].pos));
 
-  function place(slotIdx) {
-    if (S.pending == null || S.phase !== 'pick') return;
+  async function place(slotIdx) {
+    if (busy || S.pending == null || S.phase !== 'pick') return;
     const i = S.pending;
     const p = byId(S.reels[i].id);
     const slot = S.xi[slotIdx];
@@ -464,15 +682,14 @@
     if (S.modifier === 'captain') mult = 2;
     if (S.modifier === 'rotation') mult = 0.5;
     if (S.hot > 0) { mult *= 1.5; S.hot--; }
-    if (S.golden) { mult *= 3; S.golden = false; GM.toast('⚽ Golden goal! ×3'); }
+    if (S.golden) { mult *= 3; S.golden = false; }
     if (S.unleash > 0) { mult *= 2; S.unleash--; }
     if (S.modifier === 'coin') {
       heads = GM.rng(`${S.seed}|coin|${S.spin}|${S.respins}`)() < 0.5;
       mult = heads ? 2 : 0;
       if (heads) S.coinWin = true;
-      GM.sound.play(heads ? 'good' : 'bad');
-      GM.toast(heads ? '🎲 Heads! Doubled' : '🎲 Tails… he counts for nothing', 2600);
     }
+    const before = S.modifier === 'coin' ? snap() : null;
     const v = pv(p);
     STAT_KEYS.forEach(k => { v[k] = Math.floor(v[k] * mult); });
     slot.v = v;
@@ -489,6 +706,11 @@
     GM.sound.play('place'); GM.buzz();
     // in target modes a blip climbs as the total closes in on the number
     if (S.target && !S.rules.treble) setTimeout(() => GM.sound.play('rise', S.xi.reduce((a, x) => a + x.g, 0) / S.target), 180);
+    if (before) {  // Double or Nothing: a real coin toss before he takes his place
+      await moment({ icon: '🎲', name: 'Double or nothing', tone: 'weird', before, coin: heads, text: `${GM.esc(p.name)}: heads he counts double, tails he counts for nothing…`,
+        after: heads ? `<b>Heads!</b> ${GM.esc(p.name)} counts double.` : `<b>Tails…</b> ${GM.esc(p.name)} counts for nothing.` });
+      if (!onThisGame()) return;
+    }
     afterPick(i);
   }
 
@@ -520,8 +742,8 @@
   function useWild(k) {
     const w = S.inv[k];
     const wc = WILDCARDS[w];
-    if (S.phase === 'spinning' || S.phase === 'reveal' || S.phase === 'done') return;
-    const consume = () => { S.inv.splice(k, 1); S.log.push(wc.icon); S.wildUsed++; GM.sound.play('wild'); if (wc.chaos) charge(); };
+    if (busy || S.phase === 'spinning' || S.phase === 'reveal' || S.phase === 'done') return;
+    const consume = () => { S.inv.splice(k, 1); S.log.push(wc.icon); S.wildUsed++; GM.sound.play('wild'); charge(); };
     switch (wc.kind) {
       case 'reveal':
         if (S.phase === 'pick') S.revealed = true; else S.revealNext = true;
@@ -538,12 +760,13 @@
       case 'allin': {
         const filled = S.xi.filter(x => x.p != null);
         if (!filled.length) { GM.toast('Sign someone first – there’s nothing to gamble yet'); return; }
-        const heads = GM.rng(`${S.seed}|allin|${S.spin}|${S.wildUsed}`)() < 0.5;
-        filled.forEach(x => { STAT_KEYS.forEach(k => { x.v[k] = heads ? x.v[k] * 2 : Math.floor(x.v[k] / 2); }); x.g = x.v[S.stat]; });
+        const heads = GM.rng(`${S.seed}|allin|${S.spin}|${S.wildUsed}`)() < 0.5, before = snap();
+        filled.forEach(x => scale(x, heads ? 2 : 0.5, heads ? 'boosted' : 'halved'));
         if (heads) S.coinWin = true;
-        fx(heads ? 'good' : 'bad', '🎰');
-        GM.toast(heads ? '🎰 ALL IN… and it pays off! Your whole XI doubles' : '🎰 All in… and it’s gone wrong. Your XI is halved', 3000);
-        break;
+        consume();
+        moment({ icon: '🎰', name: 'ALL IN', tone: 'weird', before, coin: heads, text: 'Heads, your whole XI doubles. Tails, it’s halved…',
+          after: heads ? '<b>Heads!</b> It pays off: your whole XI doubles.' : '<b>Tails…</b> It’s gone wrong: your whole XI is halved.', run: c => c.sweep(heads ? '💰' : '💸'), big: true });
+        return;
       }
       case 'hot':
         S.hot = (S.hot || 0) + 3;
@@ -572,7 +795,7 @@
 
   function release(slotIdx) {
     const s = S.xi[slotIdx];
-    if (S.subbing === false || s.p == null) return;
+    if (busy || S.subbing === false || s.p == null) return;
     GM.toast(`👋 ${byId(s.p).name} released`);
     GM.sound.play('swoosh');
     s.p = null; s.g = 0; s.v = null; s.mod = null; s.as = null;
@@ -580,6 +803,7 @@
     S.log.push('🔄');
     S.wildUsed++;
     S.subbing = false;
+    charge();
     render();
   }
 
@@ -632,6 +856,11 @@
       const vets = ps.filter(p => Math.min(p.last, GM.currentSeason) - p.first + 1 >= 10).length; add(`🗓️ Ten-season veterans (${vets})`, 8 * vets);
     }
     (st.bonus || []).forEach(([label, pts]) => parts.push([label, pts]));
+    const m = MANAGERS[st.manager];
+    if (m && slots.length) {
+      const pairs = GM.teamRating(slots).pairs.length;
+      m.lines({ slots, ps, u, pairs }).forEach(([label, pts]) => { pts = Math.round(pts); if (pts) parts.push([label, pts]); });
+    }
     const bonus = parts.reduce((a, x) => a + x[1], 0);
     return { total: t + bonus, parts: [[`${GM.STATS[st.stat].icon} PL ${GM.STATS[st.stat].label}`, t], ...parts], diff: null, t, bonus };
   }
@@ -699,14 +928,17 @@
       <div class="reel-name">${GM.esc(p.name)}</div>
       <div class="reel-meta">${posBadges(p)}</div>${num}`;
     }
-    return `${x.mate ? `<div class="mate" title="Also played for ${GM.esc(x.mate.club)}, like ${GM.esc(x.mate.name)}">🤝 ${GM.clubShort(x.mate.club)} link · ${GM.esc(x.mate.name.split(' ').slice(-1)[0])}</div>` : ''}
+    const mg = S.manager && MANAGERS[S.manager], gl = mg && mg.likes && mg.likes(p), gh = mg && mg.hates && mg.hates(p);
+    const gaffer = gl || gh ? `<i class="gaffer ${gl ? 'up' : 'down'}" title="${GM.esc(mg.name)} ${gl ? 'likes him' : 'won’t like this'}">${gl ? '👍' : '👎'}</i>` : '';
+    return `${gaffer}${x.mate ? `<div class="mate" title="Also played for ${GM.esc(x.mate.club)}, like ${GM.esc(x.mate.name)}">🤝 ${GM.clubShort(x.mate.club)} link · ${GM.esc(x.mate.name.split(' ').slice(-1)[0])}</div>` : ''}
       ${GM.avatar(p, 'lg')}
       <div class="reel-name">${GM.esc(p.name)}</div>
       <div class="reel-meta">${posBadges(p)} ${GM.flag(p.nat)} <span>${GM.era(p)}</span></div>
       <div class="chips">${p.clubs.map(c => GM.clubChip(c)).join('')}</div>${num}`;
   }
 
-  const MOD_TAG = { captain: '<i title="Captain – doubled">©</i>', rotation: '<i title="Rotation Risk – halved">🩹</i>', zero: '<i title="Double or Nothing – lost">🎲</i>' };
+  const MOD_TAG = { captain: '<i title="Captain – doubled">©</i>', rotation: '<i title="Rotation Risk – halved">🩹</i>', zero: '<i title="Double or Nothing – lost">🎲</i>',
+    injured: '<i title="Injured – halved">🚑</i>', halved: '<i title="Halved">⬇</i>', boosted: '<i title="Boosted">⬆</i>' };
   function slotHtml(s, i) {
     if (s.p == null) {
       const tgt = S.pending != null && S.reels[S.pending] && targetSlots(byId(S.reels[S.pending].id)).includes(i);
@@ -716,7 +948,7 @@
     const surname = p.name.includes(' ') ? p.name.split(' ').slice(1).join(' ') : p.name;
     return `<div class="slot filled ${s.fresh ? 'fresh' : ''}" data-slot="${i}" title="${GM.esc(p.name)}">
       ${GM.avatar(p)}<span class="slot-name">${GM.esc(surname)}</span>
-      <span class="slot-goals">${S.rules.treble && s.v ? `${s.v.goals}·${s.v.assists}·${s.v.apps}` : fmt(s.g)}${MOD_TAG[s.mod] || ''}</span><span class="slot-pos" title="${GM.POS_NAME[s.pos]}">${s.pos}</span></div>`;
+      <span class="slot-goals"><span class="sg">${S.rules.treble && s.v ? `${s.v.goals}·${s.v.assists}·${s.v.apps}` : fmt(s.g)}</span>${MOD_TAG[s.mod] || ''}</span><span class="slot-pos" title="${GM.POS_NAME[s.pos]}">${s.pos}</span></div>`;
   }
 
   function pitchHtml() {
@@ -737,10 +969,10 @@
     if (S.rules.max) {
       const pb = GM.best(S.mode === 'daily' ? 'daily' : modeKey());
       return `<div class="counter max">
-      <div class="counter-num"><b>${fmt(t)}</b><span>${S.st.label}</span>${S.rules.chaos ? `<span class="chaos-pts">+${fmt(scoreFor(S).bonus)} bonus</span>` : ''}</div>
+      <div class="counter-num"><b>${fmt(t)}</b><span>${S.st.label}</span>${S.rules.chaos ? `<span class="chaos-pts"><b>${signed(scoreFor(S).bonus)}</b> bonus</span>` : ''}</div>
       <div class="bar"><i style="width:${pb ? Math.min(100, t / pb * 100) : 0}%"></i></div>
       <div class="counter-sub">${pb ? (t > pb && !S.rules.chaos ? '🔥 Beating your best (' + fmt(pb) + ')' : `Your best: ${fmt(pb)}${S.rules.chaos ? ' pts' : ''}`) : 'Set your first score'} · ${left} slot${left === 1 ? '' : 's'} left${mod}${S.hot ? ` · <b>🔥 ×1.5 ×${S.hot}</b>` : ''}${S.golden ? ' · <b>⚽ ×3 next</b>' : ''}${S.unleash ? ` · <b>💥 ×2 ×${S.unleash}</b>` : ''}</div>
-      ${S.rules.chaos ? `<div class="chaos-meter" title="The CHAOS meter: full = your next two signings count double"><span>CHAOS</span>${Array.from({ length: METER }, (_, i) => `<i class="${i < (S.meter || 0) ? 'on' : ''}"></i>`).join('')}</div>` : ''}
+      ${S.rules.chaos ? `<div class="chaos-row">${S.manager ? `<button class="dugout" id="dugout">${MANAGERS[S.manager].icon} <b>${mgrShort(MANAGERS[S.manager])}</b></button>` : ''}<div class="chaos-meter ${S.chaosDue ? 'due' : ''}" title="The CHAOS meter: taking or playing wildcards fills it. Full = a CHAOS moment next spin"><span>${S.chaosDue ? 'NEXT SPIN!' : 'CHAOS'}</span>${Array.from({ length: METER }, (_, i) => `<i class="${S.chaosDue || i < (S.meter || 0) ? 'on' : ''}"></i>`).join('')}</div></div>` : ''}
     </div>`;
     }
     if (S.rules.treble) {
@@ -863,7 +1095,7 @@
       ${S.rules.wild === false ? '' : `<div class="inv ${S.inv.length ? 'has' : ''}"><span class="inv-label">${S.inv.length ? `🃏 ${S.inv.length}/3` : 'Wildcards 0/3'}</span>${S.inv.length ? S.inv.map((w, k) =>
       `<button class="wild-btn ${S.subbing === k ? 'active' : ''}" data-w="${k}" title="${GM.esc(WILDCARDS[w].desc(wst()))}">${WILDCARDS[w].icon}<small>${WILDCARDS[w].name}</small></button>`).join('')
         : '<span class="muted">none yet · they turn up on the reels</span>'}</div>`}
-      <div class="stage ${S.hard ? 'hard' : ''}">${S.phase === 'spin' ? `<div class="spin-zone"><button class="btn big spin" id="spin">🎰 SPIN</button></div>` : `<div class="reels ${nReels > 3 ? 'n5' : ''}">${Array.from({ length: nReels }, (_, i) => {
+      <div class="stage ${S.hard ? 'hard' : ''}">${S.phase === 'spin' ? `<div class="spin-zone"><button class="btn big spin" id="spin" ${busy ? 'disabled' : ''}>🎰 SPIN</button></div>` : `<div class="reels ${nReels > 3 ? 'n5' : ''}">${Array.from({ length: nReels }, (_, i) => {
           const x = S.reels[i];
           if (S.phase === 'spinning') return `<div class="reel spinning"><div class="reel-spin">…</div></div>`;
           if (!x) return `<div class="reel idle"><div class="reel-q">?</div></div>`;
@@ -880,6 +1112,7 @@
       else if (S.pending != null) place(+b.dataset.slot);
     });
     const cs = GM.$('#cancel-sub', root); if (cs) cs.onclick = () => { S.subbing = false; render(); };
+    const dg = GM.$('#dugout', root); if (dg) dg.onclick = () => { const m = MANAGERS[S.manager]; GM.modal(`<div class="center"><div class="mgr-big">${m.icon}</div><h3>${m.name}</h3></div><p>✅ ${m.perk}</p><p>⚠️ ${m.catch}</p><p class="muted small">👍 and 👎 on the reels show who he’d like or not. It all adds up in your bonus.</p><div class="actions"><button class="btn" data-close>Got it</button></div>`); };
   }
 
   function help() {
@@ -888,7 +1121,9 @@
       ${r.treble ? `<p>🏆 <b>The Treble:</b> one XI, three targets – <b>${fmt(TREBLE.goals)} goals</b>, <b>${fmt(TREBLE.assists)} assists</b> and <b>${fmt(TREBLE.apps)} appearances</b>. Strikers bring goals, creators bring assists, old warhorses bring apps: balance them.</p>`
       : r.mystery ? `<p>🎲 <b>Mystery Target:</b> you’re counting <b>${S.st.label}</b>, but the target is secret – somewhere between ${fmt(MYSTERY[S.stat][0])} and ${fmt(MYSTERY[S.stat][1])}. The thermometer tells you how close you are. It’s revealed at full time.</p>`
       : r.chaos ? `<p>🌪️ <b>Ultimate Wildcard CHAOS:</b> build the XI with the most PL ${L}, and then some. Your score is your ${L} <b>plus bonus points</b> for the kind of team you build: teammates who played together (chemistry), your squad rating, PL title medals, Hall of Famers, one-club men, journeymen (5+ clubs) and ten-season veterans.</p>
-        <p>Expect trouble: <b>random events</b> strike before some spins (🟥 red cards, 🚑 injuries, 🧾 the taxman, 🔥 derby days, 💰 TV money), one spin in ten is a <b>🌪️ wildcard storm</b> with no players at all, and there are extra, riskier wildcards like 🎰 All In (your whole XI ×2 or ×½).</p>`
+        <p>👔 <b>Your manager</b> brings a perk and a catch (👍 and 👎 on the reels show who he’d like). He can get the sack.</p>
+        <p>⚡ <b>The CHAOS meter</b> fills every time you take or play a wildcard. When it’s full, the next spin opens with a big moment: a 🌪️ tornado through your XI, a ⚡ lightning strike, a 🚌 bus parade, ⏰ deadline day, 💥 CHAOS unleashed or a sacking.</p>
+        <p>Now and then a <b>match-day event</b> strikes too (🟥 red cards, 🚑 injuries, 📺 VAR, 🧾 the taxman, 💰 TV money), one spin in ten is a <b>🌪️ wildcard storm</b>, and there are riskier wildcards like 🎰 All In (a coin toss: your whole XI ×2 or ×½).</p>`
       : r.max ? `<p>👑 <b>${modeName()}:</b> no target – build the XI with the <b>most Premier League ${L}</b> you can. Every player with 50+ apps is equally likely to turn up, so you’ll mostly see journeymen: spot the big numbers and use your wildcards well.</p>`
       : `<p>🎯 <b>${modeName()}:</b> build an XI whose players have <b>${fmt(S.target)}</b> Premier League ${L} between them – as close as you can, exactly for a bullseye.</p>`}
       <p>Each spin shows three players who fit an open position. Their ${L} are hidden until you sign one. You keep spinning until the XI is full.</p>
@@ -915,9 +1150,10 @@
         ${S.rules.treble ? `<div class="result-total ${sc.diff === 0 ? 'bull' : ''}">${sc.hits.length === 3 ? '🏆' : sc.hits.length === 2 ? '🥈' : ''}${fmt(sc.t)}<small>goals · ${fmt(tot('assists'))} assists · ${fmt(tot('apps'))} apps</small></div>`
         : S.rules.chaos ? `<div class="result-total">${fmt(sc.total)}<small>CHAOS points · ${fmt(sc.t)} ${S.st.label} + ${fmt(sc.bonus)} bonus</small></div>`
         : `<div class="result-total ${sc.diff === 0 ? 'bull' : ''}">${fmt(sc.t)}<small>PL ${S.st.label}${S.rules.max ? '' : ` · target ${fmt(S.target)} · <b>${Math.round(sc.t / S.target * 1000) / 10}%</b>`}</small></div>`}
-        ${S.rules.chaos ? `<div class="chaos-level">${chaosLevel()}</div>` : ''}
+        ${S.rules.chaos ? `<div class="chaos-level">${chaosLevel()}</div>${S.manager ? `<div class="muted small">👔 Manager: ${MANAGERS[S.manager].icon} ${MANAGERS[S.manager].name}</div>` : ''}
+          ${(S.moments || []).length ? `<details class="chaos-story"><summary>📜 What happened</summary><ol>${S.moments.map(m => `<li>${m.icon} <b>${GM.esc(m.name)}</b> ${GM.esc(m.text)}</li>`).join('')}</ol></details>` : ''}` : ''}
         ${S.rules.max && !S.rules.chaos ? '' : `${S.rules.chaos ? '' : `<div class="result-score">${fmt(sc.total)}<small>points</small></div>`}
-        <table class="breakdown">${sc.parts.map(([k, v]) => `<tr><td>${k}</td><td>+${v}</td></tr>`).join('')}</table>`}
+        <table class="breakdown">${sc.parts.map(([k, v]) => `<tr><td>${k}</td><td class="${v < 0 ? 'neg' : ''}">${v < 0 ? '−' + fmt(-v) : '+' + fmt(v)}</td></tr>`).join('')}</table>`}
         ${S.vs ? `<div class="banner">${sc.total > S.vss ? '🎉 You beat' : sc.total == S.vss ? '🤝 You drew with' : '😬 You lost to'} <b>${GM.esc(S.vs)}</b> (${GM.esc(S.vss)})</div>` : ''}
         <div class="muted">Personal best: ${fmt(Math.max(best, sc.total))}</div>
       </div>

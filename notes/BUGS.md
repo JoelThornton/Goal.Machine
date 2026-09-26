@@ -12,6 +12,8 @@ version they shipped in. Newest at the top.
 
 | Reported | Bug | Fixed in |
 |---|---|---|
+| 2026-09-26 | A friend's phone said "Instant notifications: waiting for Google Play services" and got ~15 notifications at once from the 15-minute check. Only one phone had ever registered for instant pushes; the Firebase token request fails silently and was only retried when the app opened | 5.4 (needs the new app build): the failure reason is saved and shown in Settings, the background check keeps retrying, and more than 3 at once arrive as one summary |
+| 2026-09-26 | CHAOS: everything happened at once (event, storm, meter, reels) and the effect was only a line of text | 5.4: CHAOS rebuilt around one moment at a time on the pitch (see the ideas bank) |
 | 2026-09-26 | The music sometimes popped when opening or leaving the app: the sound was paused mid-wave (and the soundtrack cut dead) | 5.3: everything fades out before pausing and fades back in on return |
 | 2026-09-26 | Quick match had too many choices (3 games × 3 stats), so people waiting could miss each other, and a Draft Duel's fallback said "Play the computer" but started a solo draft | 5.3: one game a day for everyone, always goals; the fallback says "Play on your own" and starts the matching solo mode |
 | 2026-09-26 | Online: no way to leave a Live Race once the draft had started, and a Quick match race let you build your XI before anyone joined (a head start that defeats the point of a race) | 5.3: Quick match races wait for an opponent, with "Play on your own instead" after a minute; ✕ on the race bar leaves (cancels an unanswered invite, or ends a race in progress) |

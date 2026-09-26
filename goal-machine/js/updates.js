@@ -9,6 +9,17 @@
 (function () {
   GM.UPDATES = [
     {
+      v: 33, label: '5.4', date: '2026-09-26', title: '🌪️ CHAOS, rebuilt',
+      items: [
+        '👔 Appoint a manager at kick-off: Fergie, Wenger, Mourinho, Pep, Klopp, Ranieri, Keegan and more. Each brings a perk and a catch, and 👍 / 👎 on the reels show who he’d want. He might get the sack…',
+        '⚡ The CHAOS meter now fills when you take or play wildcards. When it’s full, the next spin opens with a big moment: a 🌪️ tornado through your XI, a ⚡ lightning strike, a 🚌 bus parade, ⏰ deadline day or 💥 CHAOS unleashed',
+        '🎬 Every moment plays out one at a time, on the pitch: the ambulance arrives, VAR checks, numbers count up and down in front of you. Tap to skip',
+        '🪙 All In and Double or Nothing toss a real coin',
+        '📜 At full time, see everything that happened in your game',
+        '🔔 Android: if instant notifications can’t start, Settings now says why, and the app keeps trying. A backlog arrives as one notification, not fifteen',
+      ],
+    },
+    {
       v: 32, label: '5.3', date: '2026-09-26', title: '🎲 Quick match: a new game every day',
       items: [
         '🎲 Quick match is now one game a day, the same for everyone, so you’re all in the same queue and find a match faster. It rotates Live Race, Hat-Trick, CHAOS Race, Draft Duel, Target Race and Scout Duel, each with its own banner. Tomorrow’s game is shown too',

@@ -1132,3 +1132,12 @@ button.icon-btn.lb-btn { font: inherit; font-size: 1.1rem; cursor: pointer; }
 .settings.smenu a small { grid-column: 1; grid-row: 2; color: var(--muted); font-size: .8rem; font-weight: 400; margin-top: 1px; }
 .settings.smenu a span { grid-column: 2; grid-row: 1 / span 2; }
 .settings[hidden], .sgroup[hidden] { display: none !important; }
+.plist .prow.unowned { opacity: .72; }
+/* player index: search on its own line, the four filters two by two */
+.page-players .filters { grid-template-columns: 1fr 1fr; }
+.page-players .filters #pq { grid-column: 1 / -1; }
+#fb-text { width: 100%; margin: 10px 0 4px; resize: vertical; font: inherit; }
+/* Album badges, in categories; secrets hidden until found */
+.ach-cat { margin: 14px 0 6px; font: 700 .95rem Oswald, sans-serif; }
+.ach-cat small { color: var(--muted); font-weight: 400; margin-left: 4px; }
+.ach.secret { border-style: dashed; }

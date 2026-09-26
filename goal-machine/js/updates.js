@@ -9,8 +9,14 @@
 (function () {
   GM.UPDATES = [
     {
-      v: 26, label: '4.10', date: '2026-09-26', app: 16, title: 'Choose your notifications',
+      v: 26, label: '4.10', date: '2026-09-26', app: 16, title: 'Formations, secrets and fairer targets',
       items: [
+        '🌪️ CHAOS kicks off in a random formation: 4-4-2, 4-5-1, 3-5-2, 5-4-1, 4-3-3, 3-4-3 or 5-3-2 (the same for everyone in the Daily CHAOS and in a CHAOS Race)',
+        '🎯 Target games show how close you got as a percentage (97.6% is just under, 103% just over) on the full-time screen, your PB and the leaderboards',
+        '⚖️ Fairer targets: appearances is now 3,400 (was 3,750) and assists 325 (was 350). Goals stays at 500',
+        '🏅 13 new badges, sorted into categories: online wins, longer daily streaks, and 5 secret badges shown as ??? until you find them',
+        '📖 Players page: filter by the players you’ve signed ✅ or haven’t yet ❌',
+        '✉️ Settings → Report a bug or suggest something: it comes straight to us',
         '🔔 ⚙️ Settings → Notifications: pick what the Android app whistles about. Your move, challenges and friends, results, new game modes, a come-back nudge and an 8pm streak reminder are on to start with',
         '📅 A daily reminder at the time you choose, if you haven’t played the daily games yet (off to start with)',
         '🔥 The streak reminder only comes if your streak is about to end, and none of the reminders come once you’ve played that day',

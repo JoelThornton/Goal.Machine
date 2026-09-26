@@ -8,15 +8,10 @@ go.** Each idea keeps its notes and questions so a later session can pick it up.
 
 Aim: have a sticky, polished game for the Play closed test (12 testers × 14 days), then launch.
 
-**Now: quick wins (hours each)**
-1. Target games: show the percentage (e.g. 97.6%) in history, PB and boards, and rebalance the appearances target
-2. Players page: ✅ signed / ❌ not yet filter
-3. In-app feedback button *(Claude's idea)*: "🐞 Report a bug / 💡 Suggest something" in Settings, saved to the
-   database with the version and phone, so closed-test testers can tell us things without WhatsApp
-4. CHAOS random formations
+**Done in 4.10:** Target percentages and fairer targets, the Players signed filter, in-app feedback, CHAOS random
+formations, and badges round 2.
 
 **Next: medium (a day or two each), a reason to come back**
-5. Badges round 2: online badges, secret "???" badges (the first step of *hidden things*) and categories
 6. Weekly Premier League quiz, generated from our own data, with a weekly leaderboard
 7. Share your whole day *(Claude's idea)*: one post for the group chat with every daily result ("Goal Machine ·
    26 Sep 🟩 Footle 3/8 · ⚽ Daily Ultimate 512 · #️⃣ Grid 7/9 · 🔥 12"), our best free advertising
@@ -58,40 +53,6 @@ Aim: have a sticky, polished game for the Play closed test (12 testers × 14 day
 - **Questions:** cosmetic only, or can unlocks change gameplay (a new wildcard)? Should secrets be shareable
   ("I found the hidden mode") to spread word of mouth?
 
-### CHAOS: random formations
-- **Owner's idea:** CHAOS should randomise the formation: 4-4-2, 4-5-1, 3-5-2, 5-4-1 and so on.
-- **Notes:** fits CHAOS well. The pitch already supports formation changes (Gegenpress and Park the Bus move
-  slots), so a random starting shape is mostly data. Questions: one random formation per game (shown at kick-off),
-  or can CHAOS events switch it mid-game ("the manager's changed it to 3-5-2!")? Should the Daily CHAOS use the same
-  formation for everyone that day (yes, since it's seeded)? Do formations with fewer strikers need their own
-  leaderboard balance? Probably not in CHAOS, as it's meant to be random.
-
-### Players tab: which players you have and haven't signed
-- **Owner's idea:** show which players you have and don't have on the Players page.
-- **Notes:** no storage cost. The Album already remembers every player you've signed, and the list shows ✍️×n for
-  players you've signed. We could add a filter (All / ✅ Signed / ❌ Not yet) and grey out the ones you've never
-  had. Small job; ready whenever you say go.
-
-### More badges, including online badges
-- **Owner's idea:** more badges at some point, including ones for online play. Once there are 100 or so, sort
-  them into categories.
-- **Notes:** there are 35 now. Online ones could be: first online win, win a Draft Duel / Live Race / Target Race /
-  CHAOS Race, beat 5 different friends, top your weekly league, a winning streak. Categories could be: Drafting,
-  Dailies, Collecting, Online, Quick games, Secret (hidden until earned).
-
-### Target games: difficulty and how scores are shown
-- **Owner's take:** 500 goals is about right, though it's easier to go over than under. Appearances are very hard
-  to reach. Assists are OK, slightly hard, but doable with one big assister. The PB and leaderboard show points,
-  which don't tell you afterwards how close you were.
-- **Notes:**
-  - Show how close you were in your history, the PB line and the board. **Owner prefers a percentage:** 97% is
-    clearly under and 103% clearly over, so the percentage on its own is enough (e.g. "97.6%", perhaps with the
-    number, "488 goals · 97.6%"). The score can stay points for ranking; the percentage is extra detail saved
-    with each score.
-  - Appearances: check the numbers (how often a typical game reaches 3,750) and lower the target, or lean the
-    reels further towards long careers.
-  - Over vs under: maybe a small penalty for going over (like darts' bust), or make it symmetrical on purpose.
-
 ### Card game against the computer or online (Top Trumps style)
 - **Owner's idea:** something like Top Trumps.
 - **Notes:** fits our data well (goals, assists, apps, seasons, clubs, honours). Questions: a deck from your Album
@@ -104,10 +65,6 @@ Aim: have a sticky, polished game for the Play closed test (12 testers × 14 day
   strength, manage a budget and transfers between gameweeks? It's a big feature, so a small first version would help
   work out whether it's fun.
 
-### In-app feedback *(Claude's idea)*
-- A "🐞 Report a bug / 💡 Suggest something" button in Settings: a short form saved to a `feedback` table with the
-  game version, app build, phone and current page. It lands in our bug and idea banks during the closed test.
-
 ### Share your whole day *(Claude's idea)*
 - Footle and the drafts already have share buttons. This adds one "Share my day" on the Today page: every daily
   result plus your streak in one spoiler-free post, with the link. One post a day in a group chat is how Wordle
@@ -119,6 +76,11 @@ _None yet._
 
 ## ✅ Shipped
 
+- **4.10 top five:** Target games show a percentage (full time, PB, boards) and targets are fairer (apps 3,400,
+  assists 325, from a 20,000-game simulation: a typical random XI has ~478 goals, ~288 assists, ~2,671 apps).
+  Players page ✅/❌ filter. In-app feedback (`feedback` table). CHAOS random formations (7 shapes, seeded).
+  13 new badges in 6 categories, incl. 6 online and 5 secret ("???") ones. The secret ones are the first step of
+  *hidden things*.
 - **Settings sub-menus** (4.10): a menu of Account, Look & club, Sound & vibration, Notifications and Gameplay,
   each showing its current value.
 - **Version numbers** (4.10): three levels (5.0 big, 4.10 features, 4.10.1 fixes); fix-ups fold into their

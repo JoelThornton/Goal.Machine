@@ -124,6 +124,7 @@
       friends = fr || [];
       const rows = (games || []).map(g => ({ g, seat: seatOf(g) })).filter(x => x.seat);
       const yours = rows.filter(x => myMove(x.g, x.seat)), theirs = rows.filter(x => x.g.status !== 'done' && !myMove(x.g, x.seat)), done = rows.filter(x => x.g.status === 'done');
+      if (GM.checkOnline) done.forEach(x => GM.checkOnline(x.g, x.seat));  // online badges
       const line = ({ g, seat }) => {
         const opp = oppOf(g), k = KIND[gk(g)], st = GM.STATS[g.stat] || GM.STATS.goals, s = g.sums || {}, o = outcome(g, seat);
         const sub = o ? `${o.icon} ${o.text} ${o.score}${o.resigned ? ` (${o.resigned === seat ? 'you' : 'they'} resigned)` : ''}`
@@ -289,7 +290,7 @@
       const res = GM.$('#race-result', root);
       if (res) res.innerHTML = r.result ? `<div class="banner race-final">${resultLine(r, seat)}</div>`
         : `<div class="banner">⏳ ${opp ? `${esc(opp)} is on ${theirs.n || 0}/11 – tap below to watch their XI` : 'Waiting for someone to join'}</div>`;
-      if (r.result && !root.dataset.played) { root.dataset.played = 1; GM.sound.play(r.result.winner === seat ? 'fanfare' : 'fulltime'); }
+      if (r.result && !root.dataset.played) { root.dataset.played = 1; GM.sound.play(r.result.winner === seat ? 'fanfare' : 'fulltime'); if (GM.checkOnline) GM.checkOnline(r, seat); }
       return;
     }
     summary(root, r, seat);
@@ -404,7 +405,7 @@
     if (sp) sp.onclick = () => GM.shareImage(GM.teamPicture(team(seat).map(x => ({ pos: x.pos, p: x.p, v: x.v })), {
       title: `${KIND[gk(r)].name} v ${opp}`, sub: r.result ? resultLine(r, seat).replace(/<[^>]+>/g, '') : `${st.icon} ${st.name}`, total: A.t, totalLabel: st.label }),
       `⚽ Goal Machine ${KIND[gk(r)].name} v ${opp}`);
-    if (r.result && !root.dataset.played) { root.dataset.played = r.code; GM.sound.play(r.result.winner === seat ? 'fanfare' : 'fulltime'); }
+    if (r.result && !root.dataset.played) { root.dataset.played = r.code; GM.sound.play(r.result.winner === seat ? 'fanfare' : 'fulltime'); if (GM.checkOnline) GM.checkOnline(r, seat); }
     if (r.guest) rpc('online_friends', auth()).then(fr => {
       const f = (fr || []).find(x => x.name === opp), el = GM.$('#orec', root);
       if (el && f) el.innerHTML = `Record W${f.w} D${f.d} L${f.l}`;

@@ -3,10 +3,20 @@
 
 (function () {
   const FORMATION = ['GK', 'LB', 'CB', 'CB', 'RB', 'LM', 'CM', 'CM', 'RM', 'ST', 'ST'];
+  // CHAOS kicks off in a random shape (seeded, so a Daily CHAOS or a CHAOS Race gives everyone the same one)
+  const CHAOS_FORMATIONS = [
+    FORMATION,                                                        // 4-4-2
+    ['GK', 'LB', 'CB', 'CB', 'RB', 'LM', 'CM', 'CM', 'CM', 'RM', 'ST'], // 4-5-1
+    ['GK', 'CB', 'CB', 'CB', 'LM', 'CM', 'CM', 'CM', 'RM', 'ST', 'ST'], // 3-5-2
+    ['GK', 'LB', 'CB', 'CB', 'CB', 'RB', 'LM', 'CM', 'CM', 'RM', 'ST'], // 5-4-1
+    ['GK', 'LB', 'CB', 'CB', 'RB', 'CM', 'CM', 'CM', 'ST', 'ST', 'ST'], // 4-3-3
+    ['GK', 'CB', 'CB', 'CB', 'LM', 'CM', 'CM', 'RM', 'ST', 'ST', 'ST'], // 3-4-3
+    ['GK', 'LB', 'CB', 'CB', 'CB', 'RB', 'CM', 'CM', 'CM', 'ST', 'ST'], // 5-3-2
+  ];
+  const baseForm = () => (S && S.form) || FORMATION;
   const SIDE = { LB: 0, LM: 0, RB: 2, RM: 2 }; // for left-to-right ordering on the pitch
-  const WIDE_MIDS = [5, 8];
   // Target mode numbers - simulated so each is reachable in ~70% of games by someone picking the biggest numbers
-  const TARGETS = { goals: 500, assists: 350, apps: 3750 };
+  const TARGETS = { goals: 500, assists: 325, apps: 3400 };
   // The Treble: hit all three at once (above what a random team gets, below what a greedy one gets)
   const TREBLE = { goals: 400, assists: 300, apps: 3300 };
   // Mystery Target: stat and number are drawn at random; the number stays hidden until full time
@@ -172,10 +182,11 @@
     }
     const club = mode === 'club' ? (opts.club && GM.clubs.includes(opts.club) ? opts.club : GM.favClub()) : null;
     if (mode === 'club' && !club) { location.hash = '#/settings?s=look'; GM.toast('Pick your favourite club first'); return; }
+    const form = RULES[mode] && RULES[mode].chaos ? CHAOS_FORMATIONS[GM.rng(seed + '|formation').int(CHAOS_FORMATIONS.length)] : FORMATION;
     S = {
       mode, stat, seed, rules: RULES[mode], st: { ...GM.STATS[stat], id: stat },
       target, spin: 0, respins: 0, revealStage: mode === 'mystery' ? 'intro' : null,
-      xi: FORMATION.map(pos => ({ pos, p: null, g: 0, mod: null, as: null })),
+      form, xi: form.map(pos => ({ pos, p: null, g: 0, mod: null, as: null })),
       reels: [], selected: -1, revealed: false, revealNext: false, special: null,
       inv: [], modifier: null, subbing: false, used: [], last: null,
       phase: 'spin', vs: opts.vs, vss: opts.vss, log: [], pending: null, wildUsed: 0, coinWin: false, bonus: [], hot: 0, event: null, meter: 0, unleash: 0, golden: false, masked: false, chaosCount: 0,
@@ -184,6 +195,7 @@
     };
     if (S.online) root.className = 'page-draft page-online';
     render();
+    if (RULES[mode] && RULES[mode].chaos) setTimeout(() => GM.toast(`🌪️ Formation: <b style="white-space:nowrap">${['D', 'M', 'F'].map(g => form.filter(p => GM.GROUP[p] === g).length).join('-')}</b>`), 400);
   }
 
   const modeKey = () => (S.dailyChaos ? 'dchaos:' + S.day : keyFor(S.mode, S.stat, S.hard, S.club));
@@ -544,8 +556,9 @@
         break;
       case 'formation': {
         const idx = w === 'gegenpress'
-          ? WIDE_MIDS.filter(i => ['LM', 'RM'].includes(S.xi[i].pos) && S.xi[i].p == null)
-          : [9, 10, 6, 7, 5, 8].filter(i => ['ST', 'CM', 'LM', 'RM'].includes(S.xi[i].pos) && S.xi[i].p == null).slice(0, 2);
+          ? S.xi.map((x, i) => i).filter(i => ['LM', 'RM'].includes(S.xi[i].pos) && S.xi[i].p == null)
+          : S.xi.map((x, i) => i).filter(i => ['ST', 'CM', 'LM', 'RM'].includes(S.xi[i].pos) && S.xi[i].p == null)
+            .sort((a, b) => ['ST', 'CM', 'LM', 'RM'].indexOf(S.xi[a].pos) - ['ST', 'CM', 'LM', 'RM'].indexOf(S.xi[b].pos) || b - a).slice(0, 2);
         if (!idx.length) { GM.toast(w === 'gegenpress' ? 'Your LM and RM slots are already filled' : 'No free attacking slots to drop back'); return; }
         idx.forEach(i => { S.xi[i].pos = w === 'gegenpress' ? 'ST' : 'CB'; });
         GM.toast(w === 'gegenpress' ? `⚡ Gegenpress! ${idx.length} midfield slot${idx.length > 1 ? 's' : ''} → strikers` : `🚌 Bus parked: ${idx.length} slot${idx.length > 1 ? 's' : ''} → defence`);
@@ -655,7 +668,7 @@
     if (bull) setTimeout(() => GM.sound.play('horn'), 1700);
     if (!S.readonly && !(S.online && S.mode === 'target')) {  // a Target Race's target is its own, so it stays off the Target board
       if (S.mode === 'daily' && sc.total > GM.best('daily')) GM.store.set('best:daily', sc.total);
-      const { isBest } = await GM.recordScore(modeKey(), sc.total, { t: sc.t });
+      const { isBest } = await GM.recordScore(modeKey(), sc.total, S.target && !S.rules.max && !S.rules.treble ? { t: sc.t, g: S.target } : { t: sc.t });
       if (isBest && sc.total > 0 && S.mode !== 'daily') GM.toast('🏆 New personal best!');
       if (isBest && sc.total > 0 && !bull) setTimeout(() => GM.sound.play('cheer'), 1700);
     }
@@ -697,7 +710,7 @@
   function slotHtml(s, i) {
     if (s.p == null) {
       const tgt = S.pending != null && S.reels[S.pending] && targetSlots(byId(S.reels[S.pending].id)).includes(i);
-      return `<div class="slot empty ${s.pos !== FORMATION[i] ? 'moved' : ''} ${tgt ? 'target' : ''}" data-slot="${i}" title="${GM.POS_NAME[s.pos]}"><span class="pos pos-${GM.GROUP[s.pos]}">${s.pos}</span></div>`;
+      return `<div class="slot empty ${s.pos !== baseForm()[i] ? 'moved' : ''} ${tgt ? 'target' : ''}" data-slot="${i}" title="${GM.POS_NAME[s.pos]}"><span class="pos pos-${GM.GROUP[s.pos]}">${s.pos}</span></div>`;
     }
     const p = byId(s.p);
     const surname = p.name.includes(' ') ? p.name.split(' ').slice(1).join(' ') : p.name;
@@ -707,7 +720,7 @@
   }
 
   function pitchHtml() {
-    const lat = i => SIDE[FORMATION[i]] ?? 1;
+    const lat = i => SIDE[baseForm()[i]] ?? 1;
     const rows = ['F', 'M', 'D', 'G'].map(g => S.xi.map((s, i) => [s, i]).filter(([s]) => GM.GROUP[s.pos] === g)
       .sort((a, b) => lat(a[1]) - lat(b[1]) || a[1] - b[1])).filter(r => r.length);
     const shape = rows.slice(0, -1).reverse().map(r => r.length).join('-');
@@ -901,7 +914,7 @@
         ${S.rules.mystery ? `<div class="mystery-reveal">🎲 The mystery target was <b>${fmt(S.target)}</b> ${S.st.label}</div>` : ''}
         ${S.rules.treble ? `<div class="result-total ${sc.diff === 0 ? 'bull' : ''}">${sc.hits.length === 3 ? '🏆' : sc.hits.length === 2 ? '🥈' : ''}${fmt(sc.t)}<small>goals · ${fmt(tot('assists'))} assists · ${fmt(tot('apps'))} apps</small></div>`
         : S.rules.chaos ? `<div class="result-total">${fmt(sc.total)}<small>CHAOS points · ${fmt(sc.t)} ${S.st.label} + ${fmt(sc.bonus)} bonus</small></div>`
-        : `<div class="result-total ${sc.diff === 0 ? 'bull' : ''}">${fmt(sc.t)}<small>PL ${S.st.label}${S.rules.max ? '' : ` · target ${fmt(S.target)}`}</small></div>`}
+        : `<div class="result-total ${sc.diff === 0 ? 'bull' : ''}">${fmt(sc.t)}<small>PL ${S.st.label}${S.rules.max ? '' : ` · target ${fmt(S.target)} · <b>${Math.round(sc.t / S.target * 1000) / 10}%</b>`}</small></div>`}
         ${S.rules.chaos ? `<div class="chaos-level">${chaosLevel()}</div>` : ''}
         ${S.rules.max && !S.rules.chaos ? '' : `${S.rules.chaos ? '' : `<div class="result-score">${fmt(sc.total)}<small>points</small></div>`}
         <table class="breakdown">${sc.parts.map(([k, v]) => `<tr><td>${k}</td><td>+${v}</td></tr>`).join('')}</table>`}

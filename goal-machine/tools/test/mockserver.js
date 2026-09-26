@@ -62,6 +62,7 @@ module.exports = function makeServer() {
     delete_account(a) { const u = auth(a.p_user, a.p_key); if (!u) return 'auth'; delete players[u.toLowerCase()]; return 'deleted'; },
     set_avatar(a) { const u = auth(a.p_user, a.p_key); if (!u) return 'auth'; if (a.p_image && !/^data:image\/(jpeg|webp|png);base64,/.test(a.p_image)) return 'bad_image'; pics[u] = a.p_image; return 'ok'; },
     get_avatars(a) { const out = {}; (a.p_names || []).forEach(n => { const k = Object.keys(pics).find(x => x.toLowerCase() === n.toLowerCase()); if (k && pics[k]) out[k] = pics[k]; }); return out; },
+    send_feedback(a) { (this._fb = this._fb || []).push(a); return a.p_body.trim().length >= 3 ? 'ok' : 'empty'; },
     report_name(a) { const u = auth(a.p_user, a.p_key); if (!u) return 'auth'; nameReports.add(u + '|' + a.p_target); return [...nameReports].filter(r => r.endsWith('|' + a.p_target)).length >= 3 ? 'hidden' : 'ok'; },
     name_status(a) { return auth(a.p_user, a.p_key) ? (hiddenNames.has(a.p_user) ? 'hidden' : 'ok') : null; },
     rename_account(a) { const u = auth(a.p_user, a.p_key); if (!u) return 'auth'; if (/fuck|shit/i.test(a.p_new)) return 'rude_name'; const k = a.p_new.toLowerCase(); if (players[k] && k !== u.toLowerCase()) return 'taken'; players[k] = { ...players[u.toLowerCase()], username: a.p_new }; if (k !== u.toLowerCase()) delete players[u.toLowerCase()]; hiddenNames.delete(u); return 'ok'; },

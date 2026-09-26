@@ -176,35 +176,42 @@ GM.calIcon = function () {
     + `<text x="20" y="35" text-anchor="middle" font-family="Inter,Arial,sans-serif" font-weight="800" font-size="20" fill="#10261d"${n > 9 ? ' textLength="24" lengthAdjust="spacingAndGlyphs"' : ''}>${n}</text></svg>`;
 };
 
-// Wordle-style results spread for the "biggest total" drafts: eight bands per stat, e.g. under 200 … 800+ goals
-GM.BANDS = { goals: [200, 100], assists: [150, 50], apps: [2000, 500] };
+// Wordle-style results spread for the "biggest total" drafts: every score is kept (per mode) and shown in eight bands
+// that stretch to fit your own range, so a big-scoring mode (CHAOS points, 800+ goals) never piles up in one bar
+GM.BANDS = { goals: [200, 100], assists: [150, 50], apps: [2000, 500] };  // the old fixed bands (to read old counts)
 GM.bandOf = (stat, v) => { const [base, step] = GM.BANDS[stat] || GM.BANDS.goals; return v < base ? 0 : Math.min(7, 1 + Math.floor((v - base) / step)); };
-GM.bandLabel = (stat, i) => { const [base, step] = GM.BANDS[stat] || GM.BANDS.goals; return i === 0 ? `<${base.toLocaleString()}` : `${(base + (i - 1) * step).toLocaleString()}+`; };
-GM.dist = function (key, stat) {
-  if (key === 'daily') {  // the Daily Ultimate log has every day's total
-    const d = Array(8).fill(0);
-    Object.values(GM.store.get('dlog', {})).forEach(e => { if (e.daily != null) d[GM.bandOf('goals', e.daily)]++; });
-    return d;
+GM.distVals = function (key, stat) {
+  if (key === 'daily') return Object.values(GM.store.get('dlog', {})).filter(e => e.daily != null).map(e => e.daily);
+  let v = GM.store.get('distv:' + key, null);
+  if (!v) {  // first time: carry over the old band counts (as each band's middle), or the saved best scores
+    const [base, step] = GM.BANDS[stat] || GM.BANDS.goals, old = GM.store.get('dist:' + key, null);
+    v = old && !/chaos/.test(key) ? old.flatMap((c, i) => Array(c).fill(i === 0 ? Math.round(base * 0.75) : base + (i - 1) * step + Math.round(step / 2)))
+      : GM.store.get('hist:' + key, []).map(h => h.s);
+    GM.store.set('distv:' + key, v);
   }
-  let d = GM.store.get('dist:' + key, null);
-  if (!d) {  // start from the best scores already saved on this device
-    d = Array(8).fill(0);
-    GM.store.get('hist:' + key, []).forEach(h => d[GM.bandOf(stat, h.s)]++);
-    GM.store.set('dist:' + key, d);
-  }
-  return d;
+  return v;
 };
 GM.addDist = function (key, stat, v) {
   if (key === 'daily') return;  // counted from the daily log
-  const d = GM.dist(key, stat);
-  d[GM.bandOf(stat, v)]++;
-  GM.store.set('dist:' + key, d);
+  const vals = GM.distVals(key, stat).concat(v);
+  GM.store.set('distv:' + key, vals.slice(-500));
 };
-GM.distHtml = function (key, stat, current) {
-  const d = GM.dist(key, stat), mx = Math.max(1, ...d), n = d.reduce((a, b) => a + b, 0), me = current == null ? -1 : GM.bandOf(stat, current);
-  const label = { goals: 'goals', assists: 'assists', apps: 'apps' }[stat] || stat;
-  return `<div class="dist ${n ? '' : 'empty'}"><h4>Your results · ${n} game${n === 1 ? '' : 's'}</h4>${d.map((c, i) => ({ c, i })).reverse().map(({ c, i }) =>
-    `<div><span>${GM.bandLabel(stat, i)}</span><i class="${i === me ? 'me' : ''}" style="width:${Math.max(7, 100 * c / mx)}%">${c}</i></div>`).join('')}
+// eight bands of a round size (10, 25, 50, 100, 250…) from just under your lowest score to your highest
+GM.distBands = function (vals) {
+  if (!vals.length) return { lo: 0, step: 100 };
+  const mn = Math.min(...vals), mx = Math.max(...vals);
+  const step = [5, 10, 25, 50, 100, 150, 200, 250, 500, 1000, 2000, 5000].find(st => Math.floor(mx / st) - Math.floor(mn / st) < 8) || 10000;
+  return { lo: Math.floor(mn / step) * step, step };
+};
+GM.distHtml = function (key, stat, current, unit) {
+  const vals = GM.distVals(key, stat), { lo, step } = GM.distBands(vals.concat(current == null ? [] : [current]));
+  const band = v => Math.max(0, Math.min(7, Math.floor((v - lo) / step)));
+  const d = Array(8).fill(0); vals.forEach(v => d[band(v)]++);
+  let top = 7; while (top > 0 && !d[top] && (current == null || band(current) < top)) top--;  // no empty bands above your best
+  const mx = Math.max(1, ...d), n = vals.length, me = current == null ? -1 : band(current);
+  const label = unit || { goals: 'goals', assists: 'assists', apps: 'apps' }[stat] || stat;
+  return `<div class="dist ${n ? '' : 'empty'}"><h4>Your results · ${n} game${n === 1 ? '' : 's'}</h4>${d.slice(0, top + 1).map((c, i) => ({ c, i })).reverse().map(({ c, i }) =>
+    `<div><span>${(lo + i * step).toLocaleString()}+</span><i class="${i === me ? 'me' : ''}" style="width:${Math.max(7, 100 * c / mx)}%">${c}</i></div>`).join('')}
     <small>${label} per XI</small></div>`;
 };
 

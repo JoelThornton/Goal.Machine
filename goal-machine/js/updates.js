@@ -16,6 +16,7 @@
         '🎬 Every moment plays out one at a time, on the pitch: the ambulance arrives, VAR checks, numbers count up and down in front of you. Tap to skip',
         '🪙 All In and Double or Nothing toss a real coin',
         '📜 At full time, see everything that happened in your game',
+        '📊 Your results spread stretches to fit your scores (no more piling up at 800+), and CHAOS charts its points',
         '🔔 Android: if instant notifications can’t start, Settings now says why, and the app keeps trying. A backlog arrives as one notification, not fifteen',
       ],
     },

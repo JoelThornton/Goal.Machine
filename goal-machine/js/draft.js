@@ -869,7 +869,7 @@
     S.phase = 'done';
     const sc = scoreFor(S);
     S.final = sc;
-    if (S.rules.max && !S.readonly) GM.addDist(distKey(), S.stat, sc.t);  // before the score is saved (see GM.dist)
+    if (S.rules.max && !S.readonly) GM.addDist(distKey(), S.stat, S.rules.chaos ? sc.total : sc.t);  // CHAOS counts its points  // before the score is saved (see GM.dist)
     const xiSlots = S.xi.filter(s => s.p != null).map(s => ({ ...s, player: byId(s.p) }));
     if (GM.collectDraft && !S.readonly) {
       const rating = GM.teamRating(xiSlots);
@@ -1157,7 +1157,7 @@
         ${S.vs ? `<div class="banner">${sc.total > S.vss ? '🎉 You beat' : sc.total == S.vss ? '🤝 You drew with' : '😬 You lost to'} <b>${GM.esc(S.vs)}</b> (${GM.esc(S.vss)})</div>` : ''}
         <div class="muted">Personal best: ${fmt(Math.max(best, sc.total))}</div>
       </div>
-      ${S.rules.max ? GM.distHtml(distKey(), S.stat, sc.t) : ''}
+      ${S.rules.max ? (S.rules.chaos ? GM.distHtml(distKey(), S.stat, sc.total, 'CHAOS points') : GM.distHtml(distKey(), S.stat, sc.t)) : ''}
       ${S.collected ? `<a class="collected" href="#/album${S.collected.book === 'purist' ? '?b=purist' : ''}">📒 ${S.collected.n ? `<b>+${S.collected.n}</b> new player${S.collected.n === 1 ? '' : 's'} for your album` : 'No new players this time'} · ${S.collected.total.toLocaleString()} collected${S.collected.badges.length ? `<br>🏅 ${S.collected.badges.join(' · ')}` : ''} ›</a>` : ''}
       ${GM.report ? GM.report(xi, S.st, S.rules.treble) : ''}
       ${pitchHtml()}

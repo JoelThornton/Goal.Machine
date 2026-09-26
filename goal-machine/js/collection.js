@@ -32,7 +32,7 @@
   // badge categories, in the order the Album shows them
   const CATS = [['draft', '🎯 Scores'], ['squad', '🧩 Squads'], ['daily', '📅 Dailies'], ['games', '⚡ Quick games'], ['online', '🌐 Online'], ['collect', '📒 Collecting'], ['secret', '🤫 Secret']];
   const CAT_OF = (id, secret) => secret ? 'secret' : /^daily/.test(id) ? 'daily' : /^on/.test(id) ? 'online'
-    : /^(col|hofall|gball)/.test(id) ? 'collect' : /^(hop|hilo|who|grid|tally)/.test(id) ? 'games'
+    : /^(col|hofall|gball)/.test(id) ? 'collect' : /^(hop|hilo|who|grid|tally|ht)/.test(id) ? 'games'
     : /^(first|contenders|invincible|relegated|chem5|hof3|wc2|club5|wild5|coin|hard)$/.test(id) ? 'squad' : 'draft';
   const A = [
     // drafts
@@ -67,6 +67,8 @@
     ['who3000', '🕵️', 'Detective', 'Score 3,000+ in Who Am I?', e => game(e, 'whoami') && e.score >= 3000],
     ['grid', '#️⃣', 'Full House', 'Fill a whole Club Grid.', e => game(e, 'grid') && e.extra && e.extra.full],
     ['tally700', '🔢', 'Human Calculator', 'Score 700+ in Guess the Tally.', e => game(e, 'tally') && e.score >= 700],
+    ['htwin', '🃏', 'Card Sharp', 'Win a game of Hat-Trick.', e => game(e, 'hattrick') && e.extra && e.extra.won],
+    ['htnil', '🤐', 'Clean Sheet', 'Make a Nil bid in Hat-Trick.', e => game(e, 'hattrick') && e.extra && e.extra.nil],
     // collecting
     ['col100', '📒', 'Scout', 'Collect 100 players.', (e, a) => Object.keys(a.players).length >= 100],
     ['col500', '🔭', 'Chief Scout', 'Collect 500 players.', (e, a) => Object.keys(a.players).length >= 500],

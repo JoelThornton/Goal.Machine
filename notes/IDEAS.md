@@ -18,7 +18,7 @@ formations, and badges round 2.
 
 **Later: big, design first**
 8. Money games rework (an AI rival, hidden values, a deadline-day squeeze)
-9. Top Trumps-style card game (vs the computer and online), maybe using your Album as your deck
+9. ~~Card game~~ shipped as 🃏 Hat-Trick (beta); next: online and a Daily Hat-Trick
 10. Manager mode
 
 ## 💬 To discuss
@@ -46,6 +46,9 @@ formations, and badges round 2.
   - At the end, a 4-team league table decides the winner (XI totals + a little luck).
   - Online: the same thing with friends in the Auction room.
 
+- **Owner, later:** unsure about the rework. Maybe the problem is goals themselves: make the goal *money*, more
+  Monopoly-style? 🧊 Parked for now; come back to it.
+
 ### Weekly Premier League trivia quiz
 - **Owner's idea:** a weekly quiz.
 - **Questions:** questions from our own data (tallies, clubs, seasons), or hand-written about that week's real
@@ -62,22 +65,6 @@ formations, and badges round 2.
   - rare "legend" reel cards with a special shine (cosmetic)
 - **Questions:** cosmetic only, or can unlocks change gameplay (a new wildcard)? Should secrets be shareable
   ("I found the hidden mode") to spread word of mouth?
-
-### Card game: football Spades (owner loves Spades) *(proposal, needs a go)*
-- **Owner's idea:** a 1v1 card game where you both have a hand; offline 1v2, 1v3 or 1v4 is fine. Like Spades.
-- **Proposal (working name "Hat-Trick"):**
-  - 2–4 players: you against 1–3 computer managers offline; online 1v1 with friends later (reusing Draft Duel turns).
-  - A fresh deck of 52 real PL players each game: 4 suits of 13: 🛡️ Defenders, ⚙️ Midfielders, ⚽ Forwards, and
-    ⭐ Legends (Hall of Famers, Golden Boots, 100 Club) as trumps, like spades.
-  - A card's strength is the player's PL goals (or appearances in a "stamina" game), **hidden**: you see names, so
-    knowing Shearer beats Heskey is your edge. That's what makes it a Goal Machine game rather than plain Spades.
-    Each trick reveals the numbers, so you learn as you play.
-  - Bid how many tricks ("goals") you'll win, including a Nil bid. Follow suit; highest card of the suit led wins
-    unless a Legend trumps it; Legends can't be led until one has been played.
-  - Spades scoring: 10 × bid when you make it, +1 per extra trick; extra tricks are 🟨 yellow cards (5 = 🟥 −50);
-    miss your bid and lose 10 × bid. A match is first to 250 (or a quick 5 hands).
-  - Computer managers: easy / normal / hard (hard counts the cards that have gone).
-  - Daily Hat-Trick: the same deal for everyone, with a leaderboard.
 
 ### Manager mode
 - **Owner's idea:** some form of manager mode.
@@ -96,6 +83,10 @@ _None yet._
 
 ## ✅ Shipped
 
+- **🃏 Hat-Trick (beta), 4.11:** football Spades, 4 players (you + a computer partner v 2 computer rivals).
+  Normal shows the numbers (pure Spades), Hard hides them. Each game picks goals, assists or apps. **Next steps to
+  discuss:** online (you + computer partner v a friend + computer partner), a Daily Hat-Trick, 2- and 3-player
+  cut-throat, harder computer managers, and Nil bids for the computers.
 - **4.10 top five:** Target games show a percentage (full time, PB, boards) and targets are fairer (apps 3,400,
   assists 325, from a 20,000-game simulation: a typical random XI has ~478 goals, ~288 assists, ~2,671 apps).
   Players page ✅/❌ filter. In-app feedback (`feedback` table). CHAOS random formations (7 shapes, seeded).

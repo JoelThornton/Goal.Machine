@@ -91,6 +91,7 @@
     }
     GM.sound.scene(path === 'draft' && q.m === 'chaos' ? 'chaos' : path);  // each game area has its own music (CHAOS has Mayhem)
     GM.chaosLook(path === 'draft' && q.m === 'chaos');
+    document.body.classList.toggle('ht-mode', path === 'hattrick');  // Hat-Trick has its own calm card-table look
     GM.$('.cal-slot', tabbar).innerHTML = GM.calIcon();  // stays right past midnight
     switch (path) {
       case 'draft': return GM.draft.start(app, ['target', 'treble', 'mystery', 'club', 'classic', 'classicwild', 'ultimatepure', 'extreme', 'purist', 'chaos'].includes(q.m) ? q.m : 'ultimate',
@@ -101,6 +102,7 @@
       case 'clubfootle': return GM.footle(app, true);
       case 'daily': return GM.draft.start(app, 'daily');
       case 'hilo': return GM.hilo(app);
+      case 'hattrick': return GM.hattrick(app);
       case 'hopper': return GM.hopper(app);
       case 'whoami': return GM.whoami(app);
       case 'grid': return GM.grid(app, false);
@@ -194,6 +196,7 @@
       <div class="chaos-card">${newTag('chaos')}<div class="chaos-head"><span>🌪️</span><div><b>Ultimate Wildcard CHAOS</b><small>Your XI’s total plus bonus points for chemistry, squad rating, PL titles, legends and loyalty. Wildcard storms, red cards, VAR, golden goals, All In… anything can happen.</small></div></div>
         <div class="stat-row">${Object.keys(GM.STATS).map(s => statBtn('chaos', s)).join('')}</div>
         <a class="chaos-daily" href="#/draft?m=chaos&daily=1">${GM.calIcon()} <b>Daily CHAOS</b><span>${GM.dailyStatus('chaos').text || 'Same chaos for everyone today · one go'}</span>${GM.streak('chaos') ? `<i>🔥 ${GM.streak('chaos')}</i>` : ''}</a></div>
+      <a class="ht-banner" href="#/hattrick"><span>🃏</span><span><b>Hat-Trick <small class="beta-pill">BETA</small></b><small>${GM.store.get('ht:save', null) ? 'Your game’s waiting – tap to carry on' : 'Football Spades: you and a partner against two rivals'}</small></span><span>›</span></a>
       <a class="h2h-banner" href="${waiting ? '#/online' : '#/h2h'}"><span>⚔️</span><span><b>Head to Head</b><small>${waiting ? `🌐 ${waiting} online game${waiting > 1 ? 's' : ''} waiting for your move` : h2h ? `${GM.esc(h2h.names[0])} v ${GM.esc(h2h.names[1])}: tap to carry on` : 'Pass the phone, or play your mates online'}</small></span><span>🏆</span><i class="online-badge" ${waiting ? '' : 'hidden'}>${waiting}</i></a>
       ${club ? `<div class="tile club-tile wide target-tile"><span class="tile-icon">🏟️</span><b>${GM.esc(club)} XI</b><small>Ultimate Wildcard with only ${GM.esc(club)} players. Their whole PL careers count.</small>
         <span class="stat-pick">${statBtn('club', 'goals')}${statBtn('club', 'assists')}${statBtn('club', 'apps')}</span></div>` : ''}

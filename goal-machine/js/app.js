@@ -59,6 +59,13 @@
     return 'handled';
   };
 
+  // the ‹ in the top bar: when it points at the page you're already on (a Hat-Trick in progress is still #/hattrick),
+  // changing the address does nothing, so draw that page afresh instead
+  document.addEventListener('click', e => {
+    const a = e.target.closest && e.target.closest('a.back');
+    if (!a || e.defaultPrevented || a.getAttribute('href') !== location.hash) return;
+    e.preventDefault(); GM.sound.play('tap'); route();
+  });
   // the ‹ in the top bar asks too, while a market game is half-way
   document.addEventListener('click', e => {
     const a = e.target.closest('a.back');
@@ -342,6 +349,7 @@
         : st.sched && st.sched !== 'scheduled' ? `⚠️ Not scheduled: ${GM.esc(st.sched)}`
         : '⚠️ Not scheduled yet – open the app again, or tap Check now';
       el.innerHTML = `<span>${st.allowed && st.enabled ? '✅ Allowed' : '❌ Not allowed – tap Phone settings'}</span>
+        ${'push' in st ? `<span>${st.push ? '⚡ Instant notifications on' : '⏳ Instant notifications: waiting for Google Play services'}${st.lastPush ? ` · last one ${mins(st.lastPush)}` : ''}</span>` : ''}
         <span>${sched}</span>
         ${st.restricted ? '<span>⚠️ Your phone limits Goal Machine’s battery use, so it can’t check in the background. Phone settings → Battery → <b>Unrestricted</b> (or Optimised)</span>' : ''}
         ${st.bucket >= 40 ? `<span>💤 Android runs Goal Machine’s checks rarely (it’s been used little lately). Opening it more often speeds them up.</span>` : ''}

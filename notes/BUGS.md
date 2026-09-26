@@ -7,12 +7,13 @@ version they shipped in. Newest at the top.
 
 | Reported | Bug | Status |
 |---|---|---|
-| 2026-09-26 | No "your move" notifications arrive (owner and a friend, both on Android; the test whistle works). Settings showed the 15-minute check wasn't scheduled, and the last check was 15 h earlier | Fix in 4.10 + new APK: the app re-schedules the check every time it opens and records why Android refused. Settings now shows the schedule, the last background check, battery restriction and standby bucket. **Confirm after installing the new APK:** does Settings say "Checking every ~15 min", and do notifications arrive? |
 
 ## Fixed
 
 | Reported | Bug | Fixed in |
 |---|---|---|
+| 2026-09-26 | No background notifications ever arrived (owner + a friend). The 4.9.1 diagnostics showed the cause: SecurityException, ACCESS_NETWORK_STATE required for jobs with a connectivity constraint (Android 14+) | 5.2 / app build 25: permission added, with a fallback job without the network condition. **Confirm on the phone:** Settings says "Checking every ~15 min" |
+| 2026-09-26 | The ‹ back arrow often didn't work: only the character itself was tappable, and in a Hat-Trick game it pointed at the page you were on | 5.2: a 48 px target, and ‹ to the current page redraws it (Hat-Trick → the menu) |
 | 2026-09-26 | Online: an unanswered Draft Duel invite said "your opponent is picking" and "Their's XI"; the invite text was muddled | 4.12: "Waiting for your mate to join", "Their XI", and a clear invite box with the code and Send invite |
 | 2026-09-26 | About → The data said there are only 2,039 players, but every PL player (5,157) is in now | 4.10: says everyone who's played in the PL since 1992/93, and that most modes use the 2,039 with 50+ apps |
 | 2026-09-26 | Album's sub-tabs (Album / Purist / Players) wrapped onto two lines, and ‹ on Players went to the home screen | 4.10: one line of tabs, also shown on the Players page, and ‹ goes back to where you came from |

@@ -59,13 +59,12 @@
   }
   const player = c => (c.pk ? GM.byPk.get(c.pk) : null);
   const surname = c => { if (c.j) return JOKERS[c.j].name; const n = player(c).name; return n.includes(' ') ? n.split(' ').slice(1).join(' ') : n; };
-  const initials = c => player(c).name.split(/[\s-]+/).filter(Boolean).map(w => w[0]).slice(0, 2).join('').toUpperCase();
   // your hand: jokers, then by suit, strongest first (hidden numbers: A–Z, as the order would give them away)
   const sortHand = h => h && h.sort((a, b) => SUIT_ORDER.indexOf(a.s) - SUIT_ORDER.indexOf(b.s) || (G.hard ? surname(a).localeCompare(surname(b)) : b.rank - a.rank));
 
   /* ---------------------------------------------------------------- a new game / hand */
-  function newGame(hard, level) {
-    const seed = GM.newSeed(), stat = ['goals', 'assists', 'apps'][GM.rng(seed + '|stat').int(3)];
+  function newGame(hard, level, pick) {
+    const seed = GM.newSeed(), stat = GM.STATS[pick] ? pick : ['goals', 'assists', 'apps'][GM.rng(seed + '|stat').int(3)];
     G = { seed, stat, hard, level, scores: [0, 0], bags: [0, 0], handNo: 0, dealer: 3, history: [], over: false };
     newHand();
   }
@@ -270,12 +269,13 @@
   // a card: the name runs up the left edge (so it reads in a fanned hand); number and suit top right; initials big
   function cardHtml(c, cls = '', style = '') {
     const num = c.j ? JOKERS[c.j].icon : numShown(c) ? fmt(c.v) : '?';
+    // the number is on the edge strip once; the face is the player (photo, or initials in club colours)
     const face = c.j ? `<span class="htc-big">${c.j === 'sub' ? 'SUPER<br>SUB' : 'VAR'}</span>`
-      : `<span class="htc-big">${num}</span><span class="htc-ini">${GM.esc(initials(c))}</span>`;
+      : GM.avatar(player(c), 'htc-face-pic');
     return `<button class="ht-card suit-${c.s} ${c.j ? 'joker-' + c.j : ''} ${cls}" data-card="${c.id}" ${style ? `style="${style}"` : ''} title="${GM.esc(c.j ? JOKERS[c.j].name + ': ' + JOKERS[c.j].rule : player(c).name)}">
       <span class="htc-edge"><b>${c.j ? JOKERS[c.j].icon : num}</b>${c.j ? '' : `<i>${SUITS[c.s].icon}</i>`}<span>${GM.esc(surname(c))}</span></span><span class="htc-face">${face}</span></button>`;
   }
-  const statLabel = () => `${GM.STATS[G.stat].icon} ${GM.STATS[G.stat].name}`;
+  const statLabel = () => `${GM.STATS[G.stat].icon} ${G.stat === 'apps' ? 'Apps' : GM.STATS[G.stat].name}`;
   const teamBid = t => [t, t + 2].reduce((a, s) => a + (G.bids[s] || 0), 0);
   const teamWon = t => G.won[t] + G.won[t + 2];
   const US = () => team(ME());                 // your team (online you might sit on the guest side)
@@ -288,7 +288,7 @@
     const last = G.online && !G.trick.length && G.lastTrick && G.lastTrick.hand === G.handNo ? G.lastTrick : null;
     const cards = G.trick.length ? G.trick : last ? last.trick : [];
     const w = G.trick.length === 4 ? winning() : last ? cards.find(t => t.seat === last.winner) : null;
-    const at = s => { const t = cards.find(x => x.seat === s); return t ? cardHtml(t.c, `played ${w && w.seat === s ? 'win' : ''} ${last ? 'last' : ''}`) : ''; };
+    const at = s => { const t = cards.find(x => x.seat === s); return t ? cardHtml(t.c, `played ${w && w.seat === s ? 'win' : ''} ${last ? 'last' : ''}`) + `<span class="ht-tname">${GM.esc(t.c.j ? JOKERS[t.c.j].name : player(t.c).name)}</span>` : ''; };
     return `<div class="ht-trick ${last ? 'is-last' : ''}"><div class="ht-t2">${at(partner(me))}</div><div class="ht-t1">${at((me + 1) % 4)}</div><div class="ht-t3">${at((me + 3) % 4)}</div><div class="ht-t0">${at(me)}</div></div>`;
   }
   function render() {
@@ -320,17 +320,20 @@
         ${pill(partner(me), 'n')}${pill((me + 1) % 4, 'w')}${pill((me + 3) % 4, 'e')}${pill(me, 's')}
         ${G.phase === 'bid' && G.turn === me && !G.over ? bidPanel() : trickHtml()}
       </div>
-      <p class="ht-tip">${tip}</p>
+      ${picked && canPlay && hand.some(c => c.id === picked) ? previewHtml(hand.find(c => c.id === picked)) : `<p class="ht-tip">${tip}</p>`}
       <div class="ht-hand ${canPlay ? 'go' : ''}">${hand.map((c, i) => cardHtml(c, `${ok.has(c.id) ? 'ok' : canPlay ? 'no' : ''} ${picked === c.id ? 'up' : ''}`,
         `left: calc((100% - 62px) * ${n > 1 ? i / (n - 1) : 0.5}); z-index: ${i + 1}`)).join('')}</div>
       ${G.online ? G.online.foot || '' : ''}`;
     GM.$('#ht-help', root).onclick = help;
     if (G.online && G.online.wire) G.online.wire(root);
+    const pv = GM.$('#ht-playit', root);
+    if (pv) pv.onclick = () => { const c = hand.find(x => x.id === picked); picked = null; if (!c) return render(); if (G.online) G.online.send({ t: 'p', c: c.id }); else play(me, c); };
+    const px = GM.$('#ht-putback', root); if (px) px.onclick = () => { picked = null; render(); };
     GM.$$('.ht-hand .ht-card', root).forEach(b => b.onclick = () => {
       if (!canPlay) return;
       const c = hand.find(x => x.id === b.dataset.card);
       if (!c || !ok.has(c.id)) { GM.toast(c && isJ(c) ? '🃏 You can’t lead with a joker' : led ? `Follow the suit led: ${SUITS[led].icon} ${SUITS[led].name}` : '⭐ Legends can’t lead until one has been played'); return; }
-      if (picked !== c.id) { picked = c.id; GM.sound.play('tick'); GM.buzz(); if (c.j) GM.toast(`${JOKERS[c.j].icon} <b>${JOKERS[c.j].name}:</b> ${JOKERS[c.j].rule}`, 2200); return render(); }
+      if (picked !== c.id) { picked = c.id; GM.sound.play('tick'); GM.buzz(); return render(); }
       picked = null;
       if (G.online) G.online.send({ t: 'p', c: c.id }); else play(me, c);
     });
@@ -347,6 +350,16 @@
       if (G.online) G.online.send({ t: 'b', n: bid }); else { G.bids[me] = bid; nextBidder(); }
     };
     if (!G.online) tick();
+  }
+  // the card you've picked up, in full: photo, whole name, suit and number (hidden numbers stay hidden), then Play
+  function previewHtml(c) {
+    if (c.j) return `<div class="ht-preview joker"><span class="htp-pic">${JOKERS[c.j].icon}</span><span class="htp-info"><b>${JOKERS[c.j].name}</b><small>${JOKERS[c.j].rule}</small></span>
+      <span class="htp-go"><button class="btn small" id="ht-playit">▶ Play</button><button class="htp-x" id="ht-putback" aria-label="Put it back">✕</button></span></div>`;
+    const p = player(c);
+    return `<div class="ht-preview suit-${c.s}"><span class="htp-pic">${GM.avatar(p)}</span>
+      <span class="htp-info"><b>${GM.esc(p.name)}</b><small>${SUITS[c.s].icon} ${SUITS[c.s].name.replace(/s$/, '')} · ${numShown(c) ? `<b>${fmt(c.v)}</b> ${GM.STATS[G.stat].label}` : `? ${GM.STATS[G.stat].label}`}</small>
+        ${G.hard ? '' : `<span class="chips">${p.clubs.slice(0, 4).map(x => GM.clubChip(x)).join('')}</span>`}</span>
+      <span class="htp-go"><button class="btn small" id="ht-playit">▶ Play</button><button class="htp-x" id="ht-putback" aria-label="Put it back">✕</button></span></div>`;
   }
   function bidPanel() {
     const me = ME();
@@ -412,6 +425,7 @@
         <p class="ht-blurb">Football Spades: bid the tricks you’ll win with a hand of real Premier League players. ⭐ Legends are trumps, and look out for the 🦸 Super-Sub and 📺 VAR.</p>
         <div class="ht-fan">${fanDemo()}</div>
         <div class="ht-opt"><small>Opponents</small><div class="seg" id="ht-level">${Object.entries(LEVELS).map(([k, l]) => `<button data-v="${k}" class="${k === level ? 'on' : ''}">${l}</button>`).join('')}</div></div>
+        <div class="ht-opt"><small>Card strength</small><div class="seg" id="ht-stat">${[['random', '🎲 Surprise'], ...Object.entries(GM.STATS).map(([k, st]) => [k, `${st.icon} ${k === 'apps' ? 'Apps' : st.name}`])].map(([k, l]) => `<button data-v="${k}" class="${k === GM.store.get('ht:stat', 'random') ? 'on' : ''}">${l}</button>`).join('')}</div></div>
         <div class="ht-opt"><small>Card numbers</small><div class="seg" id="ht-hidden"><button data-v="0" class="${hidden ? '' : 'on'}">👀 Shown</button><button data-v="1" class="${hidden ? 'on' : ''}">🙈 Hidden</button></div></div>
         ${saved && saved.hands ? `<button class="btn big" id="ht-resume">▶ Carry on · hand ${saved.handNo}, ${saved.scores[0]}–${saved.scores[1]}</button><button class="btn ghost" id="ht-play">New game</button>`
           : '<button class="btn big" id="ht-play">🃏 Deal me in</button>'}
@@ -419,7 +433,7 @@
         <details class="ht-rules"><summary>How to play</summary>${rules()}</details>
       </div>`;
     const wire = (id, key, conv) => GM.$$(`#${id} [data-v]`, root).forEach(b => b.onclick = () => { GM.store.set(key, conv(b.dataset.v)); GM.sound.play('tick'); intro(); });
-    wire('ht-level', 'ht:level', v => v); wire('ht-hidden', 'ht:hidden', v => v === '1');
+    wire('ht-level', 'ht:level', v => v); wire('ht-hidden', 'ht:hidden', v => v === '1'); wire('ht-stat', 'ht:stat', v => v);
     GM.$('#ht-play', root).onclick = () => begin(GM.store.get('ht:level', 'medium'), GM.store.get('ht:hidden', false));
     const rs = GM.$('#ht-resume', root); if (rs) rs.onclick = () => resume(saved);
   }
@@ -427,7 +441,7 @@
   /* ---------------------------------------------------------------- start (or carry on) */
   function begin(level, hidden) {
     busy = false; picked = null;
-    newGame(!!hidden, level || 'medium'); save();
+    newGame(!!hidden, level || 'medium', GM.store.get('ht:stat', 'random')); save();
     GM.sound.play('whistle');
     render();
     setTimeout(() => GM.toast(`🃏 This game: ${statLabel()}${G.hard ? ' · 🙈 numbers hidden' : ''}`), 300);

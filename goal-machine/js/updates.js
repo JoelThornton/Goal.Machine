@@ -9,6 +9,17 @@
 (function () {
   GM.UPDATES = [
     {
+      v: 31, label: '5.2', date: '2026-09-26', app: 26, title: 'Instant notifications, and faces on the cards',
+      items: [
+        '⚡ Instant notifications: “your move”, challenges, results and new friends now arrive the moment they happen, not up to 15 minutes later. Get the new app (build 26) with the update button',
+        '🔔 Found and fixed why notifications never came: Android had been refusing to schedule the app’s background check. After updating, ⚙️ Settings → Notifications should say “⚡ Instant notifications on” and “Checking every ~15 min”',
+        '🃏 Hat-Trick cards show the player’s face, with the number once on the edge strip',
+        '🔍 Pick a card up to see it in full: photo, whole name, clubs and number, with a big ▶ Play button. Every card on the pitch shows its full name too',
+        '⚽ Offline Hat-Trick: choose the card strength (goals, assists or apps) or let it surprise you',
+        '‹ The back arrow is easier to hit, and always works (in a Hat-Trick game it takes you to the menu)',
+      ],
+    },
+    {
       v: 29, label: '5.1', date: '2026-09-26', title: '🎲 Quick match',
       items: [
         '🎲 Quick match on the Online tab: pick a Live Race, Hat-Trick or Draft Duel and we’ll pair you with someone waiting for the same game. No chat, just football',

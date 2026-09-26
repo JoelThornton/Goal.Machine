@@ -42,7 +42,7 @@ game mode for players; this file is about how to work on it.
   Scout Duel (card hand + bonus cards), Live Race and its variants Target Race and CHAOS Race (race = both play the
   same seed; the variant picks the draft mode), the opponent live feed in races, the weekly league, notifications.
 - `market.js` – Moneyball, Transfer Window, Auction (online + pass-and-play).
-- `hattrick.js` – 🃏 Hat-Trick (beta): football Spades, you + a computer partner v two computer rivals. `deal`
+- `hattrick.js` – 🃏 Hat-Trick: football Spades (cards: number/suit/name on the edge strip, the player's face on the card; tap to preview with ▶ Play; offline card strength `ht:stat`), you + a computer partner v two computer rivals. `deal`
   (52 players, 4 suits, ⭐ Legends are trumps), `legal`, `winning`, `cpuBid`, `cpuPlay`, Spades scoring (bags = 🟨,
   10 = −100), first to 250. Menu: opponents Easy/Medium/Hard (`ht:level`), card numbers shown/hidden (`ht:hidden`, hidden scores go to `hattrickh`). Saved in `ht:save`. Dark card-table look via `body.ht-mode`; sounds `card`, `trickwin`, `tricklose`. Board: winning margin.
   Two jokers (`Jsub` wins the trick, `Jvar` gives it to the lowest of the suit led; playable any time, not as a lead); the lowest Defender and Midfielder make way. Cards: kit per suit, number/suit/name in the left strip (`.htc-edge`) so a fanned hand reads. Online (`GM.hattrickOnline`): a duel room with variant `hattrick`; only the humans' moves are stored ({t:'b',n} / {t:'p',c}, s = host/guest), and `replay` rebuilds the game from the room seed with the computers (seats 2, 3) on the never-random Hard play, so both phones agree. The final mover posts both team scores (p_all) and gm_finalise gives the higher 100–0.
@@ -65,6 +65,11 @@ Everything goes through security-definer RPCs that check the account with `gm_au
 - Names: `gm_name_ok` (offensive-word filter, used by `claim_name`, `rename_account` and `name_available`, which returns
   null for a banned name), `report_name` (3 reports hide a name from `best_scores` / `daily_board` via `players.name_hidden`),
   `name_status`, `rename_account` (moves scores, friends, rooms and backup to the new name).
+- **Instant push (Firebase Cloud Messaging, project `opportunistic-games`):** phones register with `set_push_token`
+  (token + their notification choices, `push_tokens`). Triggers on `rooms` and `friends` call `gm_push`, which posts
+  (pg_net, shared secret in `private_config`) to the Edge Function `push`: for each phone it asks `app_inbox` and
+  pushes new game/result/friend items once (`push_sent`). Needs the `FCM_SERVICE_ACCOUNT` Edge Function secret. The
+  app's `PushService` shows them (same ids as the 15-minute check, so never twice). Reminders stay with the check.
 - Notifications: `app_inbox(p_user, p_prefs, p_state, p_tz)` returns what the Android app should notify about. The app
   sends the player's choices from Settings (`GM.notify`: move, friends, results, modes, streak, comeback, daily time),
   their daily streak and time zone. **To announce a new game mode**, insert a row into `announcements` (title, body,

@@ -164,6 +164,7 @@ public class MainActivity extends Activity {
         visible = true;
         web.onResume();
         GameCheckService.ensureScheduled(this);  // puts the 15-minute check back if Android dropped it
+        PushService.fetchToken(this);            // this phone's address for instant notifications
     }
 
     @Override
@@ -244,6 +245,12 @@ public class MainActivity extends Activity {
         public void setInbox(String configJson) {
             GameCheckService.configure(MainActivity.this, configJson);
             askForNotifications();
+        }
+
+        /** This phone's Firebase push token ("" until Firebase has handed one over), for the site to register. */
+        @JavascriptInterface
+        public String pushToken() {
+            return PushService.token(MainActivity.this);
         }
 
         /** How notifications are doing: permission, whether the check is scheduled, and what the last check found. */

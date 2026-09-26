@@ -59,7 +59,9 @@ const ok = (c, msg) => { console.log((c ? '✓ ' : '✗ ') + msg); if (!c) proce
   ok(+sim.avgBid >= 8 && +sim.avgBid <= 14, 'sensible table bids (average ' + sim.avgBid + ' of 13)');
   // through the screen
   await pg.goto(U + '#/hattrick'); await pg.waitForTimeout(600); await pg.screenshot({ path: 'lay/ht_menu.png' });
+  await pg.click('#ht-stat [data-v="apps"]'); await pg.waitForTimeout(200);
   await pg.click('#ht-play'); await pg.waitForTimeout(400);
+  ok(await pg.evaluate(() => GM.hattrickRules.state.stat === 'apps'), 'you can choose the card strength (appearances)');
   ok((await pg.$$('.ht-hand .ht-card')).length === 13, 'you’re dealt 13 cards');
   await pg.waitForSelector('[data-bid]', { timeout: 8000 }); await pg.screenshot({ path: 'lay/ht_bid.png' });
   ok(await pg.$eval('#ht-place', b => b.disabled), 'Place bid waits for a choice');
@@ -68,7 +70,9 @@ const ok = (c, msg) => { console.log((c ? '✓ ' : '✗ ') + msg); if (!c) proce
   for (let i = 0; i < 400 && plays < 13; i++) {
     if (await pg.$('.modal .ht-sum')) break;
     const card = await pg.$('.ht-hand.go .ht-card.ok');
-    if (card) { await card.click({ position: { x: 8, y: 30 } }); await pg.waitForTimeout(80); const again = await pg.$('.ht-hand .ht-card.up'); if (again) { await again.click({ position: { x: 8, y: 30 } }); plays++; if (plays === 4) await pg.screenshot({ path: 'lay/ht_play.png' }); } }
+    if (card) { await card.click({ position: { x: 8, y: 30 } }); await pg.waitForTimeout(80);
+      if (plays === 2) { const name = await pg.$eval('.ht-preview .htp-info > b', e => e.textContent).catch(() => ''); ok(name.length > 3, 'picking a card up shows it in full: ' + name); await pg.screenshot({ path: 'lay/ht_preview.png' }); }
+      const again = await pg.$('.ht-hand .ht-card.up'); if (again) { await again.click({ position: { x: 8, y: 30 } }); plays++; if (plays === 4) await pg.screenshot({ path: 'lay/ht_play.png' }); } }
     await pg.waitForTimeout(250);
   }
   await pg.waitForSelector('.modal .ht-sum', { timeout: 20000 });

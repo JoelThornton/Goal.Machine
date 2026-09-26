@@ -11,6 +11,9 @@ game mode for players; this file is about how to work on it.
   says so** (they usually reply "merge"). If the branch's last PR is already merged, start the branch again from `master`.
 - The remote is `OpportunisticGames/opportunisticgames.github.io`. Sessions sometimes point `origin` somewhere else, so
   before pushing run `git remote set-url origin https://github.com/OpportunisticGames/opportunisticgames.github.io`.
+- **Bug and idea banks:** `notes/BUGS.md` and `notes/IDEAS.md`. When the owner reports a bug, log it and fix it
+  straight away, then move it to *Fixed* with the version. When they share an idea, log it (with their words and
+  our notes and questions) and **discuss it, don't build it** until they say go. Read both at the start of a session.
 - No personal names in the app, the address or the copy. No AI model names in commits, PRs or files.
 - Write plainly in the owner's British English (the game's tone: short, friendly, football-y).
 - Every release: add an entry at the top of `GM.UPDATES` in `js/updates.js` (`v` = next cache number, `label` = the
@@ -65,6 +68,7 @@ There's no unit test suite; test in a real browser with Playwright (Chromium is 
    Supabase RPCs in memory (test accounts Alice/Bob/Cara), so nothing touches the real database.
    - `sweep.js` – opens every page in light, dark and club themes: page errors and sideways overflow.
    - `races.js` – two phones play a Target Race and a CHAOS Race end to end.
+   - `cards.js` – every reel card fits, even with bigger text (`FS=130% node cards.js`).
    - `names.js` – rude names refused, reporting a name, a hidden name renamed, and no Soundtrack in the Play app.
    - `layout.js` – plays whole drafts and checks the pitch never changes size (`node layout.js "chaos:1,ultimate:0" 360x740`).
    Screenshots land in `./lay/` (ignored by git). Block photo hosts with `ctx.route(...)` to keep runs fast.

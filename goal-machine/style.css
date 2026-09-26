@@ -1104,3 +1104,12 @@ button.icon-btn.lb-btn { font: inherit; font-size: 1.1rem; cursor: pointer; }
 .ox .avatar { width: 30px; height: 30px; font-size: .7rem; }
 .ox b { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .ox i { font-style: normal; font-weight: 800; color: #ffe27a; }
+/* cards that don't fit give way step by step (fitReels in draft.js) */
+.stage .reel.fit1 .chips, .stage .reel.fit2 .mate { display: none; }
+.stage .reel.fit2 .avatar.lg { width: 30px; height: 30px; font-size: .7rem; }
+.stage .reel.fit3 .avatar { display: none; }
+.stage .reel.fit1 .wild-icon { font-size: 1.4rem; }
+.stage .reel.fit1 .wild-desc { -webkit-line-clamp: 6; }
+.stage .reel.fit2 .wild-card .tag { display: none; }
+.stage .reel.fit3 .wild-icon { display: none; }
+.stage .reel.fit3 .wild-desc { -webkit-line-clamp: 8; font-size: .62rem; }

@@ -802,8 +802,18 @@
     if (Math.abs(next - cur) >= 1) root.style.setProperty('--slot-h', next + 'px');
     root.classList.toggle('slots-compact', next < 62);
   }
-  window.addEventListener('resize', () => { if (S && root) fitPitch(); });
-  if (document.fonts) document.fonts.ready.then(() => { fitKey = ''; if (S && root) fitPitch(); });
+  window.addEventListener('resize', () => { if (S && root) { fitPitch(); fitReels(); } });
+  if (document.fonts) document.fonts.ready.then(() => { fitKey = ''; if (S && root) { fitPitch(); fitReels(); } });
+  // Each card measures itself: if its contents don't fit (bigger fonts on some phones, a two-line name), the less
+  // important bits give way one step at a time (fit1: club badges, fit2: a smaller photo and no link line,
+  // fit3: no photo), so the stat box and a wildcard's full text always show
+  function fitReels() {
+    GM.$$('.stage .reel', root).forEach(r => {
+      const over = () => { const d = GM.$('.wild-desc', r); return r.scrollHeight > r.clientHeight + 1 || (d && d.scrollHeight > d.clientHeight + 1); };
+      r.classList.remove('fit1', 'fit2', 'fit3');
+      for (const c of ['fit1', 'fit2', 'fit3']) { if (!over()) break; r.classList.add(c); }
+    });
+  }
 
   // one line for what's happening (a CHAOS event, a storm, an active wildcard) and one for what to do next
   function msgHtml(sp) {
@@ -824,7 +834,7 @@
   function render() {
     if (!S || !onThisGame()) return;
     if (S.phase === 'done') return renderDone();
-    requestAnimationFrame(fitPitch);
+    requestAnimationFrame(() => { fitPitch(); fitReels(); });
     if (!S.readonly && saveKey()) GM.store.set(saveKey(), { ...S, rules: undefined });  // saved on every move
     if (S.revealStage === 'intro') return mysteryIntro();
     const icon = S.mode === 'club' ? '🏟️' : GM.MODES[S.mode === 'daily' ? 'daily' : S.mode].icon;

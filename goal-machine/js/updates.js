@@ -7,6 +7,14 @@
 (function () {
   GM.UPDATES = [
     {
+      v: 25, label: '4.10', date: '2026-09-26', app: 16, title: 'Cards that always fit',
+      items: [
+        '🃏 Player cards on the reels always show the stat box now, even with a two-line name or bigger text on your phone (the club badges and photo shrink to make room)',
+        '🩹 Wildcards show their full description instead of cutting off after a few words',
+        '📰 This What’s New pop-up stays open until you close it',
+      ],
+    },
+    {
       v: 24, label: '4.9', date: '2026-09-26', app: 16, title: 'Keeping the boards friendly',
       items: [
         '🚩 Tap a name on any leaderboard to report it if it’s offensive. A name reported by several players is hidden from the boards',
@@ -247,9 +255,9 @@
     const seen = GM.store.get('seenVersion', 0), latest = GM.UPDATES[0];
     if (seen >= latest.v || location.hash.replace(/^#\/?/, '')) return;  // only on the home screen
     if (!seen && !GM.store.get('played', 0)) { GM.store.set('seenVersion', latest.v); return; }  // brand new player
-    GM.store.set('seenVersion', latest.v);
+    // it counts as seen only once it's closed, so a reload (a new version taking over) shows it again
     GM.modal(`<div class="whats-new"><div class="wn-kicker">What's new · v${latest.label}</div><h3>${GM.esc(latest.title)}</h3>
       <ul>${latest.items.map(i => `<li>${i}</li>`).join('')}</ul>
-      <div class="row"><a class="btn ghost" href="#/updates" data-close>All updates</a><button class="btn" data-close>Let's play</button></div></div>`);
+      <div class="row"><a class="btn ghost" href="#/updates" data-close>All updates</a><button class="btn" data-close>Let's play</button></div></div>`, { onClose: () => GM.store.set('seenVersion', latest.v) });
   };
 })();

@@ -588,7 +588,8 @@
     const hadController = !!navigator.serviceWorker.controller;
     let reloaded = false;
     navigator.serviceWorker.addEventListener('controllerchange', () => {
-      if (hadController && !reloaded) { reloaded = true; location.reload(); }
+      // files are fetched network-first, so the page is already up to date: don't yank the What's New pop-up away
+      if (hadController && !reloaded && !document.querySelector('.whats-new')) { reloaded = true; location.reload(); }
     });
     navigator.serviceWorker.register('sw.js', { updateViaCache: 'none' }).then(r => r.update()).catch(() => { });
   }

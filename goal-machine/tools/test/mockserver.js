@@ -16,9 +16,17 @@ module.exports = function makeServer() {
     else { cmp(h.t || 0, g.t || 0, wt); cmp(h.r || 0, g.r || 0, wr); if (ws) cmp(h.ms ?? 1e12, g.ms ?? 1e12, ws, true); }
     r.status = 'done'; r.turn = null; r.result = { host: hp, guest: gp, winner: hp > gp ? 'host' : gp > hp ? 'guest' : 'draw' };
   };
-  const view = r => ({ bids_in: Object.keys(r.secret || {}).filter(k => k === 'host' || k === 'guest'), code: r.code, kind: r.kind, variant: r.variant, stat: r.stat, seed: r.seed, host: r.host, guest: r.guest, moves: r.moves, race: r.race, turn: r.turn, status: r.status, result: r.result, seen: r.seen, now: now(), updated: r.updated });
+  const view = r => ({ quick: !!r.quick, created: r.created, bids_in: Object.keys(r.secret || {}).filter(k => k === 'host' || k === 'guest'), code: r.code, kind: r.kind, variant: r.variant, stat: r.stat, seed: r.seed, host: r.host, guest: r.guest, moves: r.moves, race: r.race, turn: r.turn, status: r.status, result: r.result, seen: r.seen, now: now(), updated: r.updated });
   const fns = {
     claim_name: a => { const k = a.p_username.toLowerCase(); if (!players[k] && /fuck|shit/i.test(k)) return 'rude_name'; if (players[k] && players[k].key !== a.p_key) return 'taken'; players[k] = { username: a.p_username, key: a.p_key }; return 'ok'; }, name_available: a => /fuck|shit/i.test(a.p_username) ? null : !players[a.p_username.toLowerCase()], submit_score: a => 'ok',
+    quick_match(a) {
+      const u = auth(a.p_user, a.p_key); if (!u) return { error: 'auth' };
+      const v = a.p_variant || null, open = Object.values(rooms).find(r => r.quick && r.status === 'open' && !r.guest && r.kind === a.p_kind && (r.variant || null) === v && r.stat === a.p_stat && r.host !== u);
+      if (open) { open.guest = u; open.status = 'playing'; return { code: open.code, seat: 'guest', matched: true, opp: open.host }; }
+      const mine = Object.values(rooms).find(r => r.quick && r.status === 'open' && r.host === u && r.kind === a.p_kind && (r.variant || null) === v);
+      if (mine) return { code: mine.code, seat: 'host', waiting: true };
+      const c = fns.online_create({ ...a, p_opp: null }); rooms[c.code].quick = true; rooms[c.code].created = new Date().toISOString(); return { code: c.code, seat: 'host', waiting: true };
+    },
     online_create(a) {
       const u = auth(a.p_user, a.p_key); if (!u) return { error: 'auth' };
       let o = null; if (a.p_opp) { o = (players[a.p_opp.toLowerCase()] || {}).username; if (!o) return { error: 'no_user' }; if (o === u) return { error: 'self' }; }
@@ -79,7 +87,7 @@ module.exports = function makeServer() {
     online_games(a) {
       const u = auth(a.p_user, a.p_key); if (!u) return null;
       return Object.values(rooms).filter(r => (r.host === u || r.guest === u) && r.status !== 'declined').reverse()
-        .map(r => ({ bids_in: Object.keys(r.secret || {}).filter(k => k === 'host' || k === 'guest'), code: r.code, kind: r.kind, variant: r.variant, stat: r.stat, host: r.host, guest: r.guest, turn: r.turn, status: r.status, result: r.result, updated: r.updated, nmoves: r.moves.length,
+        .map(r => ({ quick: !!r.quick, bids_in: Object.keys(r.secret || {}).filter(k => k === 'host' || k === 'guest'), code: r.code, kind: r.kind, variant: r.variant, stat: r.stat, host: r.host, guest: r.guest, turn: r.turn, status: r.status, result: r.result, updated: r.updated, nmoves: r.moves.length,
           sums: Object.fromEntries(Object.entries(r.race).map(([k, v]) => { const { x, ...rest } = v; return [k, rest]; })) }));
     },
     online_friends(a) {

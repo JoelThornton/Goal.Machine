@@ -12,6 +12,7 @@ const U = 'http://localhost:8765/goal-machine/';
     await pg.goto(U); await pg.evaluate(() => { localStorage.setItem('gm:seenVersion', '99'); localStorage.setItem('gm:welcomed', '1'); });
     await pg.goto(U + '#/draft?m=' + m); await pg.waitForTimeout(300); await pg.addStyleTag({ content: 'html{font-size:' + (process.env.FS||'100%') + '}' }); await pg.waitForTimeout(700);
     await pg.evaluate(() => document.querySelectorAll('.modal-wrap').forEach(x => x.remove()));
+    await pg.evaluate(() => { const mg = document.querySelector('.cm [data-mgr]'); if (mg) mg.click(); }); await pg.waitForTimeout(400);  // CHAOS: appoint a manager
     await pg.click('#spin').catch(() => {}); await pg.waitForTimeout(1500);
     await pg.evaluate(() => document.querySelectorAll('.modal-wrap').forEach(x => x.remove()));
     const res = await pg.evaluate(() => {

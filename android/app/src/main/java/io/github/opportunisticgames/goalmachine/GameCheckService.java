@@ -76,6 +76,7 @@ public class GameCheckService extends JobService {
     @Override
     public boolean onStartJob(JobParameters params) {
         getSharedPreferences(PREFS, MODE_PRIVATE).edit().putLong("lastJob", System.currentTimeMillis()).apply();
+        if (PushService.token(this).isEmpty()) PushService.fetchToken(this);  // no instant notifications yet: keep asking
         new Thread(() -> {
             try { check(this, false); } catch (Exception e) { note(this, "error: " + e.getClass().getSimpleName() + " " + e.getMessage(), -1); }
             jobFinished(params, false);
@@ -125,7 +126,7 @@ public class GameCheckService extends JobService {
                 // why checks might not run: the last schedule attempt, the last time Android ran the check in the
                 // background, whether the phone restricts the app's battery use, and its standby bucket
                 // (10 active, 20 working set, 30 frequent, 40 rare, 45 restricted: rarer buckets run less often)
-                .put("sched", p.getString("sched", "")).put("schedAt", p.getLong("schedAt", 0)).put("lastJob", p.getLong("lastJob", 0)).put("push", !p.getString("pushToken", "").isEmpty()).put("lastPush", p.getLong("lastPush", 0))
+                .put("sched", p.getString("sched", "")).put("schedAt", p.getLong("schedAt", 0)).put("lastJob", p.getLong("lastJob", 0)).put("push", !p.getString("pushToken", "").isEmpty()).put("pushErr", p.getString("pushErr", "")).put("lastPush", p.getLong("lastPush", 0))
                 .put("restricted", Build.VERSION.SDK_INT >= 28 && ((android.app.ActivityManager) ctx.getSystemService(Context.ACTIVITY_SERVICE)).isBackgroundRestricted())
                 .put("bucket", Build.VERSION.SDK_INT >= 28 ? ((android.app.usage.UsageStatsManager) ctx.getSystemService(Context.USAGE_STATS_SERVICE)).getAppStandbyBucket() : 0)
                 .toString();
@@ -186,16 +187,24 @@ public class GameCheckService extends JobService {
         Set<String> seen = new HashSet<>(p.getStringSet("seen", new HashSet<>())), now = new HashSet<>();
         boolean quiet = MainActivity.visible && !force;
         int shown = 0;
-        NotificationManager nm = (NotificationManager) ctx.getSystemService(Context.NOTIFICATION_SERVICE);
         channel(ctx);
+        java.util.List<JSONObject> fresh = new java.util.ArrayList<>();
         for (int i = 0; i < items.length(); i++) {
             JSONObject g = items.getJSONObject(i);
             String id = g.optString("id");
             if (quiet) { if (seen.contains(id)) now.add(id); continue; }
             now.add(id);
-            if (seen.contains(id)) continue;
+            if (!seen.contains(id)) fresh.add(g);
+        }
+        // a pile-up (the phone was asleep, or the app was just installed) comes as one notification, not a flood
+        if (fresh.size() > 3) {
+            StringBuilder b = new StringBuilder();
+            for (int i = 0; i < Math.min(3, fresh.size()); i++) b.append(i > 0 ? " · " : "").append(fresh.get(i).optString("title", ""));
+            show(ctx, "summary", "⚽ " + fresh.size() + " things waiting for you", b.toString(), "https://opportunisticgames.github.io/goal-machine/#/online");
+            shown = fresh.size();
+        } else for (JSONObject g : fresh) {
             shown++;
-            show(ctx, id, g.optString("title", "Goal Machine"), g.optString("body", ""), g.optString("link", ""));
+            show(ctx, g.optString("id"), g.optString("title", "Goal Machine"), g.optString("body", ""), g.optString("link", ""));
         }
         p.edit().putStringSet("seen", now).apply();
         note(ctx, "ok" + (quiet ? " (game open, so saved for later)" : shown > 0 ? ", showed " + shown : ""), items.length());

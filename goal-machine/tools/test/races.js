@@ -14,6 +14,8 @@ async function playDraft(pg, tag) {
     const st = await pg.evaluate(() => {
       document.querySelectorAll('.modal-wrap').forEach(m => m.remove());
       if (document.querySelector('.result-total')) return 'done';
+      const mg = document.querySelector('.cm [data-mgr]'); if (mg) { mg.click(); return 'mgr'; }  // CHAOS: appoint a manager, tap through moments
+      const cm = document.querySelector('.cm:not(.out)'); if (cm) { cm.click(); return 'moment'; }
       const sp = document.getElementById('spin'); if (sp) { sp.click(); return 'spin'; }
       const t = document.querySelector('.slot.target'); if (t) { t.click(); return 'place'; }
       const rs = [...document.querySelectorAll('.stage .reel[data-reel]')]; if (!rs.length) return 'wait';

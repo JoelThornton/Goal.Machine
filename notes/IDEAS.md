@@ -23,6 +23,37 @@ formations, and badges round 2.
 
 ## 💬 To discuss
 
+### CHAOS moments: make the chaos part of the game, not a pop-up ✅ shipped in 5.4
+- **Owner's words (26 Sep):** "The most fun mode but things pop up all at once and it's quite hard to tell what's
+  going on… I dont want it to be less fun, but maybe prevent a million things happening at once. Like if my entire
+  team's points are getting wiped in half dont just put a tiny notification at the bottom of the screen, have a tornado
+  rip through my team… make the chaos moments part of the game rather than just a little add on that gets confusing."
+- **Why it's confusing now:** one spin can fire an event (screen flash, 14 emojis, shake), a wildcard storm, the
+  CHAOS meter going off 0.7 s later (another flash and toast) and the reels spinning, all at once. The effect itself is
+  a line of text above the reels or a toast; the numbers just change.
+- **Proposal:**
+  1. *One moment at a time.* The spin waits while a moment plays (about 2 s, tap to skip). An event and a storm never
+     share a spin, and CHAOS Unleashed waits its turn.
+  2. *Every event happens on the pitch:* 🌪️ All In gone wrong = a tornado sweeps the XI and each player's number
+     ticks down to half; 🚑 an ambulance to the injured player; 📺 VAR frames the last signing, "checking…", then a
+     GOAL / DISALLOWED stamp; 🧾 the taxman pulls a card out of your bag; 💰 coins pour into the score; 🟥 / 🔥 / ⚽
+     the next empty slot glows red, fire or gold; 🎁 the box opens and the card flies into the bag; 🎭 masks drop onto
+     the reels; 🌪️ a storm turns the reels into cards as it passes.
+  3. *Numbers count up or down live*, with a sound for each hit, so you see exactly what changed.
+  4. *Active effects as badges* by the score (🔥 ×1.5 ×3, ⚽ ×3 next, 💥 ×2 ×2), not in the small line.
+  5. *What happened?* Tap the chaos level for a timeline of every moment in the game.
+  Same rules, odds and seeds, so Daily CHAOS and CHAOS Races stay fair and nothing gets less wild.
+- **Owner's answers:** go, add new moments; spins are fine, it's the events; the meter should set off the chaos
+  (taking or playing wildcards fills it); a couple of seconds each; coin tosses should be real coin tosses; add PL
+  managers, each with a consequence; not everything every game, just enough to keep playing.
+- **Built (5.4):** 12 managers (perk + catch, 👍/👎 on reels, can be sacked), meter of 4 fed by wildcards and storms
+  triggers a big moment (unleash, tornado, lightning, parade, deadline day, sacked); match-day events at 22% with no
+  event straight after a big one; storms never share a spin with a moment; coin toss; full-time story.
+  Test: `tools/test/chaos.js`.
+- **Old questions:** Is about 2 s a moment right (tap to skip)? Keep the same number of events, or also stop two big
+  moments landing on back-to-back spins? Any other moments you'd like (e.g. a 🌪️ tornado event that swaps players'
+  positions)?
+
 ### Money games need more depth (Moneyball, Transfer Window, Auction)
 - **Owner's take:** there's something there, but it isn't satisfying. By two-thirds of the way through you're often
   left with one affordable option (a free transfer), and it boils down to "longest career for the cost". It lacks the

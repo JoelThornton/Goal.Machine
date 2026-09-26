@@ -35,6 +35,7 @@ const sizes = (process.argv[3] || '390x844').split(',').map(x => x.split('x').ma
         await snap('s' + step);
         if (await act(() => !!document.querySelector('.result-total'))) break;
         await act(() => document.querySelectorAll('.modal-wrap').forEach(m => m.remove()));
+        if (await act(() => { const mg = document.querySelector('.cm [data-mgr]'); if (mg) { mg.click(); return true; } const cm = document.querySelector('.cm:not(.out)'); if (cm) { cm.click(); return true; } return false; })) { await pg.waitForTimeout(400); continue; }
         if (await act(() => { const b = document.getElementById('spin'); if (b) { b.click(); return true; } return false; })) { await pg.waitForTimeout(1400); await snap('spun' + step); continue; }
         const did = await act(() => {
           const t = document.querySelector('.slot.target'); if (t) { t.click(); return 'place'; }

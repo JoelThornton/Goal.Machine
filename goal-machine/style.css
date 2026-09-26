@@ -1141,3 +1141,13 @@ button.icon-btn.lb-btn { font: inherit; font-size: 1.1rem; cursor: pointer; }
 .ach-cat { margin: 14px 0 6px; font: 700 .95rem Oswald, sans-serif; }
 .ach-cat small { color: var(--muted); font-weight: 400; margin-left: 4px; }
 .ach.secret { border-style: dashed; }
+/* Album: four sections, and badges one category at a time */
+.album-views { margin: 12px 0; }
+.album-views a { flex: 1; text-align: center; padding: 9px 4px; border-radius: 10px; color: var(--muted); font: 700 clamp(.72rem, 3.2vw, .88rem) Inter, sans-serif; text-decoration: none; white-space: nowrap; }
+.album-views a.on { background: var(--accent); color: #0a2a1f; box-shadow: 0 3px 0 var(--btn-edge); }
+.ach-cats { display: flex; gap: 6px; overflow-x: auto; padding: 2px 0 10px; scrollbar-width: none; }
+.ach-cats::-webkit-scrollbar { display: none; }
+.ach-cats a { flex: none; display: flex; flex-direction: column; align-items: center; padding: 6px 12px; border-radius: 12px; background: var(--panel); border: 1px solid var(--line); color: var(--text); text-decoration: none; font-weight: 700; font-size: .82rem; }
+.ach-cats a small { color: var(--muted); font-weight: 400; font-size: .7rem; }
+.ach-cats a.on { background: var(--accent); color: #0a2a1f; border-color: var(--accent); }
+.ach-cats a.on small { color: #0a2a1f; }

@@ -9,8 +9,10 @@
 (function () {
   GM.UPDATES = [
     {
-      v: 27, label: '4.10.1', date: '2026-09-26', app: 23, title: 'Time to update the Android app',
+      v: 27, label: '4.11', date: '2026-09-26', app: 23, title: 'A tidier Album',
       items: [
+        '📒 The Album is in four sections: ⭐ Dream XI, 🏅 Badges, 🗂️ Sets and 📊 Stats, so there’s no long scroll',
+        '🏅 Badges have a tab for each category: Scores, Squads, Dailies, Quick games, Online, Collecting and Secret, each with how many you’ve got',
         '📲 The Android app asks you to update to build 23, which fixes notifications that weren’t arriving. Tap the update button, install, and check ⚙️ Settings → Notifications says “Checking every ~15 min”',
       ],
     },

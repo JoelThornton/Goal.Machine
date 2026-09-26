@@ -30,9 +30,10 @@
   // ev: { type: 'draft', mode, stat, total, hard, xi: [players], rating, pairs, wildUsed, coinWin, bull, closeness }
   //  or { type: 'game', mode, score, extra }
   // badge categories, in the order the Album shows them
-  const CATS = [['draft', '⚽ Drafting'], ['daily', '📅 Dailies'], ['games', '⚡ Quick games'], ['online', '🌐 Online'], ['collect', '📒 Collecting'], ['secret', '🤫 Secret']];
+  const CATS = [['draft', '🎯 Scores'], ['squad', '🧩 Squads'], ['daily', '📅 Dailies'], ['games', '⚡ Quick games'], ['online', '🌐 Online'], ['collect', '📒 Collecting'], ['secret', '🤫 Secret']];
   const CAT_OF = (id, secret) => secret ? 'secret' : /^daily/.test(id) ? 'daily' : /^on/.test(id) ? 'online'
-    : /^(col|hofall|gball)/.test(id) ? 'collect' : /^(hop|hilo|who|grid|tally)/.test(id) ? 'games' : 'draft';
+    : /^(col|hofall|gball)/.test(id) ? 'collect' : /^(hop|hilo|who|grid|tally)/.test(id) ? 'games'
+    : /^(first|contenders|invincible|relegated|chem5|hof3|wc2|club5|wild5|coin|hard)$/.test(id) ? 'squad' : 'draft';
   const A = [
     // drafts
     ['first', '🥅', 'First XI', 'Finish your first draft.', e => e.type === 'draft'],
@@ -238,7 +239,8 @@
   }
 
   /* ---------------------------------------------------------------- album page */
-  GM.album = function (root, statId = 'goals', book = 'album') {
+  // The Album in four sections (?v=xi|badges|sets|stats), and the badges one category at a time (?c=draft …)
+  GM.album = function (root, statId = 'goals', book = 'album', view = 'xi', cat = '') {
     const purist = book === 'purist';
     if (purist && !GM.allPlayers) {
       root.innerHTML = `<div class="topbar"><a href="#/" class="back">‹</a><h2>💎 Purist collection</h2><span></span></div><div class="loading-all"><div class="splash-bar"><i></i></div></div>`;
@@ -267,6 +269,12 @@
     const bar = (have, all) => `<div class="bar"><i style="width:${all ? have / all * 100 : 0}%"></i></div>`;
     const recent = Object.entries(a.players).sort((x, y) => (y[1] > x[1] ? 1 : -1)).slice(0, 18).map(([k]) => index.get(k)).filter(Boolean);
     const main = load();
+    const VIEWS = purist ? [['xi', '⭐ Dream XI'], ['sets', '🗂️ Sets']] : [['xi', '⭐ Dream XI'], ['badges', '🏅 Badges'], ['sets', '🗂️ Sets'], ['stats', '📊 Stats']];
+    if (!VIEWS.some(v => v[0] === view)) view = 'xi';
+    const link = (o = {}) => { const q = { s: statId !== 'goals' ? statId : '', b: purist ? 'purist' : '', v: view !== 'xi' ? view : '', c: cat, ...o };
+      const qs = Object.entries(q).filter(([, v]) => v).map(([k, v]) => `${k}=${encodeURIComponent(v)}`).join('&'); return '#/album' + (qs ? '?' + qs : ''); };
+    // badges: the first category with something left to earn, unless one was picked
+    if (!CATS.some(c => c[0] === cat)) cat = (CATS.find(([c]) => A.some(x => x.cat === c && !a.ach[x.id])) || CATS[0])[0];
 
     root.innerHTML = `<div class="topbar"><a href="#/" class="back">‹</a><h2>${purist ? '💎 Purist collection' : '📒 Album'}</h2><span></span></div>
       ${GM.albumTabs(purist ? 'purist' : 'album')}
@@ -278,30 +286,29 @@
       <p class="muted center">${purist ? 'The purist\'s album: every one of the ' + fmt(list.length) + ' players to play in the Premier League, collected only through <a href="#/draft?m=purist">💎 Purist</a> drafts (no wildcards, everyone equally likely).'
         : 'Every player you sign in a draft is added to your album. Stored on this device.'}</p>
 
-      <h3 class="section-title">⭐ Your Dream XI</h3>
-      <p class="muted">Your best player in every position, from players you've signed in ${st.name.toLowerCase()} games (×2, ×3… is how many times you've signed him). ${fmt(Object.keys(got).length)} players in your ${st.name.toLowerCase()} book.</p>
-      <div class="hard-toggle small three">${Object.entries(GM.STATS).map(([k, s]) => `<a class="${k === statId ? 'on' : ''}" href="#/album?s=${k}${purist ? '&b=purist' : ''}"><i class="sb-ico">${s.icon}</i>${s.name}</a>`).join('')}</div>
+      <div class="seg album-views">${VIEWS.map(([k, l]) => `<a class="${k === view ? 'on' : ''}" href="${link({ v: k === 'xi' ? '' : k, c: '' })}">${l}</a>`).join('')}</div>
+
+      ${view === 'xi' ? `<p class="muted">Your best player in every position, from players you've signed in ${st.name.toLowerCase()} games (×2, ×3… is how many times you've signed him). ${fmt(Object.keys(got).length)} players in your ${st.name.toLowerCase()} book.</p>
+      <div class="hard-toggle small three">${Object.entries(GM.STATS).map(([k, s]) => `<a class="${k === statId ? 'on' : ''}" href="${link({ s: k === 'goals' ? '' : k })}"><i class="sb-ico">${s.icon}</i>${s.name}</a>`).join('')}</div>
       <div class="pitch"><div class="pitch-lines"></div><div class="shape">${fmt(tot)} ${st.label}</div>
         ${lines.map(l => `<div class="pitch-row">${l.map(([s]) => slot(s)).join('')}</div>`).join('')}</div>
+      ${recent.length ? `<h3 class="section-title">🆕 Recently collected</h3><div class="team-badges">${recent.map(p => `<span>${GM.esc(p.name)}</span>`).join('')}</div>` : ''}` : ''}
 
-      ${purist ? '' : `<h3 class="section-title">🏅 Badges</h3>
-      ${CATS.map(([c, label]) => { const list = A.filter(x => x.cat === c), got = list.filter(x => a.ach[x.id]).length;
-        return `<h4 class="ach-cat">${label} <small>${got}/${list.length}</small></h4><div class="ach-grid">${list.map(x => {
+      ${view === 'badges' ? `<div class="ach-cats">${CATS.map(([c, label]) => { const l = A.filter(x => x.cat === c); return `<a class="${c === cat ? 'on' : ''}" href="${link({ c })}">${label}<small>${l.filter(x => a.ach[x.id]).length}/${l.length}</small></a>`; }).join('')}</div>
+      <div class="ach-grid">${A.filter(x => x.cat === cat).map(x => {
           const hide = x.secret && !a.ach[x.id];
           return `<div class="ach ${a.ach[x.id] ? 'got' : ''} ${hide ? 'secret' : ''}" title="${hide ? 'A secret badge' : GM.esc(x.desc)}">
-            <span class="ach-icon">${a.ach[x.id] ? x.icon : hide ? '❓' : '🔒'}</span><b>${hide ? '???' : x.name}</b><small>${hide ? 'Secret – keep playing to find it' : x.desc}</small></div>`; }).join('')}</div>`; }).join('')}`}
+            <span class="ach-icon">${a.ach[x.id] ? x.icon : hide ? '❓' : '🔒'}</span><b>${hide ? '???' : x.name}</b><small>${hide ? 'Secret – keep playing to find it' : x.desc}</small></div>`; }).join('')}</div>` : ''}
 
-      ${purist ? '' : picksHtml()}
-      <h3 class="section-title">🗂️ Sets</h3>
-      <div class="sets">${SETS.map(s => {
+      ${view === 'stats' ? picksHtml() : ''}
+
+      ${view === 'sets' ? `<div class="sets">${SETS.map(s => {
         const m = setMembers[s.id].map(i => GM.players[i]), have = m.filter(has);
         return `<details class="set"><summary><span>${s.icon} ${s.name}</span><span>${have.length}/${m.length}</span>${bar(have.length, m.length)}</summary>
           <div class="set-list">${m.sort((x, y) => y.fame - x.fame).map(p => `<span class="${has(p) ? 'have' : ''}">${has(p) ? '✅' : '▫️'} ${GM.esc(p.name)}</span>`).join('')}</div></details>`;
       }).join('')}</div>
 
       <details class="set clubs-block"><summary><span>🏟️ Clubs</span><span>${clubSets.filter(([, h, n]) => h === n).length}/${clubSets.length} complete</span></summary>
-        <div class="sets">${clubSets.map(([c, h, n]) => `<div class="club-set">${GM.clubChip(c)}<span>${GM.esc(c)}</span><span>${h}/${n}</span>${bar(h, n)}</div>`).join('')}</div></details>
-
-      ${recent.length ? `<h3 class="section-title">🆕 Recently collected</h3><div class="team-badges">${recent.map(p => `<span>${GM.esc(p.name)}</span>`).join('')}</div>` : ''}`;
+        <div class="sets">${clubSets.map(([c, h, n]) => `<div class="club-set">${GM.clubChip(c)}<span>${GM.esc(c)}</span><span>${h}/${n}</span>${bar(h, n)}</div>`).join('')}</div></details>` : ''}`;
   };
 })();

@@ -24,6 +24,9 @@ game mode for players; this file is about how to work on it.
   number; `label` = the version players see, in three levels: **5.0** a big change to how the game plays, **4.10**
   new features or modes (4.9 → 4.10 → 4.11), **4.10.1** bug fixes and polish only (the Updates page folds these into
   the release they patch).
+- **Announce feature releases:** after merging a release with a new mode or a big feature (4.10, 5.0, not fix-ups),
+  insert one row into `announcements` (title, body, link to the new thing, e.g. `…/goal-machine/#/updates`).
+  Players with "New game modes" on get it as a notification within ~15 minutes (once, for 3 days).
 
 ## Code map (`goal-machine/js/`, plain scripts on a global `GM`, no build step)
 - `core.js` – shared helpers: storage (`GM.store`, keys prefixed `gm:`), seeded RNG (`GM.rng`), avatars and photo

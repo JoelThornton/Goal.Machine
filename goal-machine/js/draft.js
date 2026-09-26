@@ -819,8 +819,10 @@
     return `<div class="m-top">${top}</div><div class="m-next">${next}</div>`;
   }
 
+  // only draw while you're still on this game: a delayed animation or sound cue must never paint a draft over the page you went to
+  const onThisGame = () => { const h = location.hash; return S.online ? h.includes(S.online.code) : /^#\/(draft|daily)\b/.test(h); };
   function render() {
-    if (!S) return;
+    if (!S || !onThisGame()) return;
     if (S.phase === 'done') return renderDone();
     requestAnimationFrame(fitPitch);
     if (!S.readonly && saveKey()) GM.store.set(saveKey(), { ...S, rules: undefined });  // saved on every move
@@ -835,7 +837,7 @@
       ${counterHtml()}
       ${pitchHtml()}
       <div class="dock">
-      ${S.rules.wild === false ? '' : `<div class="inv"><span class="inv-label">Wildcards ${S.inv.length}/3</span>${S.inv.length ? S.inv.map((w, k) =>
+      ${S.rules.wild === false ? '' : `<div class="inv ${S.inv.length ? 'has' : ''}"><span class="inv-label">${S.inv.length ? `🃏 ${S.inv.length}/3` : 'Wildcards 0/3'}</span>${S.inv.length ? S.inv.map((w, k) =>
       `<button class="wild-btn ${S.subbing === k ? 'active' : ''}" data-w="${k}" title="${GM.esc(WILDCARDS[w].desc(wst()))}">${WILDCARDS[w].icon}<small>${WILDCARDS[w].name}</small></button>`).join('')
         : '<span class="muted">none yet · they turn up on the reels</span>'}</div>`}
       <div class="stage ${S.hard ? 'hard' : ''}">${S.phase === 'spin' ? `<div class="spin-zone"><button class="btn big spin" id="spin">🎰 SPIN</button></div>` : `<div class="reels ${nReels > 3 ? 'n5' : ''}">${Array.from({ length: nReels }, (_, i) => {

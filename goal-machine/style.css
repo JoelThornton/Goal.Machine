@@ -1074,3 +1074,15 @@ button.icon-btn.lb-btn { font: inherit; font-size: 1.1rem; cursor: pointer; }
 .stage .reel-goals small { flex-basis: 100%; }
 .stage .reel .reel-meta { row-gap: 1px; line-height: 1.2; }
 .stage .reel:has(.mate) .chips { display: none; } .stage .mate + .avatar { margin-top: 10px; }
+/* the three stats always look the same: icon on top, name underneath, all three on one row */
+.hard-toggle .sb-ico, .stat-seg .sb-ico { font-style: normal; font-size: 1.1rem; line-height: 1.2; display: block; }
+.stat-seg button { display: flex; flex-direction: column; align-items: center; }
+.hard-toggle.three > *, .stat-seg button, .stat-pick .stat-btn, .stat-row .stat-btn { white-space: nowrap; min-width: 0; }
+.stat-pick .stat-btn { flex: 1 1 0; font-size: clamp(.72rem, 3.2vw, .88rem); padding-left: 3px; padding-right: 3px; }
+.stat-row .stat-btn { flex: 1 1 0; font-size: clamp(.72rem, 3.2vw, .88rem); }
+.hard-toggle.three > *, .stat-seg button { font-size: clamp(.72rem, 3.2vw, .85rem); }
+/* wildcards you hold share the bar equally, so the third is never pushed off the edge */
+.page-draft .inv.has { gap: 5px; }
+.page-draft .inv.has .inv-label { margin-right: 0; }
+.page-draft .inv .wild-btn { flex: 1 1 0; min-width: 0; justify-content: center; }
+.page-draft .inv .wild-btn small { overflow: hidden; text-overflow: ellipsis; min-width: 0; }

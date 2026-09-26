@@ -179,7 +179,7 @@
           <input class="input" id="nname" maxlength="20" placeholder="…or type their name" value="" autocomplete="off"></div>
         <div class="setting"><b>Game</b><div class="seg wrap" id="nkind">${Object.entries(KIND).map(([k, v]) => `<button data-v="${k}" class="${k === kind ? 'on' : ''}">${v.icon} ${v.name}</button>`).join('')}</div>
           <small id="nkdesc"></small></div>
-        <div class="setting"><b>Stat</b><div class="seg" id="nstat">${Object.entries(GM.STATS).map(([k, s]) => `<button data-v="${k}" class="${k === stat ? 'on' : ''}">${s.icon} ${s.name}</button>`).join('')}</div></div>
+        <div class="setting"><b>Stat</b><div class="seg stat-seg" id="nstat">${Object.entries(GM.STATS).map(([k, s]) => `<button data-v="${k}" class="${k === stat ? 'on' : ''}"><i class="sb-ico">${s.icon}</i>${s.name}</button>`).join('')}</div></div>
         <div class="row"><button class="btn ghost" data-close>Cancel</button><button class="btn" id="ngo">Start ⚽</button></div>`);
       const desc = () => { GM.$('#nkdesc', m.el).textContent = kind === 'duel'
         ? 'Take turns picking from the same five players each spin. The better XI wins 60 points, the better squad rating 40.'

@@ -240,7 +240,7 @@
 
       <h3 class="section-title">⭐ Your Dream XI</h3>
       <p class="muted">Your best player in every position, from players you've signed in ${st.name.toLowerCase()} games (×2, ×3… is how many times you've signed him). ${fmt(Object.keys(got).length)} players in your ${st.name.toLowerCase()} book.</p>
-      <div class="hard-toggle small three">${Object.entries(GM.STATS).map(([k, s]) => `<a class="${k === statId ? 'on' : ''}" href="#/album?s=${k}${purist ? '&b=purist' : ''}">${s.icon} ${s.name}</a>`).join('')}</div>
+      <div class="hard-toggle small three">${Object.entries(GM.STATS).map(([k, s]) => `<a class="${k === statId ? 'on' : ''}" href="#/album?s=${k}${purist ? '&b=purist' : ''}"><i class="sb-ico">${s.icon}</i>${s.name}</a>`).join('')}</div>
       <div class="pitch"><div class="pitch-lines"></div><div class="shape">${fmt(tot)} ${st.label}</div>
         ${lines.map(l => `<div class="pitch-row">${l.map(([s]) => slot(s)).join('')}</div>`).join('')}</div>
 

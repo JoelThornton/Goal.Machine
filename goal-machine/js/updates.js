@@ -9,6 +9,15 @@
 (function () {
   GM.UPDATES = [
     {
+      v: 32, label: '5.3', date: '2026-09-26', title: '🎲 Quick match: a new game every day',
+      items: [
+        '🎲 Quick match is now one game a day, the same for everyone, so you’re all in the same queue and find a match faster. It rotates Live Race, Hat-Trick, CHAOS Race, Draft Duel, Target Race and Scout Duel, each with its own banner. Tomorrow’s game is shown too',
+        '🏁 A Quick match race now waits for your opponent before anyone starts, so nobody gets a head start. After a minute you can play on your own instead',
+        '✕ Leave a Live Race any time with the ✕ on the bar at the top of the draft',
+        '🎵 The music fades out and back in when you leave and return to the app, instead of popping',
+      ],
+    },
+    {
       v: 31, label: '5.2', date: '2026-09-26', app: 26, title: 'Instant notifications, and faces on the cards',
       items: [
         '⚡ Instant notifications: “your move”, challenges, results and new friends now arrive the moment they happen, not up to 15 minutes later. Get the new app (build 26) with the update button',

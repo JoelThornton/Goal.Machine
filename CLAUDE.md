@@ -59,7 +59,9 @@ Everything goes through security-definer RPCs that check the account with `gm_au
   friends (`online_friends`, `online_add_friend`, `online_remove_friend`), `friends_week` (league).
 - Quick match: `quick_match(p_user, p_key, p_kind, p_stat, p_variant)` joins the oldest open `quick` room of that game
   from the last 30 minutes, reuses your own waiting one, or opens one (max 3); no auto-befriend. Turn-by-turn games
-  offer the computer after a minute (`QM_WAIT` in online.js); a Live Race just starts.
+  offer the computer (Hat-Trick) or a solo draft after a minute (`QM_WAIT` in online.js); races wait for an opponent too.
+  The app plays one game a day for everyone (`QM_DAYS` in online.js, by UTC day, always goals) so nobody's queue is split;
+  the server accepts race (plain/chaos/target) and duel (plain/hattrick/scout).
 - `gm_finalise` decides results once both players are done: races 50/30/20 (total / rating / speed), duels and
   auction 60/40, Target Race = closest (`d`) wins 100–0, CHAOS Race = most CHAOS points (`c`) wins 100–0.
 - Names: `gm_name_ok` (offensive-word filter, used by `claim_name`, `rename_account` and `name_available`, which returns

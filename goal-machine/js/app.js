@@ -59,6 +59,13 @@
     return 'handled';
   };
 
+  // the ‹ in the top bar: when it points at the page you're already on (a Hat-Trick in progress is still #/hattrick),
+  // changing the address does nothing, so draw that page afresh instead
+  document.addEventListener('click', e => {
+    const a = e.target.closest && e.target.closest('a.back');
+    if (!a || e.defaultPrevented || a.getAttribute('href') !== location.hash) return;
+    e.preventDefault(); GM.sound.play('tap'); route();
+  });
   // the ‹ in the top bar asks too, while a market game is half-way
   document.addEventListener('click', e => {
     const a = e.target.closest('a.back');

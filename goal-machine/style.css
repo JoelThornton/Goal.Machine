@@ -1314,3 +1314,29 @@ button.icon-btn.lb-btn { font: inherit; font-size: 1.1rem; cursor: pointer; }
 @keyframes qm-look { 0%, 100% { transform: rotate(-12deg); } 50% { transform: rotate(12deg) scale(1.08); } }
 .qm-cpu { grid-column: 1 / -1; display: flex; flex-direction: column; align-items: center; gap: 6px; margin-top: 6px; padding-top: 8px; border-top: 1px dashed rgba(0, 0, 0, .2); text-align: center; }
 .qm-cpu[hidden] { display: none; }
+/* Hat-Trick: full names on the pitch, and the card you've picked up */
+.ht-trick > div { display: flex; flex-direction: column; align-items: center; gap: 2px; }
+.ht-tname { max-width: 84px; padding: 1px 6px; border-radius: 6px; background: rgba(7, 38, 29, .85); color: #f2fbf6; font: 700 .62rem/1.15 Inter, sans-serif; text-align: center; }
+.ht-trick .ht-card { width: 50px; height: 72px; }
+.ht-preview { display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: 10px; margin: 14px 0 0; padding: 8px 10px; border-radius: 14px; background: var(--panel); border: 2px solid var(--line); box-shadow: 0 3px 0 var(--edge); animation: pop .2s; }
+.ht-preview.suit-L { border-color: #d4a017; } .ht-preview.suit-F { border-color: #d62839; } .ht-preview.suit-M { border-color: #1f63b5; } .ht-preview.suit-D { border-color: #1c7a3e; } .ht-preview.joker { border-color: #b33cff; }
+.htp-pic { font-size: 1.8rem; line-height: 1; }
+.htp-info { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.htp-info > b { font: 700 1.05rem Oswald, sans-serif; line-height: 1.1; }
+.htp-info small { color: var(--muted); font-size: .78rem; }
+.htp-info .chips { margin: 2px 0 0; }
+.htp-go { display: flex; flex-direction: column; align-items: center; gap: 4px; }
+.htp-x { border: 0; background: none; color: var(--muted); font-size: .9rem; cursor: pointer; }
+/* the ‹ in the top bar: a proper finger-sized target (it was just the character, so near misses did nothing) */
+.topbar .back { display: inline-flex; align-items: center; justify-content: center; min-width: 48px; min-height: 48px; margin: -6px 0 -6px -12px; padding: 0 6px; border-radius: 14px; -webkit-tap-highlight-color: transparent; }
+.topbar .back:active { background: var(--inset); }
+.ht-preview { box-sizing: border-box; width: 100%; max-width: 100%; overflow: hidden; }
+.htp-info > b { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.htp-info .chips { flex-wrap: nowrap; overflow: hidden; }
+/* card faces: the player's photo, the suit underneath (the number lives on the edge strip only) */
+.htc-face .avatar.htc-face-pic { width: 34px; height: 34px; border: 2px solid rgba(255, 255, 255, .85); box-shadow: 0 2px 4px rgba(0, 0, 0, .35); font-size: .7rem; }
+.ht-card.suit-L .htc-face .avatar.htc-face-pic { border-color: #7a5400; }
+.htc-face .htc-suit { font-size: .8rem; line-height: 1; }
+.ht-trick .ht-card { width: 56px; height: 80px; }
+.ht-trick .htc-face .avatar.htc-face-pic { width: 30px; height: 30px; }
+.ht-fan .htc-face .avatar.htc-face-pic { width: 30px; height: 30px; }

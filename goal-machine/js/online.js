@@ -138,7 +138,9 @@
       };
       const block = (title, list, empty) => `<h3 class="section-title">${title}${list.length && list === yours ? ` <span class="count">${list.length}</span>` : ''}</h3>
         ${list.length ? `<div class="og-list">${list.map(line).join('')}</div>` : `<p class="muted center">${empty}</p>`}`;
-      GM.$('#olists').innerHTML = (yours.length ? block('👉 Your move', yours, '')
+      const quick = friends.slice(0, 5);
+      GM.$('#olists').innerHTML = (quick.length ? `<div class="og-quick"><small>⚡ Play again</small><div>${quick.map(f => `<button data-quick="${esc(f.name)}">${GM.userPic(f.name)}<span>${esc(f.name)}</span></button>`).join('')}</div></div>` : '')
+        + (yours.length ? block('👉 Your move', yours, '')
           : !rows.length ? `<div class="og-empty og-first"><b>Play your mates online</b>
               <ol><li><b>Pick a game</b> – a Live Race is the easiest to start with</li><li><b>Send the invite</b> – your mate taps the link and they’re in</li><li><b>Play whenever suits</b> – you’ll get a notification when it’s your move</li></ol>
               <button class="btn big" id="onew2">⚔️ Start a game</button>
@@ -147,6 +149,7 @@
         + (theirs.length ? block('⏳ Their move', theirs, '') : '');
       GM.$('#odone').innerHTML = done.length ? `<div class="og-list">${done.slice(0, 30).map(line).join('')}</div>` : '<p class="muted center">No finished games yet.</p>';
       const nb = GM.$('#onew2'); if (nb) nb.onclick = () => newGame();
+      GM.$$('[data-quick]').forEach(b => b.onclick = () => newGame(b.dataset.quick));
       const j2 = GM.$('#ojoin2'); if (j2) j2.onclick = () => { const c = GM.$('#ocode2').value.trim().toUpperCase(); if (c.length === 5) location.hash = '#/online?join=' + c; else GM.toast('Codes are 5 letters'); };
       // the Games tab shows how many are waiting on you; the list itself marks your moves loudly
       const n = GM.$('[data-n="games"]'); if (n) { n.textContent = yours.length || ''; n.classList.toggle('hot', !!yours.length); }
@@ -185,27 +188,39 @@
       ['chaos', 'CHAOS on the same spins, events and storms. Most points wins.'],
       ['auction', '£200m each and secret bids on every player.'],
     ];
-    function newGame(opp = '') {
-      let kind = GM.store.get('onlineKind', 'race'), stat = GM.store.get('onlineStat', 'goals');
+    function newGame(opp) {
+      if (opp == null) opp = friends.length ? friends[0].name : '';  // most people play the same mates: the latest is picked
+      const lastWith = GM.store.get('onlineLastKind', {});           // the game you last played with each friend
+      let kind = (opp && lastWith[opp]) || GM.store.get('onlineKind', 'race'), stat = GM.store.get('onlineStat', 'goals');
       const card = ([k, d]) => `<button class="ng-game ${k === kind ? 'on' : ''}" data-k="${k}"><span>${KIND[k].icon}</span><b>${KIND[k].name}</b><small>${d}</small></button>`;
       const m = GM.modal(`<h3>⚔️ Play a mate</h3>
-        <p class="ng-step">1 · Pick a game</p>
+        <p class="ng-step">1 · Who against?</p>
+        <div class="ng-opps" id="nopp">${friends.map(f => `<button data-v="${esc(f.name)}" class="${f.name === opp ? 'on' : ''}">${GM.userPic(f.name)}<span>${esc(f.name)}</span></button>`).join('')}
+          <button data-v="" class="ng-invite ${!opp ? 'on' : ''}"><i>🔗</i><span>${friends.length ? 'Invite' : 'Send an invite link'}</span></button></div>
+        <input class="input ng-name" id="nname" maxlength="20" placeholder="…or type a player’s name" value="" autocomplete="off">
+        <p class="ng-step">2 · Pick a game</p>
         <div class="ng-games">${GAMES.slice(0, 2).map(card).join('')}</div>
         <details class="ng-more" ${GAMES.slice(2).some(g => g[0] === kind) ? 'open' : ''}><summary>More games</summary><div class="ng-games">${GAMES.slice(2).map(card).join('')}</div></details>
-        <p class="ng-step">2 · Who against?</p>
-        <div class="seg wrap" id="nopp"><button data-v="" class="${!opp ? 'on' : ''}">🔗 Send an invite link</button>${friends.map(f => `<button data-v="${esc(f.name)}" class="${f.name === opp ? 'on' : ''}">${esc(f.name)}</button>`).join('')}</div>
-        <input class="input ng-name" id="nname" maxlength="20" placeholder="…or type a player’s name" value="" autocomplete="off">
         <div class="ng-stat"><small>Counting</small><div class="seg stat-seg" id="nstat">${Object.entries(GM.STATS).map(([k, s]) => `<button data-v="${k}" class="${k === stat ? 'on' : ''}"><i class="sb-ico">${s.icon}</i>${s.name}</button>`).join('')}</div></div>
         <div class="row"><button class="btn ghost" data-close>Cancel</button><button class="btn" id="ngo"></button></div>`);
       const label = () => { GM.$('#ngo', m.el).textContent = `Start ${KIND[kind].name} ⚽`; };
       label();
       GM.$$('.ng-game', m.el).forEach(b => b.onclick = () => { kind = b.dataset.k; GM.store.set('onlineKind', kind); GM.$$('.ng-game', m.el).forEach(x => x.classList.toggle('on', x === b)); GM.sound.play('tick'); label(); });
       const seg = (id, set) => GM.$$(`#${id} button`, m.el).forEach(b => b.onclick = () => { set(b.dataset.v); GM.$$(`#${id} button`, m.el).forEach(x => x.classList.toggle('on', x === b)); });
-      seg('nopp', v => { opp = v; GM.$('#nname', m.el).value = ''; });
+      seg('nopp', v => {
+        opp = v; GM.$('#nname', m.el).value = '';
+        if (v && lastWith[v] && lastWith[v] !== kind) {  // jump to the game you usually play with them
+          kind = lastWith[v]; const card = GM.$(`.ng-game[data-k="${kind}"]`, m.el);
+          GM.$$('.ng-game', m.el).forEach(x => x.classList.toggle('on', x === card));
+          if (card && card.closest('.ng-more')) card.closest('.ng-more').open = true;
+          label();
+        }
+      });
       seg('nstat', v => { stat = v; GM.store.set('onlineStat', v); });
       GM.$('#ngo', m.el).onclick = async () => {
         const typed = GM.$('#nname', m.el).value.trim(), who = typed || opp;
         const code = await create(kind, stat, who);
+        if (code && who) GM.store.set('onlineLastKind', { ...GM.store.get('onlineLastKind', {}), [who]: kind });
         if (code) { m.close(); location.hash = '#/online?room=' + code; }
       };
     }

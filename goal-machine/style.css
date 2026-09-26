@@ -1289,3 +1289,13 @@ button.icon-btn.lb-btn { font: inherit; font-size: 1.1rem; cursor: pointer; }
 .ng-stat { margin-top: 10px; }
 .ng-stat small { display: block; font: 800 .7rem Inter, sans-serif; text-transform: uppercase; color: var(--muted); margin-bottom: 4px; }
 .banner.invite .inv-text { flex-basis: 100%; } .banner.invite .inv-code { font-size: .85rem; } .banner.invite .inv-code b { font-size: 1.1rem; letter-spacing: 1px; }
+/* Online: play your usual mates in one tap */
+.og-quick { margin: 4px 0 12px; }
+.og-quick small, .ng-quick small { display: block; font: 800 .7rem Inter, sans-serif; text-transform: uppercase; color: var(--muted); margin-bottom: 6px; }
+.og-quick > div, .ng-opps { display: flex; gap: 8px; overflow-x: auto; padding-bottom: 4px; scrollbar-width: none; }
+.og-quick button, .ng-opps button { flex: none; display: flex; flex-direction: column; align-items: center; gap: 4px; width: 68px; padding: 8px 4px; border-radius: 14px; border: 2px solid var(--line); background: var(--panel); color: var(--text); font: 700 .75rem Inter, sans-serif; cursor: pointer; }
+.og-quick button span, .ng-opps button span { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ng-opps button.on { border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent); }
+.ng-opps .ng-invite i { font-style: normal; font-size: 1.4rem; line-height: 36px; }
+.ng-opps .ng-invite:only-child { width: 100%; flex-direction: row; justify-content: center; }
+.og-quick { margin-top: 12px; }

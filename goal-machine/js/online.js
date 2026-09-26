@@ -19,8 +19,12 @@
   const esc = GM.esc, fmt = n => Math.round(n).toLocaleString();
   // modes in the weekly friends league
   const LEAGUE = [['ultimate', '👑 Ultimate'], ['chaos', '🌪️ CHAOS'], ['dchaos', '📅 Daily CHAOS'], ['daily', '📅 Daily Ultimate'], ['mbdaily', '💰 Daily Moneyball'], ['moneyball', '💰 Moneyball']];
-  const KIND = { duel: { icon: '🤝', name: 'Draft Duel' }, scout: { icon: '🕵️', name: 'Scout Duel' }, race: { icon: '🏁', name: 'Live Race' }, auction: { icon: '🔨', name: 'Auction' } };
-  const gk = g => (g.variant === 'scout' ? 'scout' : g.kind);  // a Scout Duel is a Draft Duel with hidden names
+  const KIND = { duel: { icon: '🤝', name: 'Draft Duel' }, scout: { icon: '🕵️', name: 'Scout Duel' }, race: { icon: '🏁', name: 'Live Race' },
+    target: { icon: '🎯', name: 'Target Race' }, chaos: { icon: '🌪️', name: 'CHAOS Race' }, auction: { icon: '🔨', name: 'Auction' } };
+  // a Scout Duel is a Draft Duel with hidden names; Target and CHAOS Races are Live Races played in those modes
+  const gk = g => (['scout', 'target', 'chaos'].includes(g.variant) ? g.variant : g.kind);
+  const serverKind = k => (k === 'scout' ? 'duel' : k === 'target' || k === 'chaos' ? 'race' : k);
+  const raceMode = r => (r.variant === 'target' ? 'target' : r.variant === 'chaos' ? 'chaos' : 'ultimate');
   const rpc = (f, a) => GM.lb.rpc(f, a);
   const auth = () => { const a = GM.account(); return a ? { p_user: a.name, p_key: a.key } : null; };
   const me = () => (GM.account() || {}).name || '';
@@ -173,13 +177,15 @@
           <div class="seg wrap" id="nopp">${friends.map(f => `<button data-v="${esc(f.name)}" class="${f.name === opp ? 'on' : ''}">${esc(f.name)}</button>`).join('')}
           <button data-v="" class="${!opp ? 'on' : ''}">🔗 Anyone (send a code)</button></div>
           <input class="input" id="nname" maxlength="20" placeholder="…or type their name" value="" autocomplete="off"></div>
-        <div class="setting"><b>Game</b><div class="seg" id="nkind">${Object.entries(KIND).map(([k, v]) => `<button data-v="${k}" class="${k === kind ? 'on' : ''}">${v.icon} ${v.name}</button>`).join('')}</div>
+        <div class="setting"><b>Game</b><div class="seg wrap" id="nkind">${Object.entries(KIND).map(([k, v]) => `<button data-v="${k}" class="${k === kind ? 'on' : ''}">${v.icon} ${v.name}</button>`).join('')}</div>
           <small id="nkdesc"></small></div>
         <div class="setting"><b>Stat</b><div class="seg" id="nstat">${Object.entries(GM.STATS).map(([k, s]) => `<button data-v="${k}" class="${k === stat ? 'on' : ''}">${s.icon} ${s.name}</button>`).join('')}</div></div>
         <div class="row"><button class="btn ghost" data-close>Cancel</button><button class="btn" id="ngo">Start ⚽</button></div>`);
       const desc = () => { GM.$('#nkdesc', m.el).textContent = kind === 'duel'
         ? 'Take turns picking from the same five players each spin. The better XI wins 60 points, the better squad rating 40.'
         : kind === 'scout' ? 'A Draft Duel on scouting reports: no names, just a few clues on each player. Scout, blindfold and swap cards to play once each.'
+        : kind === 'target' ? 'A new target every game (some much harder than others). You both chase it on the same spins, whenever suits you – whoever finishes closest wins.'
+        : kind === 'chaos' ? 'Ultimate Wildcard CHAOS on the same spins, events and storms. Most CHAOS points (your total plus every bonus) wins.'
         : kind === 'auction' ? '£200m each and one player per lot. Bid in secret: the higher bid signs him. Tallies stay hidden until full time. 60 points for the bigger total, 40 for the better squad rating.'
         : 'You both build an Ultimate XI on the same spins, whenever you like. 50 points for the bigger total, 30 for the better squad rating, 20 for the quicker XI.'; };
       desc();
@@ -199,7 +205,7 @@
 
   async function create(kind, stat, opp) {
     try {
-      const r = await rpc('online_create', { ...auth(), p_kind: kind === 'scout' ? 'duel' : kind, p_stat: stat, p_opp: opp || null, p_variant: kind === 'scout' ? 'scout' : null });
+      const r = await rpc('online_create', { ...auth(), p_kind: serverKind(kind), p_stat: stat, p_opp: opp || null, p_variant: serverKind(kind) === kind ? null : kind });
       if (r && r.code) { if (opp) GM.toast(`⚔️ Challenge sent to ${esc(opp)}`); return r.code; }
       GM.toast(r && r.error === 'no_user' ? `Nobody's called “${esc(opp)}” yet` : r && r.error === 'self' ? 'You can’t play yourself!' : r && r.error === 'auth' ? 'Your name isn’t set up on this phone' : 'Couldn’t start the game');
     } catch (e) { GM.toast('Couldn’t reach the server – try again'); }
@@ -265,9 +271,12 @@
     const them = other(seat), opp = r[them], mine = r.race[seat] || {}, theirs = r.race[them] || {};
     const S = GM.draft.state(), inDraft = !!(S && S.online && S.online.code === r.code && GM.$('#oppbar, #race-result', root));
     if (!mine.done && r.status !== 'done') {
-      if (!inDraft) GM.draft.start(root, 'ultimate', { seed: r.seed, stat: r.stat, online: { code: r.code, seat, opp: opp || 'someone' } });
+      if (!inDraft) GM.draft.start(root, raceMode(r), { seed: r.seed, stat: r.stat, online: { code: r.code, seat, opp: opp || 'someone' } });
+      GM.chaosLook(r.variant === 'chaos');
+      if (r.variant === 'chaos') GM.sound.scene('chaos');
       const bar = GM.$('#oppbar', root);
-      if (bar) bar.innerHTML = opp ? `<span>🏁 <b>${esc(opp)}</b>: ${fmt(theirs.t || 0)} ${GM.STATS[r.stat].label} · ${theirs.n || 0}/11${theirs.done ? ' ✓ done' : ''}</span>`
+      const theirScore = r.variant === 'chaos' ? `${fmt(theirs.c || 0)} pts` : r.variant === 'target' ? `${theirs.n ? `${fmt(theirs.d || 0)} off` : '–'}` : `${fmt(theirs.t || 0)} ${GM.STATS[r.stat].label}`;
+      if (bar) bar.innerHTML = opp ? `<span>${KIND[gk(r)].icon} <b>${esc(opp)}</b>: ${theirScore} · ${theirs.n || 0}/11${theirs.done ? ' ✓ done' : ''}</span>`
         : `<span>🔗 Waiting for someone to join (code <b>${r.code}</b>) – play your XI now</span> <button class="btn small" id="oshare">📤</button>`;
       wireInvite(root, r);
       return;
@@ -291,7 +300,9 @@
     o.ms = (o.ms || 0) + Math.min(90000, Math.max(0, now - (o.lastT || now)));  // time spent playing, not time away
     o.lastT = now;
     const xi = S.xi.filter(s => s.p != null).map(s => ({ pos: s.pos, player: GM.players[s.p] }));
-    const sum = { t: GM.draft.total(S), n: xi.length, done: S.phase === 'done', r: xi.length ? GM.teamRating(xi).score : 0, ms: o.ms,
+    const sc = GM.draft.score(S);
+    const sum = { t: sc.t, n: xi.length, done: S.phase === 'done', r: xi.length ? GM.teamRating(xi).score : 0, ms: o.ms,
+      ...(S.mode === 'target' ? { tg: S.target, d: Math.abs(S.target - sc.t) } : S.mode === 'chaos' ? { c: sc.total } : {}),
       x: S.xi.map(s => (s.p != null ? [s.pos, GM.players[s.p].pk, s.g] : [s.pos])) };
     GM.store.set('racep:' + o.code, { ...S, rules: undefined });
     rpc('online_move', { ...auth(), p_code: o.code, p_seq: 0, p_move: null, p_sum: sum, p_turn: null })
@@ -316,25 +327,30 @@
     const sums = s => {
       const t = team(s), xi = t.filter(x => x.p).map(x => ({ pos: x.pos, player: x.p }));
       const base = r.race[s] || {};
-      return { t: duelXi ? t.reduce((a, x) => a + (x.v || 0), 0) : base.t || 0, r: xi.length ? GM.teamRating(xi).score : 0, ms: base.ms, n: xi.length, done: !!base.done };
+      return { t: duelXi ? t.reduce((a, x) => a + (x.v || 0), 0) : base.t || 0, r: xi.length ? GM.teamRating(xi).score : 0, ms: base.ms, n: xi.length, done: !!base.done,
+        d: base.d, c: base.c || 0, tg: base.tg };
     };
     const A = sums(seat), B = sums(them);
     const weights = r.kind === 'race' ? [50, 30, 20] : [60, 40, 0];
     const mmss = ms => (ms == null ? '–' : `${Math.floor(ms / 60000)}m ${String(Math.round(ms / 1000) % 60).padStart(2, '0')}s`);
-    const rows = [
+    // Target and CHAOS Races are all-or-nothing: closest to the target, or most CHAOS points
+    const tg = A.tg || B.tg, off = x => (x.d == null ? '–' : x.d === 0 ? '🎯 bullseye' : `${fmt(x.d)} off`);
+    const rows = r.variant === 'target' ? [[`🎯 Closest to ${tg ? fmt(tg) : 'the target'}`, 100, `${fmt(A.t)} · ${off(A)}`, `${fmt(B.t)} · ${off(B)}`, Math.sign((B.d ?? 1e9) - (A.d ?? 1e9))]]
+      : r.variant === 'chaos' ? [['🌪️ Most CHAOS points', 100, fmt(A.c), fmt(B.c), Math.sign(A.c - B.c)]]
+      : [
       [`${st.icon} Bigger total`, weights[0], fmt(A.t), fmt(B.t), Math.sign(A.t - B.t)],
       ['⭐ Better squad rating', weights[1], A.r, B.r, Math.sign(A.r - B.r)],
     ];
-    if (weights[2]) rows.push(['⚡ Quicker XI', weights[2], mmss(A.ms), mmss(B.ms), Math.sign((B.ms || 1e12) - (A.ms || 1e12))]);
+    if (weights[2] && !r.variant) rows.push(['⚡ Quicker XI', weights[2], mmss(A.ms), mmss(B.ms), Math.sign((B.ms || 1e12) - (A.ms || 1e12))]);
     const bothDone = A.done && B.done;
     const pts = r.result ? [r.result[seat], r.result[them]] : null;
     const side = (t, cls) => `<div class="cmp-xi ${cls}">${t.map(x => `<div class="cx ${x.p ? '' : 'empty'}"><span class="pos pos-${GM.GROUP[x.pos]}">${x.pos}</span>
         <b>${x.p ? esc(x.p.name.split(' ').slice(-1)[0]) : '–'}</b><i>${x.p ? fmt(x.v) : ''}</i></div>`).join('')}</div>`;
     root.innerHTML = `${top(KIND[gk(r)].name, '#/online')}
       <div class="h2h-board duel-board">
-        <div class="h2h-team p1">${GM.userPic(me(), 'board')}<b>You</b><strong>${pts ? fmt(pts[0]) : fmt(A.t)}</strong><small>${pts ? 'points' : `${A.n}/11`}</small></div>
-        <div class="h2h-mid"><small>${st.icon} ${st.name}</small><span>VS</span><small id="orec"></small></div>
-        <div class="h2h-team p2">${r[them] ? GM.userPic(opp, 'board') : ''}<b>${esc(opp)}</b><strong>${pts ? fmt(pts[1]) : fmt(B.t)}</strong><small>${pts ? 'points' : `${B.n}/11${B.done ? ' ✓' : ''}`}</small></div></div>
+        <div class="h2h-team p1">${GM.userPic(me(), 'board')}<b>You</b><strong>${pts ? fmt(pts[0]) : fmt(r.variant === 'chaos' ? A.c : A.t)}</strong><small>${pts ? 'points' : `${A.n}/11`}</small></div>
+        <div class="h2h-mid"><small>${r.variant === 'target' && tg ? `🎯 ${fmt(tg)} ${st.label}` : `${st.icon} ${st.name}`}</small><span>VS</span><small id="orec"></small></div>
+        <div class="h2h-team p2">${r[them] ? GM.userPic(opp, 'board') : ''}<b>${esc(opp)}</b><strong>${pts ? fmt(pts[1]) : fmt(r.variant === 'chaos' ? B.c : B.t)}</strong><small>${pts ? 'points' : `${B.n}/11${B.done ? ' ✓' : ''}`}</small></div></div>
       ${r.result ? `<div class="banner race-final">${resultLine(r, seat)}</div>`
         : `<div class="banner">⏳ ${r.guest ? `${esc(opp)} is still building their XI (${B.n}/11). You can watch it fill up here.` : 'Nobody has joined yet.'}</div>`}
       ${inviteBar(r)}

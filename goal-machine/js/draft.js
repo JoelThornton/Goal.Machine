@@ -11,6 +11,9 @@
   const TREBLE = { goals: 400, assists: 300, apps: 3300 };
   // Mystery Target: stat and number are drawn at random; the number stays hidden until full time
   const MYSTERY = { goals: [300, 650], assists: [220, 420], apps: [2600, 4200] };
+  // Target Race (online): a new target every game, anywhere in this range - some are much harder than others,
+  // but you both chase the same one on the same spins, so it's all about who gets closer
+  const RACE_TARGET = { goals: [220, 800], assists: [150, 520], apps: [2200, 5000] };
   const STAT_KEYS = ['goals', 'assists', 'apps'];
   // "big number" filter for the Centurion Throw, per stat
   const BIG = { goals: 100, assists: 50, apps: 400 };
@@ -86,7 +89,7 @@
   let S = null; // game state
   let root = null;
 
-  GM.draft = { start, RULES, WILDCARDS, TARGETS, state: () => S, total: st => scoreFor(st).t, render: () => render(), modeKey: (m, s, h, c) => keyFor(m, s, h, c) };
+  GM.draft = { start, RULES, WILDCARDS, TARGETS, state: () => S, total: st => scoreFor(st).t, score: st => scoreFor(st), render: () => render(), modeKey: (m, s, h, c) => keyFor(m, s, h, c) };
 
   const statSuffix = s => ({ goals: '', assists: 'ast', apps: 'apps' }[s] || '');
   function keyFor(mode, stat, hard, club) {
@@ -112,6 +115,7 @@
     let stat = mode === 'daily' || dailyChaos ? 'goals' : (GM.STATS[opts.stat] ? opts.stat : 'goals');
     let target = RULES[mode] && !RULES[mode].max ? TARGETS[stat] : null;
     if (mode === 'treble') { stat = 'goals'; target = null; }
+    if (mode === 'target' && opts.online) { const [lo, hi] = RACE_TARGET[stat], r = GM.rng(seed + '|racetarget'); target = lo + r.int(Math.round((hi - lo) / 5) + 1) * 5; }
     if (mode === 'mystery') {
       // seeded, so a challenge link gets the same mystery
       const r = GM.rng(seed + '|mystery');
@@ -192,7 +196,7 @@
   const reelWeight = () => (S.hard && (!S.rules.max || S.rules.fame) ? p => Math.sqrt(S.rules.weight(p)) : S.rules.weight);
   // what wildcard descriptions talk about: in the Treble a wildcard affects all three numbers
   const wst = () => S.rules.treble ? { ...S.st, label: 'numbers', bigLabel: 'goals' } : S.st;
-  const modeName = () => S.dailyChaos ? 'Daily CHAOS' : S.mode === 'club' ? GM.MODES[modeKey()].name : GM.MODES[S.mode === 'daily' ? 'daily' : (S.rules.treble || S.rules.mystery) ? S.mode : S.mode + statSuffix(S.stat)].name;
+  const modeName = () => S.dailyChaos ? 'Daily CHAOS' : S.online && S.mode === 'target' ? `Target Race · ${fmt(S.target)}` : S.mode === 'club' ? GM.MODES[modeKey()].name : GM.MODES[S.mode === 'daily' ? 'daily' : (S.rules.treble || S.rules.mystery) ? S.mode : S.mode + statSuffix(S.stat)].name;
   const val = p => p[S.st.key];
   const pv = p => ({ goals: p.goals, assists: p.ast, apps: p.apps });
   const tot = k => S.xi.reduce((t, s) => t + (s.v ? s.v[k] : 0), 0);
@@ -649,7 +653,7 @@
     GM.sound.play('fulltime');
     const bull = sc.diff === 0;
     if (bull) setTimeout(() => GM.sound.play('horn'), 1700);
-    if (!S.readonly) {
+    if (!S.readonly && !(S.online && S.mode === 'target')) {  // a Target Race's target is its own, so it stays off the Target board
       if (S.mode === 'daily' && sc.total > GM.best('daily')) GM.store.set('best:daily', sc.total);
       const { isBest } = await GM.recordScore(modeKey(), sc.total, { t: sc.t });
       if (isBest && sc.total > 0 && S.mode !== 'daily') GM.toast('🏆 New personal best!');

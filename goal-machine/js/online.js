@@ -300,7 +300,7 @@
   const QM_WAIT = 60;
   const inviteBar = r => (r.guest ? '' : r.quick ? `<div class="banner qm-wait"><span class="qm-spin">🔎</span><span><b>Finding you an opponent…</b> <i id="qm-t">0:00</i>
       <small id="qm-more">Anyone who taps Quick match for the same game joins you here.</small></span>
-      <div id="qm-cpu" class="qm-cpu" hidden><b>Nobody’s about right now.</b><button class="btn small" id="qm-play">🤖 Play the computer instead</button><small>…or keep waiting: we’ll let you know when someone joins.</small></div></div>` : `<div class="banner invite"><span class="inv-text">🔗 Nobody’s joined yet. Send your mate the invite: they tap the link and they’re in.</span><span class="inv-code">Code <b>${r.code}</b></span>
+      <div id="qm-cpu" class="qm-cpu" hidden><b>Nobody’s about right now.</b><button class="btn small" id="qm-play">${r.kind === 'race' ? '⚽ Play on your own instead' : '🤖 Play the computer instead'}</button><small>…or keep waiting: we’ll let you know when someone joins.</small></div></div>` : `<div class="banner invite"><span class="inv-text">🔗 Nobody’s joined yet. Send your mate the invite: they tap the link and they’re in.</span><span class="inv-code">Code <b>${r.code}</b></span>
       <button class="btn small" id="oshare">📤 Send invite</button></div>`);
   let qmTimer = null;
   function wireInvite(root, r) {
@@ -341,6 +341,15 @@
   function race(root, r, seat, q) {
     const them = other(seat), opp = r[them], mine = r.race[seat] || {}, theirs = r.race[them] || {};
     const S = GM.draft.state(), inDraft = !!(S && S.online && S.online.code === r.code && GM.$('#oppbar, #race-result', root));
+    // a Quick match race waits for an opponent before anyone starts (and offers solo play after a minute)
+    if (r.quick && !opp && !mine.n && !inDraft && r.status !== 'done') {
+      GM.chaosLook(false);
+      root.innerHTML = `${top(KIND[gk(r)].name, '#/online')}${inviteBar(r)}
+        <p class="muted center">The race starts as soon as someone joins: you’ll both get the same spins.</p>
+        <div class="actions"><button class="btn ghost small" id="oresign">🏳️ Stop searching</button></div>`;
+      wireInvite(root, r); resignButton(root, r, seat);
+      return;
+    }
     if (!mine.done && r.status !== 'done') {
       if (!inDraft) GM.draft.start(root, raceMode(r), { seed: r.seed, stat: r.stat, online: { code: r.code, seat, opp: opp || 'someone' } });
       GM.chaosLook(r.variant === 'chaos');
@@ -348,9 +357,8 @@
       const bar = GM.$('#oppbar', root);
       const theirScore = r.variant === 'chaos' ? `${fmt(theirs.c || 0)} pts` : r.variant === 'target' ? `${theirs.n ? `${fmt(theirs.d || 0)} off` : '–'}` : `${fmt(theirs.t || 0)} ${GM.STATS[r.stat].label}`;
       if (opp) GM.online.setOppBar(r, opp, theirs, `${KIND[gk(r)].icon} <b>${esc(opp)}</b> ${theirScore} · ${theirs.n || 0}/11${theirs.done ? ' ✓' : ''}`);
-      if (bar && opp) bar.innerHTML = GM.online.oppBar(r.code);
-      else if (bar) bar.innerHTML = opp ? ''
-        : `<span>🔗 Waiting for someone to join (code <b>${r.code}</b>) – play your XI now</span> <button class="btn small" id="oshare">📤</button>`;
+      else feed[r.code] = { html: `<span>🔗 Waiting for someone to join (code <b>${r.code}</b>) – play your XI now</span> <button class="btn small" id="oshare">📤</button>` };
+      if (bar) bar.innerHTML = GM.online.oppBar(r.code);
       wireInvite(root, r);
       return;
     }
@@ -379,8 +387,19 @@
   GM.online.oppBar = code => {
     const f = feed[code];
     if (!f) return '';
-    return f.html.replace('class="ob-btn"', `class="ob-btn ${f.flashUntil > Date.now() ? 'flash' : ''}"`);
+    // ✕ leaves the race: cancels an unanswered invite, or resigns once someone has joined
+    return f.html.replace('class="ob-btn"', `class="ob-btn ${f.flashUntil > Date.now() ? 'flash' : ''}"`) + `<button class="ob-leave" data-leave="${code}" aria-label="Leave this race">✕</button>`;
   };
+  document.addEventListener('click', async e => {
+    const b = e.target.closest && e.target.closest('[data-leave]');
+    if (!b) return;
+    const code = b.dataset.leave, joined = !!(feed[code] && feed[code].opp);
+    if (!await GM.confirm(joined ? `Leave this race? It ends for you and ${esc(feed[code].opp)}.` : 'Leave this race? The invite will be cancelled.', 'Leave', 'Keep playing')) return;
+    try { await rpc('online_resign', { ...auth(), p_code: code }); } catch (err) { }
+    GM.store.set('racep:' + code, null); delete feed[code];
+    GM.chaosLook(false);
+    location.hash = '#/online';
+  });
   function showOppXi(code) {
     const f = feed[code]; if (!f) return;
     const st = GM.STATS[f.stat] || GM.STATS.goals, x = f.theirs.x || FORMATION.map(pos => [pos]), lp = f.theirs.lp;

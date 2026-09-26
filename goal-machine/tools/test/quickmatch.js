@@ -1,5 +1,5 @@
 // 🎲 Quick match: Alice waits for a Hat-Trick, Bob taps Quick match and is paired with her; nobody joins Cara, so after a
-// minute she's offered the computer and lands in a game (a Live Race falls back to a solo draft, Hat-Trick to the computers).
+// minute Cara is offered the computer and lands in a game (a Live Race falls back to a solo draft, Hat-Trick to the computers).
 const { chromium } = require(require('child_process').execSync('npm root -g').toString().trim() + '/playwright');
 require('fs').mkdirSync('lay', { recursive: true });
 const server = require('./mockserver')();
@@ -31,9 +31,21 @@ const ok = (c, msg) => { console.log((c ? '✓ ' : '✗ ') + msg); if (!c) proce
   ok(!(await A.$('.qm-wait')) && (await A.textContent('.ht-pitch')).includes('Bob'), 'Alice’s table now shows Bob');
   await A.goto(U + '#/online?tab=friends'); await A.waitForTimeout(1000);
   ok(!(await A.textContent('#ofriends')).includes('Bob'), 'a stranger isn’t added to your friends');
-  // a Live Race starts straight away: you build your XI now and whoever joins races your score
+  // a Live Race waits for an opponent (no head start), then offers a solo draft after a minute
   const codeC = await quick(C, 'race');
-  ok(!!codeC && !!(await C.$('.pitch')) && !(await C.$('.qm-wait')), 'a Live Race quick match lets you start building your XI at once');
+  ok(!!codeC && !!(await C.$('.qm-wait')) && !(await C.$('.pitch')), 'a Live Race quick match waits for an opponent before anyone builds');
+  server.rooms[codeC].created = new Date(Date.now() - 70000).toISOString();
+  await C.reload(); await C.waitForTimeout(2200);
+  ok((await C.textContent('#qm-play')).includes('on your own'), 'after a minute it offers to play on your own');
+  await C.click('#qm-play'); await C.waitForTimeout(1200);
+  ok((await C.evaluate(() => location.hash)).startsWith('#/draft?m=ultimate') && !server.rooms[codeC], 'solo play starts a draft and cancels the race');
+  // a race in progress: ✕ on the bar leaves it
+  const raceF = await quick(A, 'race');
+  ok(raceF === await quick(C, 'race'), 'Cara joins Alice’s race and the draft starts');
+  await A.waitForTimeout(2500);
+  ok(!!(await A.$('.ob-leave')), 'once someone joins, the race bar has a ✕ to leave');
+  await A.click('.ob-leave'); await A.waitForTimeout(300); await A.click('[data-yes]'); await A.waitForTimeout(1200);
+  ok((await A.evaluate(() => location.hash)) === '#/online' && (!server.rooms[raceF] || ['done', 'declined'].includes(server.rooms[raceF].status)), '✕ ends the race and goes back to Online');
   // nobody about for a turn-by-turn game: after a minute, the computer
   const codeE = await quick(C, 'duel');
   server.rooms[codeE].created = new Date(Date.now() - 70000).toISOString();

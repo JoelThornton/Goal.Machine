@@ -9,6 +9,13 @@
 (function () {
   GM.UPDATES = [
     {
+      v: 32, label: '5.2.1', date: '2026-09-26', title: 'Fairer Live Races',
+      items: [
+        '🏁 A Quick match Live Race now waits for your opponent before anyone starts, so nobody gets a head start. After a minute you can play on your own instead',
+        '✕ Leave a Live Race any time with the ✕ on the bar at the top of the draft',
+      ],
+    },
+    {
       v: 31, label: '5.2', date: '2026-09-26', app: 26, title: 'Instant notifications, and faces on the cards',
       items: [
         '⚡ Instant notifications: “your move”, challenges, results and new friends now arrive the moment they happen, not up to 15 minutes later. Get the new app (build 26) with the update button',

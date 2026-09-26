@@ -139,10 +139,15 @@
       const block = (title, list, empty) => `<h3 class="section-title">${title}${list.length && list === yours ? ` <span class="count">${list.length}</span>` : ''}</h3>
         ${list.length ? `<div class="og-list">${list.map(line).join('')}</div>` : `<p class="muted center">${empty}</p>`}`;
       GM.$('#olists').innerHTML = (yours.length ? block('👉 Your move', yours, '')
+          : !rows.length ? `<div class="og-empty og-first"><b>Play your mates online</b>
+              <ol><li><b>Pick a game</b> – a Live Race is the easiest to start with</li><li><b>Send the invite</b> – your mate taps the link and they’re in</li><li><b>Play whenever suits</b> – you’ll get a notification when it’s your move</li></ol>
+              <button class="btn big" id="onew2">⚔️ Start a game</button>
+              <div class="join-row"><input class="input" id="ocode2" maxlength="5" placeholder="Got a code?" autocapitalize="characters"><button class="btn ghost" id="ojoin2">Join</button></div></div>`
           : `<div class="og-empty"><b>Nothing waiting on you</b><span>Start a game, or check back when it’s your turn.</span><button class="btn" id="onew2">⚔️ New game</button></div>`)
         + (theirs.length ? block('⏳ Their move', theirs, '') : '');
       GM.$('#odone').innerHTML = done.length ? `<div class="og-list">${done.slice(0, 30).map(line).join('')}</div>` : '<p class="muted center">No finished games yet.</p>';
       const nb = GM.$('#onew2'); if (nb) nb.onclick = () => newGame();
+      const j2 = GM.$('#ojoin2'); if (j2) j2.onclick = () => { const c = GM.$('#ocode2').value.trim().toUpperCase(); if (c.length === 5) location.hash = '#/online?join=' + c; else GM.toast('Codes are 5 letters'); };
       // the Games tab shows how many are waiting on you; the list itself marks your moves loudly
       const n = GM.$('[data-n="games"]'); if (n) { n.textContent = yours.length || ''; n.classList.toggle('hot', !!yours.length); }
       GM.$('#ofriends').innerHTML = friends.length ? friends.map(f => `<div class="friend"><button class="f-av" data-fmenu="${esc(f.name)}" title="Options">${GM.userPic(f.name)}</button>
@@ -171,28 +176,32 @@
       });
       GM.online.setWaiting(yours.length);
     };
+    // New game in two steps: pick a game (the two easiest first, the rest a tap away), then who against
+    const GAMES = [
+      ['race', 'Same spins, you both build an XI whenever suits. The easiest to start with.'],
+      ['duel', 'Take turns picking from the same players. Nick the one they wanted.'],
+      ['scout', 'A Draft Duel with no names: just scouting clues on each player.'],
+      ['target', 'Same spins, one target number. Whoever finishes closest wins.'],
+      ['chaos', 'CHAOS on the same spins, events and storms. Most points wins.'],
+      ['auction', '£200m each and secret bids on every player.'],
+    ];
     function newGame(opp = '') {
-      let kind = GM.store.get('onlineKind', 'duel'), stat = GM.store.get('onlineStat', 'goals');
-      const m = GM.modal(`<h3>⚔️ New online game</h3>
-        <div class="setting"><b>Who against?</b>
-          <div class="seg wrap" id="nopp">${friends.map(f => `<button data-v="${esc(f.name)}" class="${f.name === opp ? 'on' : ''}">${esc(f.name)}</button>`).join('')}
-          <button data-v="" class="${!opp ? 'on' : ''}">🔗 Anyone (send a code)</button></div>
-          <input class="input" id="nname" maxlength="20" placeholder="…or type their name" value="" autocomplete="off"></div>
-        <div class="setting"><b>Game</b><div class="seg wrap" id="nkind">${Object.entries(KIND).map(([k, v]) => `<button data-v="${k}" class="${k === kind ? 'on' : ''}">${v.icon} ${v.name}</button>`).join('')}</div>
-          <small id="nkdesc"></small></div>
-        <div class="setting"><b>Stat</b><div class="seg stat-seg" id="nstat">${Object.entries(GM.STATS).map(([k, s]) => `<button data-v="${k}" class="${k === stat ? 'on' : ''}"><i class="sb-ico">${s.icon}</i>${s.name}</button>`).join('')}</div></div>
-        <div class="row"><button class="btn ghost" data-close>Cancel</button><button class="btn" id="ngo">Start ⚽</button></div>`);
-      const desc = () => { GM.$('#nkdesc', m.el).textContent = kind === 'duel'
-        ? 'Take turns picking from the same five players each spin. The better XI wins 60 points, the better squad rating 40.'
-        : kind === 'scout' ? 'A Draft Duel on scouting reports: no names, just a few clues on each player. Scout, blindfold and swap cards to play once each.'
-        : kind === 'target' ? 'A new target every game (some much harder than others). You both chase it on the same spins, whenever suits you – whoever finishes closest wins.'
-        : kind === 'chaos' ? 'Ultimate Wildcard CHAOS on the same spins, events and storms. Most CHAOS points (your total plus every bonus) wins.'
-        : kind === 'auction' ? '£200m each and one player per lot. Bid in secret: the higher bid signs him. Tallies stay hidden until full time. 60 points for the bigger total, 40 for the better squad rating.'
-        : 'You both build an Ultimate XI on the same spins, whenever you like. 50 points for the bigger total, 30 for the better squad rating, 20 for the quicker XI.'; };
-      desc();
-      const seg = (id, set) => GM.$$(`#${id} button`, m.el).forEach(b => b.onclick = () => { set(b.dataset.v); GM.$$(`#${id} button`, m.el).forEach(x => x.classList.toggle('on', x === b)); desc(); });
+      let kind = GM.store.get('onlineKind', 'race'), stat = GM.store.get('onlineStat', 'goals');
+      const card = ([k, d]) => `<button class="ng-game ${k === kind ? 'on' : ''}" data-k="${k}"><span>${KIND[k].icon}</span><b>${KIND[k].name}</b><small>${d}</small></button>`;
+      const m = GM.modal(`<h3>⚔️ Play a mate</h3>
+        <p class="ng-step">1 · Pick a game</p>
+        <div class="ng-games">${GAMES.slice(0, 2).map(card).join('')}</div>
+        <details class="ng-more" ${GAMES.slice(2).some(g => g[0] === kind) ? 'open' : ''}><summary>More games</summary><div class="ng-games">${GAMES.slice(2).map(card).join('')}</div></details>
+        <p class="ng-step">2 · Who against?</p>
+        <div class="seg wrap" id="nopp"><button data-v="" class="${!opp ? 'on' : ''}">🔗 Send an invite link</button>${friends.map(f => `<button data-v="${esc(f.name)}" class="${f.name === opp ? 'on' : ''}">${esc(f.name)}</button>`).join('')}</div>
+        <input class="input ng-name" id="nname" maxlength="20" placeholder="…or type a player’s name" value="" autocomplete="off">
+        <div class="ng-stat"><small>Counting</small><div class="seg stat-seg" id="nstat">${Object.entries(GM.STATS).map(([k, s]) => `<button data-v="${k}" class="${k === stat ? 'on' : ''}"><i class="sb-ico">${s.icon}</i>${s.name}</button>`).join('')}</div></div>
+        <div class="row"><button class="btn ghost" data-close>Cancel</button><button class="btn" id="ngo"></button></div>`);
+      const label = () => { GM.$('#ngo', m.el).textContent = `Start ${KIND[kind].name} ⚽`; };
+      label();
+      GM.$$('.ng-game', m.el).forEach(b => b.onclick = () => { kind = b.dataset.k; GM.store.set('onlineKind', kind); GM.$$('.ng-game', m.el).forEach(x => x.classList.toggle('on', x === b)); GM.sound.play('tick'); label(); });
+      const seg = (id, set) => GM.$$(`#${id} button`, m.el).forEach(b => b.onclick = () => { set(b.dataset.v); GM.$$(`#${id} button`, m.el).forEach(x => x.classList.toggle('on', x === b)); });
       seg('nopp', v => { opp = v; GM.$('#nname', m.el).value = ''; });
-      seg('nkind', v => { kind = v; GM.store.set('onlineKind', v); });
       seg('nstat', v => { stat = v; GM.store.set('onlineStat', v); });
       GM.$('#ngo', m.el).onclick = async () => {
         const typed = GM.$('#nname', m.el).value.trim(), who = typed || opp;
@@ -248,7 +257,7 @@
   }
   GM.online = { refresh: null };
 
-  const inviteBar = r => (r.guest ? '' : `<div class="banner invite">🔗 Nobody has joined yet. Send them code <b>${r.code}</b>
+  const inviteBar = r => (r.guest ? '' : `<div class="banner invite"><span class="inv-text">🔗 Nobody’s joined yet. Send your mate the invite: they tap the link and they’re in.</span><span class="inv-code">Code <b>${r.code}</b></span>
       <button class="btn small" id="oshare">📤 Send invite</button></div>`);
   function wireInvite(root, r) {
     const b = GM.$('#oshare', root);
@@ -557,14 +566,14 @@
         <div class="h2h-mid"><small>${stat.icon} ${stat.name}</small><span>VS</span><small>${live ? '🟢 Both here' : 'Take your time'}</small></div>
         <div class="h2h-team p2">${opp ? GM.userPic(opp, 'board') : ''}<b>${esc(opp || '…')}</b><strong>${scoutGame ? '?' : tThem}</strong><small>${11 - st.open(them).length}/11</small></div></div>
       ${inviteBar(r)}
-      <div class="duel-turn ${mineNow ? 'mine' : ''}">${mineNow ? (st.first === you ? '👉 Your pick – first choice this spin' : '👉 Your pick – from what’s left') : `⏳ ${esc(opp || 'Your opponent')} is picking…${live ? '' : ' They’ll see it’s their turn next time they open the game.'}`}
+      <div class="duel-turn ${mineNow ? 'mine' : ''}">${mineNow ? (st.first === you ? '👉 Your pick – first choice this spin' : '👉 Your pick – from what’s left') : !opp ? '⏳ Waiting for your mate to join. They get first pick.' : `⏳ ${esc(opp)} is picking…${live ? '' : ' They’ll see it’s their turn next time they open the game.'}`}
         <small>Spin ${st.spin + 1}</small>${mineNow && live ? `<span class="clock" id="dclock">${PICK_SECONDS}</span>` : ''}</div>
       ${blindNow ? `<div class="banner">🙈 ${esc(opp)} blindfolded you: positions only this pick</div>` : ''}
       ${scoutGame ? handHtml : ''}
       <div class="duel-cards">${st.reels.map(card).join('')}</div>
       ${noFit ? '<div class="actions"><button class="btn ghost" id="dpass">None of these fit – pass</button></div>' : ''}
       <h3 class="section-title">Your XI</h3>${pitch(my)}
-      <details class="set" open><summary><span>${esc(opp || 'Their')}'s XI</span><span>${scoutGame ? 'totals at full time' : `${tThem} ${stat.label}`}</span></summary>${pitch(st.xi[them])}</details>
+      <details class="set" open><summary><span>${opp ? esc(opp) + '’s' : 'Their'} XI</span><span>${scoutGame ? 'totals at full time' : `${tThem} ${stat.label}`}</span></summary>${pitch(st.xi[them])}</details>
       <div class="actions"><button class="btn ghost small" id="oresign">🏳️ ${r.guest ? 'Resign' : 'Cancel invite'}</button></div>`;
     wireInvite(root, r);
     resignButton(root, r, you);

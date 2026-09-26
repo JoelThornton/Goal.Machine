@@ -307,7 +307,7 @@
     return `<div class="ht-bid"><b>Hand ${G.handNo} · your bid</b>
       <div class="ht-bids">${Array.from({ length: 14 }, (_, n) => `<button data-bid="${n}">${n === 0 ? 'Nil' : n}</button>`).join('')}</div>
       <button class="btn" id="ht-place" disabled>Place bid</button>
-      <small>${G.hard ? '' : `🧠 Looks like about ${cpuBid(0)}. `}${G.bids[2] != null ? `Skipper bid ${G.bids[2] === 0 ? 'Nil' : G.bids[2]}.` : ''}</small></div>`;
+      <small>${G.level === 'easy' && !G.hard ? `🧠 Looks like about ${cpuBid(0)}. ` : ''}${G.bids[2] != null ? `Skipper bid ${G.bids[2] === 0 ? 'Nil' : G.bids[2]}.` : ''}</small></div>`;
   }
   function handSummary(lines) {
     const [a, b] = G.scores, won = a > b, lead = a === b ? -1 : a > b ? 0 : 1;

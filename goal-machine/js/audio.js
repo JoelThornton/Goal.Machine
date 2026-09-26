@@ -399,7 +399,8 @@
   }
 
   GM.sound = {
-    settings: () => ({ sfx: store.get('sfx', true), sfxVol: store.get('sfxVol', 0.7), bg: ['music', 'tunes'].includes(store.get('bg', 'off')) ? store.get('bg') : 'off', bgVol: store.get('bgVol', 0.5) }),
+    // the Play version has no Soundtrack (its licence covers the website only), so it falls back to the game's own music
+    settings: () => { const bg = store.get('bg', 'off'); return { sfx: store.get('sfx', true), sfxVol: store.get('sfxVol', 0.7), bg: bg === 'tunes' && GM.playSafe ? 'music' : ['music', 'tunes'].includes(bg) ? bg : 'off', bgVol: store.get('bgVol', 0.5) }; },
     set(k, v) { store.set(k, v); applyVolumes(); syncBg(); },
     // the router calls this on every page change; the music follows the game area
     scene(path) { const t = trackFor(path); if (t !== scene) { scene = t; syncBg(); } },

@@ -35,6 +35,16 @@ formations, and badges round 2.
   - selling: buy low, sell a player back mid-window to fund a star
   - a squad need each round ("you need a CB by round 6")
   - a guaranteed floor so the last picks are still choices, not one free transfer
+- **Proposal: "Deadline Day", one transfer game against 3 computer managers** (replaces the three as they are):
+  - Everyone starts with a budget and an empty XI; the window runs 8 rounds.
+  - Each round a market of 5 players with asking prices. The true value (goals) is hidden: you get a scout report
+    as a range ("110–160 goals"), and spend scouting tokens to narrow it.
+  - Sealed bids against the rivals, who have personalities (the big spender, the bargain hunter, the panic buyer),
+    so the player you hesitate on gets taken.
+  - Prices fall as the window goes on, but the good players go first. The last round is Deadline Day: a frenzy.
+  - Sell one player back mid-window to fund a star.
+  - At the end, a 4-team league table decides the winner (XI totals + a little luck).
+  - Online: the same thing with friends in the Auction room.
 
 ### Weekly Premier League trivia quiz
 - **Owner's idea:** a weekly quiz.
@@ -53,11 +63,21 @@ formations, and badges round 2.
 - **Questions:** cosmetic only, or can unlocks change gameplay (a new wildcard)? Should secrets be shareable
   ("I found the hidden mode") to spread word of mouth?
 
-### Card game against the computer or online (Top Trumps style)
-- **Owner's idea:** something like Top Trumps.
-- **Notes:** fits our data well (goals, assists, apps, seasons, clubs, honours). Questions: a deck from your Album
-  (collecting gets a purpose), or random? One stat per round chosen by the winner (classic), or the whole hand at
-  once? The computer opponent needs to be beatable but not dumb. Online could reuse the Draft Duel turn system.
+### Card game: football Spades (owner loves Spades) *(proposal, needs a go)*
+- **Owner's idea:** a 1v1 card game where you both have a hand; offline 1v2, 1v3 or 1v4 is fine. Like Spades.
+- **Proposal (working name "Hat-Trick"):**
+  - 2–4 players: you against 1–3 computer managers offline; online 1v1 with friends later (reusing Draft Duel turns).
+  - A fresh deck of 52 real PL players each game: 4 suits of 13: 🛡️ Defenders, ⚙️ Midfielders, ⚽ Forwards, and
+    ⭐ Legends (Hall of Famers, Golden Boots, 100 Club) as trumps, like spades.
+  - A card's strength is the player's PL goals (or appearances in a "stamina" game), **hidden**: you see names, so
+    knowing Shearer beats Heskey is your edge. That's what makes it a Goal Machine game rather than plain Spades.
+    Each trick reveals the numbers, so you learn as you play.
+  - Bid how many tricks ("goals") you'll win, including a Nil bid. Follow suit; highest card of the suit led wins
+    unless a Legend trumps it; Legends can't be led until one has been played.
+  - Spades scoring: 10 × bid when you make it, +1 per extra trick; extra tricks are 🟨 yellow cards (5 = 🟥 −50);
+    miss your bid and lose 10 × bid. A match is first to 250 (or a quick 5 hands).
+  - Computer managers: easy / normal / hard (hard counts the cards that have gone).
+  - Daily Hat-Trick: the same deal for everyone, with a leaderboard.
 
 ### Manager mode
 - **Owner's idea:** some form of manager mode.

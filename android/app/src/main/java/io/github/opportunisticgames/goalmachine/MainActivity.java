@@ -163,6 +163,7 @@ public class MainActivity extends Activity {
         super.onResume();
         visible = true;
         web.onResume();
+        GameCheckService.ensureScheduled(this);  // puts the 15-minute check back if Android dropped it
     }
 
     @Override

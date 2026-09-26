@@ -14,6 +14,7 @@
         '📰 This What’s New pop-up stays open until you close it',
         '📒 The Album, Purist and Players tabs fit on one line, and ‹ on the Players page takes you back to where you came from',
         'ℹ️ About now says what’s really in the game: every one of the 5,000+ players to play in the Premier League',
+        '🔔 Notifications: the Android app now restarts its background check every time you open it (Android had been dropping it), and ⚙️ Settings → Notifications says why they aren’t arriving, e.g. battery limits. Get the newest app from the About page',
       ],
     },
     {

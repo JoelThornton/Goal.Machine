@@ -313,9 +313,18 @@
       const allowed = GM.app('notificationsAllowed');
       if (!st) { el.innerHTML = `<span>${allowed ? '🔔 Allowed' : '🔕 Not allowed'}</span><span class="muted">Update the app to see more</span>`; return; }
       const ago = st.lastRun ? Math.round((Date.now() - st.lastRun) / 60000) : null;
+      const mins = t => { const m = Math.round((Date.now() - t) / 60000); return m < 1 ? 'just now' : m < 120 ? m + ' min ago' : Math.round(m / 60) + ' h ago'; };
+      // app build 26+ says why checks might not be running: the schedule, background runs and battery limits
+      const sched = st.scheduled ? '✅ Checking every ~15 min'
+        : !GM.account() ? '🔒 Claim a name on the Online tab first'
+        : st.sched && st.sched !== 'scheduled' ? `⚠️ Not scheduled: ${GM.esc(st.sched)}`
+        : '⚠️ Not scheduled yet – open the app again, or tap Check now';
       el.innerHTML = `<span>${st.allowed && st.enabled ? '✅ Allowed' : '❌ Not allowed – tap Phone settings'}</span>
-        <span>${st.scheduled ? '✅ Checking every ~15 min' : GM.account() ? '⏳ Starts when you open the Online tab' : '🔒 Claim a name on the Online tab first'}</span>
-        <span>${ago == null ? 'No check yet' : `Last check ${ago < 1 ? 'just now' : ago + ' min ago'}: ${GM.esc(st.lastResult)}${st.lastCount >= 0 ? ` · ${st.lastCount} waiting` : ''}`}</span>`;
+        <span>${sched}</span>
+        ${st.restricted ? '<span>⚠️ Your phone limits Goal Machine’s battery use, so it can’t check in the background. Phone settings → Battery → <b>Unrestricted</b> (or Optimised)</span>' : ''}
+        ${st.bucket >= 40 ? `<span>💤 Android runs Goal Machine’s checks rarely (it’s been used little lately). Opening it more often speeds them up.</span>` : ''}
+        ${'lastJob' in st ? `<span>${st.lastJob ? `Last background check ${mins(st.lastJob)}` : 'No background check yet'}</span>` : ''}
+        <span>${ago == null ? 'No check yet' : `Last check ${mins(st.lastRun)}: ${GM.esc(st.lastResult)}${st.lastCount >= 0 ? ` · ${st.lastCount} waiting` : ''}`}</span>`;
     };
     nstatus();
     const nt = GM.$('#s-ntest');

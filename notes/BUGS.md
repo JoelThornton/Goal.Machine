@@ -5,7 +5,9 @@ version they shipped in. Newest at the top.
 
 ## Open
 
-_Nothing open._
+| Reported | Bug | Status |
+|---|---|---|
+| 2026-09-26 | No "your move" notifications arrive (owner and a friend, both on Android; the test whistle works). Settings showed the 15-minute check wasn't scheduled, and the last check was 15 h earlier | Fix in 4.10 + new APK: the app re-schedules the check every time it opens and records why Android refused. Settings now shows the schedule, the last background check, battery restriction and standby bucket. **Confirm after installing the new APK:** does Settings say "Checking every ~15 min", and do notifications arrive? |
 
 ## Fixed
 

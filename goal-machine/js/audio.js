@@ -108,6 +108,10 @@
     siren: t => { tone(700, { t, to: 1400, glide: 0.3, dur: 0.32, type: 'sawtooth', lp: 2600, vol: 0.05 }); tone(1400, { t: t + 0.32, to: 700, glide: 0.3, dur: 0.32, type: 'sawtooth', lp: 2600, vol: 0.05 }); },
     jackpot: t => [72, 76, 79, 84, 88, 91].forEach((n, i) => tone(midi(n), { t: t + i * 0.06, dur: 0.18, type: 'square', lp: 3000, vol: 0.06 })),
     tap: t => tone(1100, { t, to: 800, dur: 0.05, vol: 0.06 }),
+    // Hat-Trick: a soft card flick, and a gentle chime when your team takes a trick (a low note when it doesn't)
+    card: t => { noise({ t, dur: 0.06, freq: 2400, to: 900, q: 1.2, vol: 0.12 }); tone(320, { t, to: 240, dur: 0.06, type: 'triangle', vol: 0.05 }); },
+    trickwin: t => { tone(midi(79), { t, dur: 0.35, type: 'triangle', vol: 0.09 }); tone(midi(84), { t: t + 0.09, dur: 0.45, type: 'triangle', vol: 0.08 }); },
+    tricklose: t => tone(midi(55), { t, dur: 0.3, type: 'triangle', vol: 0.07 }),
     tick: t => { tone(2100, { t, type: 'triangle', dur: 0.025, vol: 0.04 }); noise({ t, dur: 0.02, type: 'highpass', freq: 5000, vol: 0.015 }); },
     land: t => { tone(170, { t, to: 55, dur: 0.2, vol: 0.4 }); noise({ t, dur: 0.07, type: 'lowpass', freq: 900, vol: 0.18 }); },
     place: t => { noise({ t, dur: 0.14, freq: 700, to: 3800, q: 2, vol: 0.22 }); tone(520, { t: t + 0.07, to: 880, dur: 0.14, type: 'triangle', vol: 0.14 }); },
@@ -235,7 +239,7 @@
   const SCENES = {
     anthem: ['', 'today', 'leaderboard', 'album', 'players', 'updates', 'settings', 'about', 'credits'],
     matchday: ['draft', 'daily', 'moneyball', 'window'],
-    puzzle: ['footle', 'clubfootle', 'grid', 'dailygrid', 'whoami', 'tally'],
+    puzzle: ['footle', 'clubfootle', 'grid', 'dailygrid', 'whoami', 'tally', 'hattrick'],
     derby: ['h2h', 'h2hplay', 'hilo', 'hopper', 'online', 'auction'],
     chaos: ['chaos'],
   };

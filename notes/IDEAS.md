@@ -18,7 +18,7 @@ formations, and badges round 2.
 
 **Later: big, design first**
 8. Money games rework (an AI rival, hidden values, a deadline-day squeeze)
-9. Top Trumps-style card game (vs the computer and online), maybe using your Album as your deck
+9. ~~Card game~~ shipped as 🃏 Hat-Trick (beta); next: online and a Daily Hat-Trick
 10. Manager mode
 
 ## 💬 To discuss
@@ -35,6 +35,19 @@ formations, and badges round 2.
   - selling: buy low, sell a player back mid-window to fund a star
   - a squad need each round ("you need a CB by round 6")
   - a guaranteed floor so the last picks are still choices, not one free transfer
+- **Proposal: "Deadline Day", one transfer game against 3 computer managers** (replaces the three as they are):
+  - Everyone starts with a budget and an empty XI; the window runs 8 rounds.
+  - Each round a market of 5 players with asking prices. The true value (goals) is hidden: you get a scout report
+    as a range ("110–160 goals"), and spend scouting tokens to narrow it.
+  - Sealed bids against the rivals, who have personalities (the big spender, the bargain hunter, the panic buyer),
+    so the player you hesitate on gets taken.
+  - Prices fall as the window goes on, but the good players go first. The last round is Deadline Day: a frenzy.
+  - Sell one player back mid-window to fund a star.
+  - At the end, a 4-team league table decides the winner (XI totals + a little luck).
+  - Online: the same thing with friends in the Auction room.
+
+- **Owner, later:** unsure about the rework. Maybe the problem is goals themselves: make the goal *money*, more
+  Monopoly-style? 🧊 Parked for now; come back to it.
 
 ### Weekly Premier League trivia quiz
 - **Owner's idea:** a weekly quiz.
@@ -53,12 +66,6 @@ formations, and badges round 2.
 - **Questions:** cosmetic only, or can unlocks change gameplay (a new wildcard)? Should secrets be shareable
   ("I found the hidden mode") to spread word of mouth?
 
-### Card game against the computer or online (Top Trumps style)
-- **Owner's idea:** something like Top Trumps.
-- **Notes:** fits our data well (goals, assists, apps, seasons, clubs, honours). Questions: a deck from your Album
-  (collecting gets a purpose), or random? One stat per round chosen by the winner (classic), or the whole hand at
-  once? The computer opponent needs to be beatable but not dumb. Online could reuse the Draft Duel turn system.
-
 ### Manager mode
 - **Owner's idea:** some form of manager mode.
 - **Questions:** what's the fantasy? Build a squad over a "season" of fixtures, simulate results from squad
@@ -76,6 +83,10 @@ _None yet._
 
 ## ✅ Shipped
 
+- **🃏 Hat-Trick (beta), 4.11:** football Spades, 4 players (you + a computer partner v 2 computer rivals).
+  Normal shows the numbers (pure Spades), Hard hides them. Each game picks goals, assists or apps. **Next steps to
+  discuss:** online (you + computer partner v a friend + computer partner), a Daily Hat-Trick, 2- and 3-player
+  cut-throat, harder computer managers, and Nil bids for the computers.
 - **4.10 top five:** Target games show a percentage (full time, PB, boards) and targets are fairer (apps 3,400,
   assists 325, from a 20,000-game simulation: a typical random XI has ~478 goals, ~288 assists, ~2,671 apps).
   Players page ✅/❌ filter. In-app feedback (`feedback` table). CHAOS random formations (7 shapes, seeded).

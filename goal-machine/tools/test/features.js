@@ -34,11 +34,14 @@ const ok = (c, msg) => { console.log((c ? '✓ ' : '✗ ') + msg); if (!c) proce
   ok(fb && fb.p_kind === 'idea' && fb.p_body === 'More badges please' && fb.p_name === 'Alice' && fb.p_meta.v, 'feedback sent with version and name');
   // badges: categories, secrets hidden, online badge from a finished game
   await pg.evaluate(() => GM.checkOnline({ code: 'R1', kind: 'race', variant: 'chaos', host: 'Alice', guest: 'Bob', result: { winner: 'host' } }, 'host'));
-  await pg.goto(U + '#/album'); await pg.waitForTimeout(600);
-  const cats = await pg.$$eval('.ach-cat', e => e.map(x => x.textContent));
-  ok(cats.length === 6, 'badge categories: ' + cats.join(' | '));
+  await pg.goto(U + '#/album?v=badges'); await pg.waitForTimeout(600);
+  const cats = await pg.$$eval('.ach-cats a', e => e.map(x => x.textContent));
+  ok(cats.length === 7, 'badge categories: ' + cats.join(' | '));
+  await pg.goto(U + '#/album?v=badges&c=secret'); await pg.waitForTimeout(400);
   ok(await pg.$$eval('.ach.secret b', e => e.every(x => x.textContent === '???')) && (await pg.$$('.ach.secret')).length === 5, 'five secret badges show as ???');
+  await pg.goto(U + '#/album?v=badges&c=online'); await pg.waitForTimeout(400);
   ok(await pg.$$eval('.ach.got b', e => e.map(x => x.textContent).join()).then(s => /Kick-off/.test(s) && /Away Win/.test(s) && /Chaos Merchant/.test(s)), 'online badges from a won CHAOS Race');
+  for (const v of ['xi', 'sets', 'stats']) { await pg.goto(U + '#/album?v=' + v); await pg.waitForTimeout(300); ok(await pg.$eval('.album-views a.on', e => e.getAttribute('href')).then(h => v === 'xi' ? h === '#/album' : h.includes(v)), 'album section ' + v); }
   await pg.screenshot({ path: 'lay/badges.png', fullPage: true });
   console.log(errs.join('\n') || 'no page errors'); await b.close();
 })();

@@ -9,6 +9,17 @@
 (function () {
   GM.UPDATES = [
     {
+      v: 27, label: '4.11', date: '2026-09-26', app: 23, title: '🃏 Hat-Trick (beta) and a tidier Album',
+      items: [
+        '🃏 NEW: Hat-Trick, football Spades (beta). You and Skipper against the Gaffer and the Pundit, with a deck of 52 real PL players in four suits and ⭐ Legends as trumps. Bid your tricks, follow suit, first to 250. Each game picks goals, assists or appearances as the card strength',
+        '😊😐😠 Choose Easy, Medium or Hard opponents, and 👀 shown or 🙈 hidden card numbers (hidden = play on your football knowledge). Your game is saved, so you can carry on later',
+        '🏅 Two Hat-Trick badges to win: Card Sharp and Clean Sheet',
+        '📒 The Album is in four sections: ⭐ Dream XI, 🏅 Badges, 🗂️ Sets and 📊 Stats, so there’s no long scroll',
+        '🏅 Badges have a tab for each category: Scores, Squads, Dailies, Quick games, Online, Collecting and Secret, each with how many you’ve got',
+        '📲 The Android app asks you to update to build 23, which fixes notifications that weren’t arriving. Tap the update button, install, and check ⚙️ Settings → Notifications says “Checking every ~15 min”',
+      ],
+    },
+    {
       v: 26, label: '4.10', date: '2026-09-26', app: 16, title: 'Formations, secrets and fairer targets',
       items: [
         '🌪️ CHAOS kicks off in a random formation: 4-4-2, 4-5-1, 3-5-2, 5-4-1, 4-3-3, 3-4-3 or 5-3-2 (the same for everyone in the Daily CHAOS and in a CHAOS Race)',
@@ -24,7 +35,7 @@
       ],
     },
     {
-      v: 25, label: '4.9.1', date: '2026-09-26', app: 16, title: 'Cards that always fit',
+      v: 25, label: '4.9.1', date: '2026-09-26', app: 23, title: 'Cards that always fit',
       items: [
         '🃏 Player cards on the reels always show the stat box now, even with a two-line name or bigger text on your phone (the club badges and photo shrink to make room)',
         '🩹 Wildcards show their full description instead of cutting off after a few words',

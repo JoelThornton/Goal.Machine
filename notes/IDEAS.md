@@ -88,7 +88,7 @@ formations, and badges round 2.
 - **Things to settle:** only players with a claimed name (and the name filter/reporting we have) can use it; what if
   nobody's around (fall back to a computer opponent after a minute?); a daily cap to stop spam; no messaging at all
   (keeps the Play content rating simple).
-- **Hat-Trick online:** you + a computer partner v a friend + a computer partner (or 2 v 2 with friends).
+- **Hat-Trick online:** ✅ shipped in 5.0 (1 v 1 with computer partners). Next: 2 v 2 with four friends.
 
 ## 🟢 Agreed
 
@@ -96,6 +96,7 @@ _None yet._
 
 ## ✅ Shipped
 
+- **🃏 Hat-Trick online, 5.0:** you + Skipper v a friend + their Skipper, turn by turn, notifications on your turn.
 - **🃏 Hat-Trick (beta), 4.11:** football Spades, 4 players (you + a computer partner v 2 computer rivals).
   Normal shows the numbers (pure Spades), Hard hides them. Each game picks goals, assists or apps. **Next steps to
   discuss:** online (you + computer partner v a friend + computer partner), a Daily Hat-Trick, 2- and 3-player

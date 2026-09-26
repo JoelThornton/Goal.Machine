@@ -9,11 +9,12 @@
 (function () {
   GM.UPDATES = [
     {
-      v: 28, label: '4.12', date: '2026-09-26', title: '🃏 Hat-Trick gets its kit on',
+      v: 28, label: '5.0', date: '2026-09-26', title: '🃏 Goal Machine 5: Hat-Trick goes online',
       items: [
         '⚽ Hat-Trick is now played on a Goal Machine pitch: the trick goes down in the centre circle, with a proper scoreboard. Us in lime, them in orange',
         '🎨 New cards, a kit for each suit: gold foil ⭐ Legends, red striped ⚽ Forwards, blue hooped ⚙️ Midfielders and green checked 🛡️ Defenders. The number, suit and name run down the edge, so you can read your whole hand at a glance',
         '🧠 In Hat-Trick, only 😊 Easy gives you a hint when you bid',
+        '🃏🌐 Hat-Trick is online! Challenge a mate: you and Skipper against them and their computer partner. Take your turns whenever suits, and you’ll get a notification when it’s your go',
         '⚡ Play again: your usual opponents sit at the top of the Online tab. One tap and they’re picked, with the game you last played together',
         '🌐 Playing a mate online is simpler: New game is two steps (who against, then the game), with your friends first and the two easiest games first and the rest under More games. First-timers get a quick how-it-works and can join with a code straight from the Games tab',
         '🔗 Clearer invites: while you wait for your mate it says so, instead of saying they’re already picking',
@@ -271,7 +272,7 @@
   GM.versionLabel = (GM.UPDATES.find(u => u.v === GM.VERSION) || GM.UPDATES[0]).label;
   GM.hasUnseenUpdate = () => GM.store.get('seenVersion', 0) < GM.UPDATES[0].v;
 
-  const ERAS = { 1: 'The launch', 2: 'The Android app', 3: 'New look, sound + dailies', 4: 'Online' };
+  const ERAS = { 1: 'The launch', 2: 'The Android app', 3: 'New look, sound + dailies', 4: 'Online', 5: 'Hat-Trick' };
   const when = d => new Date(d + 'T12:00:00').toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' });
   const releaseCard = (u, open) => `<article class="release ${u.v === GM.VERSION || (u.fixes || []).some(f => f.v === GM.VERSION) ? 'current' : ''}">
       <header><span class="ver ${/\.0$/.test(u.label) ? 'major' : ''}">v${u.label}</span><b>${GM.esc(u.title)}</b>

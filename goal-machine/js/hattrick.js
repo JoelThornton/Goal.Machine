@@ -20,6 +20,9 @@
   const SUIT_ORDER = ['J', 'L', 'F', 'M', 'D'];
   const STAT = { goals: 'goals', assists: 'ast', apps: 'apps' };
   const SEATS = [{ name: 'You' }, { name: 'Gaffer' }, { name: 'Skipper' }, { name: 'Pundit' }];
+  // seat names from where you sit (online, a friend sits opposite team; the computers are Skipper and the Gaffer)
+  const nameOf = s => (G && G.names ? G.names[s] : SEATS[s].name);
+  const ME = () => (G && G.me != null ? G.me : 0);
   const LEVELS = { easy: '😊 Easy', medium: '😐 Medium', hard: '😠 Hard' };
   const TARGET = 250, FLOOR = -200, SAVE = 'ht:save';
   const team = s => s % 2;                   // team 0: you (0) + Skipper (2); team 1: Gaffer (1) + Pundit (3)
@@ -58,7 +61,7 @@
   const surname = c => { if (c.j) return JOKERS[c.j].name; const n = player(c).name; return n.includes(' ') ? n.split(' ').slice(1).join(' ') : n; };
   const initials = c => player(c).name.split(/[\s-]+/).filter(Boolean).map(w => w[0]).slice(0, 2).join('').toUpperCase();
   // your hand: jokers, then by suit, strongest first (hidden numbers: A–Z, as the order would give them away)
-  const sortHand = h => h.sort((a, b) => SUIT_ORDER.indexOf(a.s) - SUIT_ORDER.indexOf(b.s) || (G.hard ? surname(a).localeCompare(surname(b)) : b.rank - a.rank));
+  const sortHand = h => h && h.sort((a, b) => SUIT_ORDER.indexOf(a.s) - SUIT_ORDER.indexOf(b.s) || (G.hard ? surname(a).localeCompare(surname(b)) : b.rank - a.rank));
 
   /* ---------------------------------------------------------------- a new game / hand */
   function newGame(hard, level) {
@@ -70,7 +73,7 @@
     G.handNo++;
     G.dealer = (G.dealer + 1) % 4;
     G.hands = deal(G.seed + '|' + G.handNo, G.stat);
-    sortHand(G.hands[0]);
+    sortHand(G.hands[ME()]);
     G.bids = [null, null, null, null]; G.won = [0, 0, 0, 0];
     G.phase = 'bid'; G.turn = (G.dealer + 1) % 4;
     G.trick = []; G.broken = false; G.played = [];
@@ -179,14 +182,14 @@
     if (card.s === 'L') G.broken = true;
     G.trick.push({ seat, c: card });
     GM.sound.play(isJ(card) ? 'wild' : 'card');
-    if (isJ(card)) GM.toast(`${JOKERS[card.j].icon} <b>${seat === 0 ? 'You play' : SEATS[seat].name + ' plays'} ${JOKERS[card.j].name}!</b> ${JOKERS[card.j].rule}`, 2400);
+    if (isJ(card)) GM.toast(`${JOKERS[card.j].icon} <b>${seat === ME() ? 'You play' : GM.esc(nameOf(seat)) + ' plays'} ${JOKERS[card.j].name}!</b> ${JOKERS[card.j].rule}`, 2400);
     if (G.trick.length < 4) { G.turn = (seat + 1) % 4; save(); return render(); }
     // trick done: show it, then the winner takes it and leads the next
     const w = winning();
     G.won[w.seat]++;
     G.turn = w.seat;
     render();
-    setTimeout(() => GM.sound.play(team(w.seat) === 0 ? 'trickwin' : 'tricklose'), 250);
+    setTimeout(() => GM.sound.play(team(w.seat) === US() ? 'trickwin' : 'tricklose'), 250);
     busy = true;
     setTimeout(() => {
       busy = false;
@@ -196,7 +199,7 @@
       save(); render();
     }, 1400);
   }
-  function endHand() {
+  function scoreHand() {
     const lines = [0, 1].map(t => {
       const seats = [t, t + 2];
       let pts = 0, bags = 0, red = 0;
@@ -214,8 +217,29 @@
     const [a, b] = G.scores;
     G.over = (a >= TARGET || b >= TARGET || a <= FLOOR || b <= FLOOR) && a !== b;
     G.phase = 'handover';
+    return lines;
+  }
+  function endHand() {
+    const lines = scoreHand();
     save(); render();
     handSummary(lines);
+  }
+  // a card played, all at once (the online replay): a finished trick goes straight to its winner
+  function applyPlay(seat, card) {
+    G.hands[seat] = G.hands[seat].filter(c => c.id !== card.id);
+    if (card.s === 'L') G.broken = true;
+    G.trick.push({ seat, c: card });
+    if (G.trick.length < 4) { G.turn = (seat + 1) % 4; return; }
+    const w = winning();
+    G.won[w.seat]++;
+    G.lastTrick = { trick: G.trick.slice(), winner: w.seat, hand: G.handNo };
+    G.played.push(...G.trick.map(t => t.c));
+    G.trick = []; G.turn = w.seat;
+    if (G.played.length === 52) scoreHand();
+  }
+  function applyBid(seat, n) {
+    G.bids[seat] = n;
+    if (G.bids.every(b => b != null)) { G.phase = 'play'; G.turn = (G.dealer + 1) % 4; } else G.turn = (seat + 1) % 4;
   }
 
   /* ---------------------------------------------------------------- the computer's turns */
@@ -254,44 +278,61 @@
   const statLabel = () => `${GM.STATS[G.stat].icon} ${GM.STATS[G.stat].name}`;
   const teamBid = t => [t, t + 2].reduce((a, s) => a + (G.bids[s] || 0), 0);
   const teamWon = t => G.won[t] + G.won[t + 2];
-  const pill = (s, pos) => `<div class="ht-pill ht-${pos} t${team(s)} ${G.turn === s && G.phase !== 'handover' && !G.over && G.trick.length < 4 ? 'turn' : ''}">
-      <b>${SEATS[s].name}</b>${G.bids[s] != null ? `<span class="ht-badge">${G.phase === 'bid' ? (G.bids[s] === 0 ? 'Nil' : G.bids[s]) : `${G.won[s]}/${G.bids[s] === 0 ? 'Nil' : G.bids[s]}`}</span>` : ''}</div>`;
+  const US = () => team(ME());                 // your team (online you might sit on the guest side)
+  const side = s => (team(s) === US() ? 0 : 1); // 0 = us (lime), 1 = them (orange)
+  const pill = (s, pos) => `<div class="ht-pill ht-${pos} t${side(s)} ${G.turn === s && G.phase !== 'handover' && !G.over && G.trick.length < 4 ? 'turn' : ''}">
+      <b>${GM.esc(nameOf(s))}</b>${G.bids[s] != null ? `<span class="ht-badge">${G.phase === 'bid' ? (G.bids[s] === 0 ? 'Nil' : G.bids[s]) : `${G.won[s]}/${G.bids[s] === 0 ? 'Nil' : G.bids[s]}`}</span>` : ''}</div>`;
   function trickHtml() {
-    const w = G.trick.length === 4 ? winning() : null;
-    const at = s => { const t = G.trick.find(x => x.seat === s); return t ? cardHtml(t.c, `played ${w && w.seat === s ? 'win' : ''}`) : ''; };
-    return `<div class="ht-trick"><div class="ht-t2">${at(2)}</div><div class="ht-t1">${at(1)}</div><div class="ht-t3">${at(3)}</div><div class="ht-t0">${at(0)}</div></div>`;
+    const me = ME();
+    // online, between tricks: the last trick stays on the table so you can see what happened while you were away
+    const last = G.online && !G.trick.length && G.lastTrick && G.lastTrick.hand === G.handNo ? G.lastTrick : null;
+    const cards = G.trick.length ? G.trick : last ? last.trick : [];
+    const w = G.trick.length === 4 ? winning() : last ? cards.find(t => t.seat === last.winner) : null;
+    const at = s => { const t = cards.find(x => x.seat === s); return t ? cardHtml(t.c, `played ${w && w.seat === s ? 'win' : ''} ${last ? 'last' : ''}`) : ''; };
+    return `<div class="ht-trick ${last ? 'is-last' : ''}"><div class="ht-t2">${at(partner(me))}</div><div class="ht-t1">${at((me + 1) % 4)}</div><div class="ht-t3">${at((me + 3) % 4)}</div><div class="ht-t0">${at(me)}</div></div>`;
   }
   function render() {
     if (!root || !root.isConnected) return;
     if (!G) return intro();
-    const canPlay = G.phase === 'play' && G.turn === 0 && G.trick.length < 4 && !busy;
-    const ok = canPlay ? new Set(legal(0).map(c => c.id)) : new Set();
-    const n = G.hands[0].length, w = G.trick.length === 4 ? winning() : null, led = ledSuit();
-    const tip = w ? `<b class="t${team(w.seat)}">${w.seat === 0 ? '⚽ You win the trick' : `${team(w.seat) === 0 ? '⚽' : '🥅'} ${SEATS[w.seat].name} wins the trick`}</b>`
-      : G.phase === 'bid' ? (G.turn === 0 ? '' : `${SEATS[G.turn].name} is bidding…`)
-      : canPlay ? (picked ? 'Tap it again to play it' : led ? `Your turn: follow ${SUITS[led].icon} ${SUITS[led].name} if you can` : `Your lead${G.broken ? '' : ' · ⭐ Legends not broken yet'}`)
-      : G.phase === 'play' ? `${SEATS[G.turn].name} is thinking…` : '';
+    const me = ME(), us = US(), them = 1 - us;
+    const canPlay = G.phase === 'play' && G.turn === me && G.trick.length < 4 && !busy && !G.sending;
+    const ok = canPlay ? new Set(legal(me).map(c => c.id)) : new Set();
+    const hand = G.hands[me] || [], n = hand.length, led = ledSuit();
+    const last = G.online && !G.trick.length && G.lastTrick && G.lastTrick.hand === G.handNo ? G.lastTrick : null;
+    const w = G.trick.length === 4 ? winning() : null;
+    const who = s => (s === me ? 'You' : nameOf(s));
+    const waitingOn = s => (G.online && G.online.human(s) ? `Waiting for ${GM.esc(nameOf(s))}…` : `${GM.esc(nameOf(s))} is ${G.phase === 'bid' ? 'bidding' : 'thinking'}…`);
+    const tip = G.over ? `<b>${G.scores[us] > G.scores[them] ? '🏆 You win!' : '😬 They win'}</b>`
+      : w ? `<b class="t${side(w.seat)}">${side(w.seat) === 0 ? '⚽' : '🥅'} ${w.seat === me ? 'You win' : `${GM.esc(nameOf(w.seat))} wins`} the trick</b>`
+      : G.phase === 'bid' ? (G.turn === me ? '' : waitingOn(G.turn))
+      : canPlay ? (picked ? 'Tap it again to play it' : led ? `Your turn: follow ${SUITS[led].icon} ${SUITS[led].name} if you can` : `${last ? `${who(last.winner)} took the last trick. ` : ''}Your lead${G.broken ? '' : ' · ⭐ Legends not broken yet'}`)
+      : G.phase === 'play' ? waitingOn(G.turn) : '';
     const bags = t => `<i class="ht-bags" title="Bags">${G.bags[t] ? '🟨'.repeat(G.bags[t]) : ''}</i>`;
-    root.innerHTML = `<div class="topbar ht-top"><a href="#/hattrick" class="back">‹</a>
-        <div class="ht-board"><div class="t0"><small>Us</small><b>${fmt(G.scores[0])}</b></div><div class="ht-mid"><b>${statLabel()}</b><small>First to ${TARGET}</small></div><div class="t1"><small>Them</small><b>${fmt(G.scores[1])}</b></div></div>
+    const back = G.online ? '#/online' : '#/hattrick';
+    root.innerHTML = `<div class="topbar ht-top"><a href="${back}" class="back">‹</a>
+        <div class="ht-board"><div class="t0"><small>Us</small><b>${fmt(G.scores[us])}</b></div><div class="ht-mid"><b>${statLabel()}</b><small>First to ${TARGET}</small></div><div class="t1"><small>Them</small><b>${fmt(G.scores[them])}</b></div></div>
         <span class="top-btns"><button class="icon-btn" id="ht-help">?</button></span></div>
-      <div class="ht-bidrow"><div class="ht-teambid t0"><small>Our bid</small><b>${G.phase === 'bid' ? teamBid(0) : `${teamWon(0)}/${teamBid(0)}`}</b>${bags(0)}</div>
-        <small class="ht-hand-no">Hand ${G.handNo}<br>${LEVELS[G.level] || ''}${G.hard ? ' · 🙈' : ''}</small>
-        <div class="ht-teambid t1"><small>Their bid</small><b>${G.phase === 'bid' ? teamBid(1) : `${teamWon(1)}/${teamBid(1)}`}</b>${bags(1)}</div></div>
+      ${G.online ? G.online.bar || '' : ''}
+      <div class="ht-bidrow"><div class="ht-teambid t0"><small>Our bid</small><b>${G.phase === 'bid' ? teamBid(us) : `${teamWon(us)}/${teamBid(us)}`}</b>${bags(us)}</div>
+        <small class="ht-hand-no">Hand ${G.handNo}<br>${G.online ? '🌐 Online' : LEVELS[G.level] || ''}${G.hard ? ' · 🙈' : ''}</small>
+        <div class="ht-teambid t1"><small>Their bid</small><b>${G.phase === 'bid' ? teamBid(them) : `${teamWon(them)}/${teamBid(them)}`}</b>${bags(them)}</div></div>
       <div class="ht-pitch"><div class="ht-lines"></div>
-        ${pill(2, 'n')}${pill(1, 'w')}${pill(3, 'e')}${pill(0, 's')}
-        ${G.phase === 'bid' && G.turn === 0 ? bidPanel() : trickHtml()}
+        ${pill(partner(me), 'n')}${pill((me + 1) % 4, 'w')}${pill((me + 3) % 4, 'e')}${pill(me, 's')}
+        ${G.phase === 'bid' && G.turn === me && !G.over ? bidPanel() : trickHtml()}
       </div>
       <p class="ht-tip">${tip}</p>
-      <div class="ht-hand ${canPlay ? 'go' : ''}">${G.hands[0].map((c, i) => cardHtml(c, `${ok.has(c.id) ? 'ok' : canPlay ? 'no' : ''} ${picked === c.id ? 'up' : ''}`,
-        `left: calc((100% - 62px) * ${n > 1 ? i / (n - 1) : 0.5}); z-index: ${i + 1}`)).join('')}</div>`;
+      <div class="ht-hand ${canPlay ? 'go' : ''}">${hand.map((c, i) => cardHtml(c, `${ok.has(c.id) ? 'ok' : canPlay ? 'no' : ''} ${picked === c.id ? 'up' : ''}`,
+        `left: calc((100% - 62px) * ${n > 1 ? i / (n - 1) : 0.5}); z-index: ${i + 1}`)).join('')}</div>
+      ${G.online ? G.online.foot || '' : ''}`;
     GM.$('#ht-help', root).onclick = help;
+    if (G.online && G.online.wire) G.online.wire(root);
     GM.$$('.ht-hand .ht-card', root).forEach(b => b.onclick = () => {
       if (!canPlay) return;
-      const c = G.hands[0].find(x => x.id === b.dataset.card);
+      const c = hand.find(x => x.id === b.dataset.card);
       if (!c || !ok.has(c.id)) { GM.toast(c && isJ(c) ? '🃏 You can’t lead with a joker' : led ? `Follow the suit led: ${SUITS[led].icon} ${SUITS[led].name}` : '⭐ Legends can’t lead until one has been played'); return; }
       if (picked !== c.id) { picked = c.id; GM.sound.play('tick'); GM.buzz(); if (c.j) GM.toast(`${JOKERS[c.j].icon} <b>${JOKERS[c.j].name}:</b> ${JOKERS[c.j].rule}`, 2200); return render(); }
-      picked = null; play(0, c);
+      picked = null;
+      if (G.online) G.online.send({ t: 'p', c: c.id }); else play(me, c);
     });
     let bid = null;
     GM.$$('[data-bid]', root).forEach(b => b.onclick = () => {
@@ -300,17 +341,23 @@
       GM.$('#ht-place', root).disabled = false;
     });
     const pb = GM.$('#ht-place', root);
-    if (pb) pb.onclick = () => { if (bid == null) return; G.bids[0] = bid; GM.sound.play('place'); GM.buzz(); nextBidder(); };
-    tick();
+    if (pb) pb.onclick = () => {
+      if (bid == null) return;
+      GM.sound.play('place'); GM.buzz();
+      if (G.online) G.online.send({ t: 'b', n: bid }); else { G.bids[me] = bid; nextBidder(); }
+    };
+    if (!G.online) tick();
   }
   function bidPanel() {
+    const me = ME();
     return `<div class="ht-bid"><b>Hand ${G.handNo} · your bid</b>
       <div class="ht-bids">${Array.from({ length: 14 }, (_, n) => `<button data-bid="${n}">${n === 0 ? 'Nil' : n}</button>`).join('')}</div>
       <button class="btn" id="ht-place" disabled>Place bid</button>
-      <small>${G.level === 'easy' && !G.hard ? `🧠 Looks like about ${cpuBid(0)}. ` : ''}${G.bids[2] != null ? `Skipper bid ${G.bids[2] === 0 ? 'Nil' : G.bids[2]}.` : ''}</small></div>`;
+      <small>${G.level === 'easy' && !G.hard && !G.online ? `🧠 Looks like about ${cpuBid(me)}. ` : ''}${G.bids[partner(me)] != null ? `${GM.esc(nameOf(partner(me)))} bid ${G.bids[partner(me)] === 0 ? 'Nil' : G.bids[partner(me)]}.` : ''}</small></div>`;
   }
   function handSummary(lines) {
-    const [a, b] = G.scores, won = a > b, lead = a === b ? -1 : a > b ? 0 : 1;
+    const us = US(); lines = [lines[us], lines[1 - us]];
+    const a = G.scores[us], b = G.scores[1 - us], won = a > b, lead = a === b ? -1 : a > b ? 0 : 1;
     const m = GM.modal(`<div class="ht-sumbox"><div class="ht-sumtitle">${G.over ? (won ? '🏆 Full time: you win!' : '😬 Full time: they win') : `Hand ${G.handNo}: the scores`}</div>
       <table class="ht-sum"><tr><th></th><th class="t0">${lead === 0 ? '👑 ' : ''}Us</th><th class="t1">${lead === 1 ? '👑 ' : ''}Them</th></tr>
         <tr><td>Tricks / bid</td>${lines.map(l => `<td>${l.won}/${l.bid}${l.nil.map(x => ` · Nil ${x.ok ? '✅' : '❌'}`).join('')} ${l.bid ? (l.made ? '✅' : '❌') : ''}</td>`).join('')}</tr>
@@ -318,12 +365,12 @@
         <tr><td>This hand</td>${lines.map(l => `<td><b>${l.pts > 0 ? '+' : ''}${l.pts}</b></td>`).join('')}</tr>
         <tr class="total"><td>Total</td><td class="t0">${fmt(a)}</td><td class="t1">${fmt(b)}</td></tr></table>
       ${G.over ? '' : `<p class="muted center small">First to ${TARGET}</p>`}
-      <div class="row">${G.over ? '<a class="btn ghost" href="#/hattrick" data-close>Menu</a><button class="btn big" id="ht-again">🔁 Play again</button>' : '<button class="btn big" id="ht-next">Next hand ➜</button>'}</div></div>`,
-    { onClose: () => { if (!G.over && G.phase === 'handover') { newHand(); save(); render(); } } });
+      <div class="row">${G.online ? `<button class="btn big" data-close>${G.over ? 'OK' : 'Next hand ➜'}</button>` : G.over ? '<a class="btn ghost" href="#/hattrick" data-close>Menu</a><button class="btn big" id="ht-again">🔁 Play again</button>' : '<button class="btn big" id="ht-next">Next hand ➜</button>'}</div></div>`,
+    { onClose: () => { if (!G.online && !G.over && G.phase === 'handover') { newHand(); save(); render(); } } });
     const nx = GM.$('#ht-next', m.el); if (nx) nx.onclick = () => m.close();
     const ag = GM.$('#ht-again', m.el); if (ag) ag.onclick = () => { m.close(); begin(G.level, G.hard); };
     GM.sound.play(lines[0].pts > lines[1].pts ? 'good' : 'tap');
-    if (G.over) finish(won);
+    if (G.over && !G.online) finish(won);
   }
   async function finish(won) {
     const mode = G.hard ? 'hattrickh' : 'hattrick', rec = GM.store.get('ht:record', { w: 0, l: 0 });
@@ -394,6 +441,73 @@
   }
   // #/hattrick: the menu (with Carry on if there's a game saved)
   GM.hattrick = function (el) { root = el; G = null; busy = false; picked = null; intro(); };
+  /* ---------------------------------------------------------------- online: you + Skipper v your mate + their Skipper */
+  // The room stores only the two humans' moves ({t:'b', n} bids and {t:'p', c} cards, with s = host/guest). Both phones
+  // rebuild the game from the room's seed: the computers (seats 2 and 3) play the Hard, never-random way, so they make
+  // the same moves on both phones. Host = seat 0 (partner 2), guest = seat 1 (partner 3).
+  function replay(r, mySeat, moves = r.moves) {
+    const me = mySeat === 'guest' ? 1 : 0, other = me ? 'host' : 'guest';
+    const names = [];
+    names[me] = 'You'; names[1 - me] = r[other] || 'Your mate';
+    names[2] = me === 0 ? 'Skipper' : 'Gaffer'; names[3] = me === 1 ? 'Skipper' : 'Gaffer';
+    G = { seed: r.seed, stat: GM.STATS[r.stat] ? r.stat : 'goals', hard: false, level: 'hard', scores: [0, 0], bags: [0, 0], handNo: 0, dealer: 3, history: [], over: false, me, names };
+    newHand();
+    let i = 0, waiting = null, bad = false;
+    for (let guard = 0; guard < 4000 && !G.over; guard++) {
+      if (G.phase === 'handover') { newHand(); continue; }
+      const t = G.turn;
+      if (t >= 2) { if (G.phase === 'bid') applyBid(t, cpuBid(t)); else applyPlay(t, cpuPlay(t)); continue; }
+      const mv = moves[i];
+      if (!mv) { waiting = t; break; }
+      if (mv.s !== (t === 0 ? 'host' : 'guest')) { bad = true; break; }
+      if (mv.t === 'b' && G.phase === 'bid') applyBid(t, Math.max(0, Math.min(13, +mv.n || 0)));
+      else if (mv.t === 'p' && G.phase === 'play') {
+        const c = G.hands[t].find(x => x.id === mv.c);
+        if (!c || !legal(t).some(x => x.id === c.id)) { bad = true; break; }
+        applyPlay(t, c);
+      } else { bad = true; break; }
+      i++;
+    }
+    return { waiting, bad };
+  }
+  GM.hattrickOnline = function (el, r, seat, api) {
+    root = el; busy = false;
+    const done = r.status === 'done' || r.status === 'declined';
+    const { waiting, bad } = replay(r, seat);
+    const seenKey = 'htseen:' + r.code, seen = GM.store.get(seenKey, 0);
+    const turnFor = w => (w === 0 ? 'host' : w === 1 ? 'guest' : 'none');
+    const finalAll = () => ({ host: { done: true, t: G.scores[0] }, guest: { done: true, t: G.scores[1] } });
+    const res = r.result, iWon = res && res.winner === seat;
+    G.online = {
+      human: s => s < 2,
+      bar: (api.inviteBar(r) || '') + (bad ? '<div class="banner">⚠️ This game got out of step. Tap ‹ and open it again.</div>' : '')
+        + (done && res ? `<div class="banner race-final">${res.resigned ? (res.resigned === seat ? '🏳️ You resigned' : `🏳️ ${GM.esc(r[seat === 'host' ? 'guest' : 'host'])} resigned`) : res.winner === 'draw' ? '🤝 A draw' : iWon ? '🏆 You win!' : `😬 ${GM.esc(r[res.winner])} wins`}</div>` : ''),
+      foot: done ? '' : `<div class="actions"><button class="btn ghost small" id="oresign">🏳️ ${r.guest ? 'Resign' : 'Cancel invite'}</button></div>`,
+      wire: root => { api.wireInvite(root, r); api.resignButton(root, r, seat); },
+      send: async move => {
+        if (G.sending || done) return;
+        G.sending = true;
+        const moves = r.moves.concat({ ...move, s: seat });
+        const after = replay(r, seat, moves);  // where it goes next: the other human, back to you, or full time
+        const args = { ...api.auth(), p_code: r.code, p_seq: r.moves.length, p_move: move, p_sum: null, p_turn: G.over ? 'none' : turnFor(after.waiting), p_all: G.over ? finalAll() : null };
+        let out = 'error';
+        try { out = await api.rpc('online_move', args); } catch (e) { }
+        if (out === 'ok') { r.moves = moves; GM.sound.play(move.t === 'b' ? 'place' : 'card'); }
+        else GM.toast(out === 'conflict' ? 'Your mate moved first – catching up' : 'Couldn’t reach the server – try again');
+        api.refresh();
+      },
+    };
+    if (!r.guest && !done) G.names[seat === 'host' ? 1 : 0] = 'Your mate';
+    render();
+    // a finished hand (or the final whistle) you haven't seen yet
+    if (G.history.length > seen) {
+      GM.store.set(seenKey, G.history.length);
+      if (seen > 0 || G.history.length === 1 || G.over) handSummary(G.history[G.history.length - 1].lines);
+    }
+    // full time but the server hasn't heard: tell it (whoever gets here first)
+    if (G.over && !done) api.rpc('online_move', { ...api.auth(), p_code: r.code, p_seq: r.moves.length, p_move: null, p_sum: null, p_turn: 'none', p_all: finalAll() }).then(() => api.refresh()).catch(() => { });
+  };
+
   // for tests: the rules, without the table
-  GM.hattrickRules = { deal, legal: s => legal(s), winning: t => winning(t), get state() { return G; }, set state(v) { G = v; }, cpuBid, cpuPlay };
+  GM.hattrickRules = { deal, legal: s => legal(s), winning: t => winning(t), get state() { return G; }, set state(v) { G = v; }, cpuBid, cpuPlay, replay };
 })();

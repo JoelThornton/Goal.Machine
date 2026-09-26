@@ -20,10 +20,11 @@
   // modes in the weekly friends league
   const LEAGUE = [['ultimate', '👑 Ultimate'], ['chaos', '🌪️ CHAOS'], ['dchaos', '📅 Daily CHAOS'], ['daily', '📅 Daily Ultimate'], ['mbdaily', '💰 Daily Moneyball'], ['moneyball', '💰 Moneyball']];
   const KIND = { duel: { icon: '🤝', name: 'Draft Duel' }, scout: { icon: '🕵️', name: 'Scout Duel' }, race: { icon: '🏁', name: 'Live Race' },
-    target: { icon: '🎯', name: 'Target Race' }, chaos: { icon: '🌪️', name: 'CHAOS Race' }, auction: { icon: '🔨', name: 'Auction' } };
+    target: { icon: '🎯', name: 'Target Race' }, chaos: { icon: '🌪️', name: 'CHAOS Race' }, auction: { icon: '🔨', name: 'Auction' }, hattrick: { icon: '🃏', name: 'Hat-Trick' } };
   // a Scout Duel is a Draft Duel with hidden names; Target and CHAOS Races are Live Races played in those modes
-  const gk = g => (['scout', 'target', 'chaos'].includes(g.variant) ? g.variant : g.kind);
-  const serverKind = k => (k === 'scout' ? 'duel' : k === 'target' || k === 'chaos' ? 'race' : k);
+  // Hat-Trick online is a duel room too (turn by turn), with variant 'hattrick'
+  const gk = g => (['scout', 'target', 'chaos', 'hattrick'].includes(g.variant) ? g.variant : g.kind);
+  const serverKind = k => (k === 'scout' || k === 'hattrick' ? 'duel' : k === 'target' || k === 'chaos' ? 'race' : k);
   const raceMode = r => (r.variant === 'target' ? 'target' : r.variant === 'chaos' ? 'chaos' : 'ultimate');
   const rpc = (f, a) => GM.lb.rpc(f, a);
   const auth = () => { const a = GM.account(); return a ? { p_user: a.name, p_key: a.key } : null; };
@@ -129,7 +130,7 @@
         const opp = oppOf(g), k = KIND[gk(g)], st = GM.STATS[g.stat] || GM.STATS.goals, s = g.sums || {}, o = outcome(g, seat);
         const sub = o ? `${o.icon} ${o.text} ${o.score}${o.resigned ? ` (${o.resigned === seat ? 'you' : 'they'} resigned)` : ''}`
           : !opp ? `Waiting for someone to join · code <b>${g.code}</b>`
-          : g.kind === 'duel' ? (g.turn === seat ? '👉 Your pick' : `⏳ ${esc(opp)}’s pick`)
+          : g.variant === 'hattrick' ? (g.turn === seat ? '👉 Your turn' : `⏳ ${esc(opp)}’s turn`) : g.kind === 'duel' ? (g.turn === seat ? '👉 Your pick' : `⏳ ${esc(opp)}’s pick`)
           : g.kind === 'auction' ? (myMove(g, seat) ? '👉 Your bid' : `⏳ Waiting for ${esc(opp)}’s bid`)
           : `You ${(s[seat] || {}).done ? '✓ done' : `${(s[seat] || {}).n || 0}/11`} · ${esc(opp)} ${(s[other(seat)] || {}).done ? '✓ done' : `${(s[other(seat)] || {}).n || 0}/11`}`;
         return `<a class="og-row ${o ? 'res-' + o.text.toLowerCase() : ''} ${!o && myMove(g, seat) ? 'mine' : ''}" href="#/online?room=${g.code}"><span class="og-icon">${opp ? GM.userPic(opp) : ''}<i>${k.icon}</i></span>
@@ -183,6 +184,7 @@
     const GAMES = [
       ['race', 'Same spins, you both build an XI whenever suits. The easiest to start with.'],
       ['duel', 'Take turns picking from the same players. Nick the one they wanted.'],
+      ['hattrick', 'Football Spades: you and a computer partner against your mate and theirs.'],
       ['scout', 'A Draft Duel with no names: just scouting clues on each player.'],
       ['target', 'Same spins, one target number. Whoever finishes closest wins.'],
       ['chaos', 'CHAOS on the same spins, events and storms. Most points wins.'],
@@ -199,8 +201,8 @@
           <button data-v="" class="ng-invite ${!opp ? 'on' : ''}"><i>🔗</i><span>${friends.length ? 'Invite' : 'Send an invite link'}</span></button></div>
         <input class="input ng-name" id="nname" maxlength="20" placeholder="…or type a player’s name" value="" autocomplete="off">
         <p class="ng-step">2 · Pick a game</p>
-        <div class="ng-games">${GAMES.slice(0, 2).map(card).join('')}</div>
-        <details class="ng-more" ${GAMES.slice(2).some(g => g[0] === kind) ? 'open' : ''}><summary>More games</summary><div class="ng-games">${GAMES.slice(2).map(card).join('')}</div></details>
+        <div class="ng-games">${GAMES.slice(0, 3).map(card).join('')}</div>
+        <details class="ng-more" ${GAMES.slice(3).some(g => g[0] === kind) ? 'open' : ''}><summary>More games</summary><div class="ng-games">${GAMES.slice(3).map(card).join('')}</div></details>
         <div class="ng-stat"><small>Counting</small><div class="seg stat-seg" id="nstat">${Object.entries(GM.STATS).map(([k, s]) => `<button data-v="${k}" class="${k === stat ? 'on' : ''}"><i class="sb-ico">${s.icon}</i>${s.name}</button>`).join('')}</div></div>
         <div class="row"><button class="btn ghost" data-close>Cancel</button><button class="btn" id="ngo"></button></div>`);
       const label = () => { GM.$('#ngo', m.el).textContent = `Start ${KIND[kind].name} ⚽`; };
@@ -261,6 +263,7 @@
       last = sig;
       if (r.kind === 'race') race(root, r, seat, q);
       else if (r.kind === 'auction') GM.market.auctionOnline(root, r, seat, { rpc, auth, summary, top: (t, back) => top(t, back), inviteBar, wireInvite, resignButton, refresh: () => GM.online.refresh && GM.online.refresh() });
+      else if (r.variant === 'hattrick') GM.hattrickOnline(root, r, seat, { rpc, auth, inviteBar, wireInvite, resignButton, refresh: () => GM.online.refresh && GM.online.refresh() });
       else duel(root, r, seat);
       if (r.status === 'done' || r.status === 'declined') { over = true; clearInterval(poll); poll = null; }
     };

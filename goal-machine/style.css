@@ -1299,3 +1299,4 @@ button.icon-btn.lb-btn { font: inherit; font-size: 1.1rem; cursor: pointer; }
 .ng-opps .ng-invite i { font-style: normal; font-size: 1.4rem; line-height: 36px; }
 .ng-opps .ng-invite:only-child { width: 100%; flex-direction: row; justify-content: center; }
 .og-quick { margin-top: 12px; }
+.ht-trick.is-last .ht-card:not(.win) { opacity: .6; } .ht-trick.is-last .ht-card { animation: none; }

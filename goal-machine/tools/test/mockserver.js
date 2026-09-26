@@ -10,7 +10,8 @@ module.exports = function makeServer() {
     if (r.status === 'done' || !(h && h.done) || !(g && g.done)) return;
     const [wt, wr, ws] = r.kind === 'race' ? [50, 30, 20] : [60, 40, 0]; let hp = 0, gp = 0;
     const cmp = (a, b, w, low) => { if (low ? a < b : a > b) hp += w; else if (low ? b < a : b > a) gp += w; else { hp += w / 2; gp += w / 2; } };
-    if (r.kind === 'race' && r.variant === 'target') cmp(h.d ?? 1e9, g.d ?? 1e9, 100, true);
+    if (r.variant === 'hattrick') cmp(h.t || 0, g.t || 0, 100);
+    else if (r.kind === 'race' && r.variant === 'target') cmp(h.d ?? 1e9, g.d ?? 1e9, 100, true);
     else if (r.kind === 'race' && r.variant === 'chaos') cmp(h.c || 0, g.c || 0, 100);
     else { cmp(h.t || 0, g.t || 0, wt); cmp(h.r || 0, g.r || 0, wr); if (ws) cmp(h.ms ?? 1e12, g.ms ?? 1e12, ws, true); }
     r.status = 'done'; r.turn = null; r.result = { host: hp, guest: gp, winner: hp > gp ? 'host' : gp > hp ? 'guest' : 'draw' };

@@ -1,7 +1,7 @@
 // A stand-in for the Supabase online_* functions (same rules as the SQL), shared by every test phone
 module.exports = function makeServer() {
   const players = { alice: { username: 'Alice', key: 'a'.repeat(28) }, bob: { username: 'Bob', key: 'b'.repeat(28) }, cara: { username: 'Cara', key: 'c'.repeat(28) } };
-  const rooms = {}, friends = new Set(), backups = {}, pics = {}, reports = []; let n = 0;
+  const rooms = {}, friends = new Set(), backups = {}, pics = {}, reports = [], nameReports = new Set(), hiddenNames = new Set(); let n = 0;
   const now = () => Date.now() / 1000;
   const auth = (u, k) => { const p = players[(u || '').toLowerCase()]; return p && p.key === k ? p.username : null; };
   const befriend = (a, b) => { friends.add(a + '|' + b); friends.add(b + '|' + a); };
@@ -17,7 +17,7 @@ module.exports = function makeServer() {
   };
   const view = r => ({ bids_in: Object.keys(r.secret || {}).filter(k => k === 'host' || k === 'guest'), code: r.code, kind: r.kind, variant: r.variant, stat: r.stat, seed: r.seed, host: r.host, guest: r.guest, moves: r.moves, race: r.race, turn: r.turn, status: r.status, result: r.result, seen: r.seen, now: now(), updated: r.updated });
   const fns = {
-    claim_name: a => { const k = a.p_username.toLowerCase(); if (players[k] && players[k].key !== a.p_key) return 'taken'; players[k] = { username: a.p_username, key: a.p_key }; return 'ok'; }, name_available: a => true, submit_score: a => 'ok',
+    claim_name: a => { const k = a.p_username.toLowerCase(); if (!players[k] && /fuck|shit/i.test(k)) return 'rude_name'; if (players[k] && players[k].key !== a.p_key) return 'taken'; players[k] = { username: a.p_username, key: a.p_key }; return 'ok'; }, name_available: a => /fuck|shit/i.test(a.p_username) ? null : !players[a.p_username.toLowerCase()], submit_score: a => 'ok',
     online_create(a) {
       const u = auth(a.p_user, a.p_key); if (!u) return { error: 'auth' };
       let o = null; if (a.p_opp) { o = (players[a.p_opp.toLowerCase()] || {}).username; if (!o) return { error: 'no_user' }; if (o === u) return { error: 'self' }; }
@@ -62,6 +62,9 @@ module.exports = function makeServer() {
     delete_account(a) { const u = auth(a.p_user, a.p_key); if (!u) return 'auth'; delete players[u.toLowerCase()]; return 'deleted'; },
     set_avatar(a) { const u = auth(a.p_user, a.p_key); if (!u) return 'auth'; if (a.p_image && !/^data:image\/(jpeg|webp|png);base64,/.test(a.p_image)) return 'bad_image'; pics[u] = a.p_image; return 'ok'; },
     get_avatars(a) { const out = {}; (a.p_names || []).forEach(n => { const k = Object.keys(pics).find(x => x.toLowerCase() === n.toLowerCase()); if (k && pics[k]) out[k] = pics[k]; }); return out; },
+    report_name(a) { const u = auth(a.p_user, a.p_key); if (!u) return 'auth'; nameReports.add(u + '|' + a.p_target); return [...nameReports].filter(r => r.endsWith('|' + a.p_target)).length >= 3 ? 'hidden' : 'ok'; },
+    name_status(a) { return auth(a.p_user, a.p_key) ? (hiddenNames.has(a.p_user) ? 'hidden' : 'ok') : null; },
+    rename_account(a) { const u = auth(a.p_user, a.p_key); if (!u) return 'auth'; if (/fuck|shit/i.test(a.p_new)) return 'rude_name'; const k = a.p_new.toLowerCase(); if (players[k] && k !== u.toLowerCase()) return 'taken'; players[k] = { ...players[u.toLowerCase()], username: a.p_new }; if (k !== u.toLowerCase()) delete players[u.toLowerCase()]; hiddenNames.delete(u); return 'ok'; },
     report_avatar(a) { reports.push([a.p_user, a.p_target]); return reports.filter(r => r[1] === a.p_target).length >= 3 ? 'removed' : 'ok'; },
     online_remove_friend(a) { const u = auth(a.p_user, a.p_key); friends.delete(u + '|' + a.p_friend); return 'ok'; },
     online_resign(a) {
@@ -93,7 +96,7 @@ module.exports = function makeServer() {
     },
   };
   return {
-    rooms, fns,
+    rooms, fns, hiddenNames,
     async attach(ctx) {
       await ctx.route('**/rest/v1/rpc/*', async route => {
         const fn = route.request().url().split('/rpc/')[1].split('?')[0], args = JSON.parse(route.request().postData() || '{}');

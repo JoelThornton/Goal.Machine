@@ -7,6 +7,14 @@
 (function () {
   GM.UPDATES = [
     {
+      v: 24, label: '4.9', date: '2026-09-26', app: 16, title: 'Keeping the boards friendly',
+      items: [
+        '🚩 Tap a name on any leaderboard to report it if it’s offensive. A name reported by several players is hidden from the boards',
+        '🙅 Offensive names can’t be claimed any more',
+        '✏️ Changing your name in ⚙️ Settings now keeps your scores, friends, online games and backup',
+      ],
+    },
+    {
       v: 23, label: '4.8', date: '2026-09-26', app: 16, title: 'Watch your opponent live',
       items: [
         '👀 In a Live, Target or CHAOS Race, the bar at the top now shows your opponent’s latest signing the moment they make it (it flashes), along with their score',

@@ -2,7 +2,8 @@
 
 This repo is mostly **Goal Machine** (`goal-machine/`), a Premier League XI-draft game. It is a static PWA served by
 GitHub Pages at https://opportunisticgames.github.io/goal-machine/, with an Android WebView wrapper (`android/`).
-The other files at the root are an older, unrelated site: leave them alone. `goal-machine/README.md` describes every
+The root `index.html` is the Opportunistic Games studio page (contact opportunisticyp@gmail.com), which Google Play
+uses as the developer website (verified in Google Search Console). `goal-machine/README.md` describes every
 game mode for players; this file is about how to work on it.
 
 ## Rules the owner has set
@@ -43,6 +44,9 @@ Everything goes through security-definer RPCs that check the account with `gm_au
   friends (`online_friends`, `online_add_friend`, `online_remove_friend`), `friends_week` (league).
 - `gm_finalise` decides results once both players are done: races 50/30/20 (total / rating / speed), duels and
   auction 60/40, Target Race = closest (`d`) wins 100–0, CHAOS Race = most CHAOS points (`c`) wins 100–0.
+- Names: `gm_name_ok` (offensive-word filter, used by `claim_name`, `rename_account` and `name_available`, which returns
+  null for a banned name), `report_name` (3 reports hide a name from `best_scores` / `daily_board` via `players.name_hidden`),
+  `name_status`, `rename_account` (moves scores, friends, rooms and backup to the new name).
 - Also: `app_inbox` (Android notifications), `save_backup` / `load_backup`, `delete_account`, avatars
   (`set_avatar`, `get_avatars`, `report_avatar`).
 Change SQL with the Supabase MCP tools (`apply_migration`); read a function first with `pg_get_functiondef`.
@@ -61,6 +65,7 @@ There's no unit test suite; test in a real browser with Playwright (Chromium is 
    Supabase RPCs in memory (test accounts Alice/Bob/Cara), so nothing touches the real database.
    - `sweep.js` – opens every page in light, dark and club themes: page errors and sideways overflow.
    - `races.js` – two phones play a Target Race and a CHAOS Race end to end.
+   - `names.js` – rude names refused, reporting a name, a hidden name renamed, and no Soundtrack in the Play app.
    - `layout.js` – plays whole drafts and checks the pitch never changes size (`node layout.js "chaos:1,ultimate:0" 360x740`).
    Screenshots land in `./lay/` (ignored by git). Block photo hosts with `ctx.route(...)` to keep runs fast.
 3. Tests set `gm:welcomed` and `gm:seenVersion` in localStorage so the welcome and What's New pop-ups stay out of the way.
@@ -70,4 +75,6 @@ There's no unit test suite; test in a real browser with Playwright (Chromium is 
   bar, photo crops) is kept outside `render()`.
 - Face-centred photos: crops are cached as percentages per photo URL, and dead photo links are remembered, so faces don't flicker.
 - `best_scores` modes carry suffixes: stat (`ast`, `apps`) and Hard (`h`), e.g. `chaosh`, `ultimateasth`; dailies use `daily:YYYY-MM-DD`.
+- The Play app (`GM.playSafe`) leaves out the premierleague.com / Transfermarkt photos and the 🎧 Soundtrack (the
+  Epidemic Sound licence covers the website only).
 - CHAOS scores are points (the XI total plus bonuses), not goals: label them `pts`.

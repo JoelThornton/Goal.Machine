@@ -347,7 +347,7 @@ GM.account = () => GM.store.get('account', null);
 GM.getName = () => (GM.account() || {}).name || GM.store.get('name', '');
 GM.newKey = () => [...crypto.getRandomValues(new Uint8Array(16))].map(b => b.toString(16).padStart(2, '0')).join('');
 GM.NAME_RULE = /^[A-Za-z0-9][A-Za-z0-9 _.-]{1,18}[A-Za-z0-9]$/;
-/** Claims a name for this device (or confirms it's already ours). Resolves 'ok', 'taken', 'bad_name' or 'offline'. */
+/** Claims a name for this device (or confirms it's already ours). Resolves 'ok', 'taken', 'bad_name', 'rude_name' or 'offline'. */
 GM.claimName = async function (name, key) {
   name = name.trim();
   if (!GM.NAME_RULE.test(name)) return 'bad_name';
@@ -367,14 +367,27 @@ GM.askName = async function () {
   if (legacy && (await GM.claimName(legacy)) === 'ok') return legacy;  // keep the name they already use, if it's free
   return GM.accountModal(legacy ? `Someone already has the name “${legacy}” on the leaderboard. Pick another – it'll be yours alone.` : '');
 };
-GM.accountModal = function (note = '') {
+/** Changes this account's name, keeping its scores, friends, games and backup. Same results as GM.claimName. */
+GM.renameAccount = async function (name) {
+  name = name.trim();
+  const acc = GM.account();
+  if (!GM.NAME_RULE.test(name)) return 'bad_name';
+  if (!acc) return GM.claimName(name);
+  let res;
+  try { res = await GM.lb.rpc('rename_account', { p_user: acc.name, p_key: acc.key, p_new: name }); } catch (e) { return 'offline'; }
+  if (res === 'ok') { GM.store.set('account', { ...acc, name }); GM.store.set('name', name); GM._nameHidden = false; }
+  return res;
+};
+GM.nameMsg = (r, v) => r === 'taken' ? `✗ “${v}” is taken – try another` : r === 'rude_name' ? '✗ That name isn’t allowed – try another'
+  : r === 'offline' ? 'Couldn’t reach the leaderboard – try again in a bit' : '3–20 letters, numbers, spaces, dots, dashes or underscores';
+GM.accountModal = function (note = '', rename = false) {
   return new Promise(res => {
-    const m = GM.modal(`<h3>🔒 Claim your leaderboard name</h3>
+    const m = GM.modal(`<h3>${rename ? '✏️ Change your name' : '🔒 Claim your leaderboard name'}</h3>
       <p class="muted">${note ? GM.esc(note) : 'Names are unique: once you claim one, only you can post scores with it.'}</p>
-      <form class="claim"><input class="input" maxlength="20" placeholder="e.g. Joel" value="${GM.esc(GM.store.get('name', ''))}" autocomplete="off">
+      <form class="claim"><input class="input" maxlength="20" placeholder="e.g. Joel" value="${rename ? '' : GM.esc(GM.store.get('name', ''))}" autocomplete="off">
         <small class="claim-msg muted">3–20 letters, numbers, spaces, dots, dashes or underscores</small>
-        <div class="row"><button type="button" class="btn ghost" data-close>Not now</button><button class="btn">Claim</button></div></form>
-      <p class="muted center"><a href="#/settings" data-close>Moving from another phone? Use a transfer code in ⚙️ Settings</a></p>`, { onClose: () => res(null) });
+        <div class="row"><button type="button" class="btn ghost" data-close>Not now</button><button class="btn">${rename ? 'Change' : 'Claim'}</button></div></form>
+      ${rename ? '' : '<p class="muted center"><a href="#/settings" data-close>Moving from another phone? Use a transfer code in ⚙️ Settings</a></p>'}`, { onClose: () => res(null) });
     const f = m.el.querySelector('form'), inp = f.querySelector('input'), msg = f.querySelector('.claim-msg');
     let t = null;
     inp.oninput = () => {
@@ -384,16 +397,18 @@ GM.accountModal = function (note = '') {
       t = setTimeout(async () => {
         try {
           const ok = await GM.lb.rpc('name_available', { p_username: v });
-          msg.textContent = ok ? `✓ “${v}” is free` : `✗ “${v}” is taken`; msg.className = 'claim-msg ' + (ok ? 'ok' : 'no');
+          if (inp.value.trim() !== v) return;
+          msg.textContent = ok ? `✓ “${v}” is free` : GM.nameMsg(ok === null ? 'rude_name' : 'taken', v); msg.className = 'claim-msg ' + (ok ? 'ok' : 'no');
         } catch (e) { }
       }, 350);
     };
     f.onsubmit = async e => {
       e.preventDefault();
-      const v = inp.value.trim(), r = await GM.claimName(v);
+      clearTimeout(t);
+      const v = inp.value.trim(), r = await (rename ? GM.renameAccount(v) : GM.claimName(v));
       if (r === 'ok') { m.el.parentNode.remove(); GM.toast(`🔒 “${GM.esc(v)}” is yours`); res(v); return; }
       msg.className = 'claim-msg no';
-      msg.textContent = r === 'taken' ? `✗ “${v}” is taken – try another` : r === 'offline' ? 'Couldn’t reach the leaderboard – try again in a bit' : '3–20 letters, numbers, spaces, dots, dashes or underscores';
+      msg.textContent = GM.nameMsg(r, v);
     };
     setTimeout(() => inp.focus(), 50);
   });
@@ -518,8 +533,9 @@ GM.lbModal = async function (key) {
   try {
     const rows = await GM.lb.top(key), el = GM.$('#lbpop', m.el);
     if (!el) return;
-    el.innerHTML = rows.length ? rows.slice(0, 25).map((r, i) => `<div class="lb-row ${r.name === me ? 'me' : ''}"><span>${i < 3 ? ['🥇', '🥈', '🥉'][i] : i + 1}</span><span>${GM.esc(r.name)}</span><b>${r.score.toLocaleString()}${pts}</b></div>`).join('')
+    el.innerHTML = rows.length ? rows.slice(0, 25).map((r, i) => `<div ${GM.lbRow(r.name, me)}><span>${i < 3 ? ['🥇', '🥈', '🥉'][i] : i + 1}</span><span>${GM.esc(r.name)}</span><b>${r.score.toLocaleString()}${pts}</b></div>`).join('')
       : '<div class="muted">No scores yet – be the first!</div>';
+    if (rows.some(r => r.name !== me)) el.insertAdjacentHTML('beforeend', GM.lbReportHint);
     const mine = GM.$('.lb-row.me', el); if (mine) mine.scrollIntoView({ block: 'nearest' });
   } catch (e) { const el = GM.$('#lbpop', m.el); if (el) el.innerHTML = '<div class="muted">Couldn’t load the leaderboard.</div>'; }
 };
@@ -538,6 +554,34 @@ GM.lbYou = async function (key, el) {
   else show('<div class="muted">You haven’t played this one yet</div>');
 };
 document.addEventListener('click', e => { const b = e.target.closest && e.target.closest('[data-lb]'); if (b) { e.preventDefault(); GM.lbModal(b.dataset.lb); } });
+// Leaderboard rows carry data-name (not your own), and tapping one offers to report the name. Three reports from different
+// players hide it from the public boards until its owner changes it (report_name in Supabase).
+GM.lbRow = (name, me) => `class="lb-row ${name === me ? 'me' : ''}"${name === me ? '' : ` data-name="${GM.esc(name)}"`}`;
+GM.lbReportHint = '<p class="muted center small">Tap a name to report it if it’s offensive</p>';
+document.addEventListener('click', async e => {
+  const row = e.target.closest && e.target.closest('.lb-row[data-name]');
+  if (!row || !GM.lb.enabled) return;
+  const n = row.dataset.name, a = GM.account();
+  if (!await GM.confirm(`🚩 Report “${GM.esc(n)}” as an offensive name? If several players report it, it's hidden from the leaderboards.`, 'Report', 'Cancel')) return;
+  if (!a) { GM.toast('Claim a leaderboard name first (⚙️ Settings), then you can report names'); return; }
+  try {
+    const r = await GM.lb.rpc('report_name', { p_user: a.name, p_key: a.key, p_target: n });
+    GM.toast(r === 'hidden' ? 'Thanks – that name has been hidden' : r === 'ok' ? 'Thanks – reported' : 'Couldn’t report that name');
+    if (r === 'hidden') row.remove();
+  } catch (err) { GM.toast('Couldn’t reach the server – try again'); }
+});
+// Has my name been hidden after reports? Checked once a session; the Ranks page and Settings then ask for a new one.
+GM.nameHidden = async function () {
+  const a = GM.account();
+  if (!a || !GM.lb.enabled) return false;
+  if (GM._nameHidden == null) { try { GM._nameHidden = (await GM.lb.rpc('name_status', { p_user: a.name, p_key: a.key })) === 'hidden'; } catch (e) { return false; } }
+  return GM._nameHidden;
+};
+GM.hiddenNameBanner = el => GM.nameHidden().then(h => {
+  if (!h || !el || !el.isConnected) return;
+  el.innerHTML = `<div class="banner">🚩 Other players reported your name, so it’s hidden from the leaderboards. <button class="btn small" id="hn-change">✏️ Pick a new name</button></div>`;
+  GM.$('#hn-change', el).onclick = async () => { if (await GM.accountModal('Your scores, friends and backup come with you.', true)) el.innerHTML = ''; };
+});
 // An in-app notification: a card that drops in from the top, and opens href when tapped (swipe it up or wait to dismiss)
 GM.notice = function ({ pic = '', title, sub = '', href, ms = 6000 }) {
   GM.$$('.notice').forEach(n => n.remove());

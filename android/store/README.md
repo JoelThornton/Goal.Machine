@@ -26,6 +26,8 @@ It's doable, but a few things need you (accounts and keys) and there are two rea
 | Android App Bundle (Play only accepts .aab) | ✅ the *Android APK* workflow builds `goal-machine-play.aab` (download it from the run's artifacts) |
 | Play version doesn't offer APK downloads or self-updates (not allowed on Play) | ✅ `play` flavour; the site checks `AndroidApp.channel()` |
 | Play version without PL/Transfermarkt photos | ✅ |
+| Play version without the 🎧 Soundtrack (Epidemic Sound licence covers the website only) | ✅ |
+| Offensive-name filter, and players can report names and profile pictures | ✅ |
 | Privacy policy page | ✅ https://opportunisticgames.github.io/goal-machine/privacy.html |
 | App icon 512×512, feature graphic 1024×500, 4 phone screenshots | ✅ in this folder (`node android/store/make_store_assets.js` remakes them) |
 | No ads, no analytics, no tracking | ✅ keeps the Data safety form simple |
@@ -81,7 +83,9 @@ It's doable, but a few things need you (accounts and keys) and there are two rea
 > player. Player statistics are compiled from public sources.
 
 - **Category:** Games → Trivia (or Word/Puzzle). **Tags:** football, soccer, quiz, trivia.
-- **Contact email:** a business email for Opportunistic Games (it's shown publicly).
+- **Contact email:** opportunisticyp@gmail.com (shown publicly).
+- **Website:** https://opportunisticgames.github.io/
+- **Account deletion URL:** https://opportunisticgames.github.io/goal-machine/privacy.html#delete
 - **Privacy policy URL:** https://opportunisticgames.github.io/goal-machine/privacy.html
 
 ## Play Console answers
@@ -89,7 +93,7 @@ It's doable, but a few things need you (accounts and keys) and there are two rea
 - **Ads:** No ads.
 - **App access:** Everything is available without logging in.
 - **Content rating (IARC questionnaire):** trivia/quiz game; no violence, gambling, sexual content, drugs or user-to-user
-  chat. Users can see other users' chosen names on leaderboards and friends' profile pictures (user-generated content, with reporting), so answer yes to users sharing content and describe the report button.
+  chat. Users can see other users' chosen names on leaderboards and friends' profile pictures (user-generated content), so answer yes to users sharing content. Moderation: offensive names are refused, and names (tap one on a leaderboard) and pictures can be reported; several reports hide the name or remove the picture.
   Expect PEGI 3 / Everyone.
   - The wildcards are luck-based, but there's no real money, betting or purchases, so answer **no** to gambling.
 - **Target audience:** 13+ (avoids the extra Families policy requirements). Not designed for children.
@@ -105,4 +109,3 @@ It's doable, but a few things need you (accounts and keys) and there are two rea
 ## Nice to have later
 
 - Ship the game files inside the app (safer for the WebView rule, and works fully offline from the first launch).
-- A proper in-game "delete my scores" button (for now it's handled on request).

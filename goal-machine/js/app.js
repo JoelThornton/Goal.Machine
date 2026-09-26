@@ -272,6 +272,7 @@
           ? `<small>Your leaderboard name is <b>🔒 ${GM.esc(GM.account().name)}</b>. It's yours alone: only this device can post scores with it.</small>
             <div class="pic-row">${GM.userPic(GM.account().name, 'lg')}<div><b>Profile picture</b><small>Friends and opponents see it in online games and your weekly league</small>
               <div class="setting-btns"><label class="btn small">📷 Choose a photo<input type="file" id="s-pic" accept="image/*" hidden></label><button class="btn ghost small" id="s-picdel">Remove</button></div></div></div>
+            <div id="s-hidden"></div>
             <div class="setting-btns"><button class="btn ghost small" id="s-move">📲 Move to another phone</button><button class="btn ghost small" id="s-name">✏️ New name</button></div>
             <div class="setting-btns"><button class="btn ghost small" id="s-backup">☁️ Back up now</button><button class="btn ghost small" id="s-restore">⤵️ Restore a backup</button></div>
             <small>${GM.store.get('backupAt', 0) ? `Last backup: ${new Date(GM.store.get('backupAt')).toLocaleString(undefined, { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}. ` : ''}Your album, stats, streaks and scores back up automatically after games.</small>
@@ -283,7 +284,7 @@
           <select class="input" id="s-club"><option value="">None</option>${GM.clubOptions().map(c => `<option ${c === GM.favClub() ? 'selected' : ''}>${GM.esc(c)}</option>`).join('')}</select></div>
         <div class="setting"><b>Sound effects</b><small>Whistles, reels, the crowd and the goal horn</small>${seg('s-sfx', { true: '🔊 On', false: '🔇 Off' }, snd.sfx)}
           <label class="vol">🔈<input type="range" id="s-sfxvol" min="0" max="1" step="0.05" value="${snd.sfxVol}">🔊</label></div>
-        <div class="setting"><b>Music</b><small id="s-bg-about"></small>${seg('s-bg', { off: '🔇 Off', music: '🎹 Game', tunes: '🎧 Soundtrack' }, snd.bg)}
+        <div class="setting"><b>Music</b><small id="s-bg-about"></small>${seg('s-bg', GM.playSafe ? { off: '🔇 Off', music: '🎹 Game' } : { off: '🔇 Off', music: '🎹 Game', tunes: '🎧 Soundtrack' }, snd.bg)}
           <label class="vol">🔈<input type="range" id="s-bgvol" min="0" max="1" step="0.05" value="${snd.bgVol}">🔊</label>
           <div class="now-playing" id="s-now" hidden><span></span><button class="btn ghost small" id="s-skip">⏭ Next song</button></div></div>
         ${GM.app('notificationsAllowed') !== undefined ? `<div class="setting"><b>Notifications</b><small>A whistle when a friend challenges you, it's your move, or a game finishes. The app checks about every 15 minutes while it's closed.</small>
@@ -352,13 +353,11 @@
     GM.$('#s-sfxvol').onchange = e => { GM.sound.set('sfxVol', +e.target.value); GM.sound.play('good'); };
     GM.$('#s-bgvol').oninput = e => GM.sound.set('bgVol', +e.target.value);
     GM.$('#s-name').onclick = async () => {
-      if (GM.account()) {  // a new name gets its own entry; scores already posted stay under the old one
-        GM.store.set('account', { ...GM.account(), name: '' });
-        const n = await GM.accountModal('Pick a new name. Scores you have already posted stay under your old one.');
-        if (!n) GM.store.set('account', { ...GM.account(), name: GM.store.get('name', '') });
-      } else await GM.askName();
+      if (GM.account()) await GM.accountModal('Your scores, friends, online games and backup come with you.', true);
+      else await GM.askName();
       settings();
     };
+    GM.hiddenNameBanner(GM.$('#s-hidden'));
     const mv = GM.$('#s-move');
     if (mv) mv.onclick = () => {
       const code = GM.transferCode();
@@ -449,6 +448,7 @@
       ${canHard ? `<div class="hard-toggle small"><a class="${hard ? '' : 'on'}" href="${link(keyFor(base, stat, false))}">🙂 Normal</a><a class="${hard ? 'on' : ''}" href="${link(keyFor(base, stat, true))}">🥵 Hard</a></div>` : ''}`;
     app.innerHTML = `<div class="topbar"><a href="#/" class="back">‹</a><h2>🏆 Leaderboards</h2><span></span></div>
       ${pickers}
+      <div id="lbhidden"></div>
       ${/^d?chaos/.test(m) ? '<p class="muted center">🌪️ CHAOS scores are total points: your XI’s tally plus every bonus (chemistry, rating, titles, loyalty…).</p>' : ''}
       ${m.startsWith('footle:') ? '<p class="muted center">Footle scores: 8 for a first-guess win, down to 1 for getting it on the last guess.</p>' : ''}
       ${GM.lb.enabled ? `<h3 class="section-title">🌍 Global</h3><div id="global" class="lb"><div class="muted">Loading…</div></div>` :
@@ -458,12 +458,14 @@
       <h3 class="section-title">⭐ You</h3>
       <div class="lb" id="lbyou"></div>`;
     GM.lbYou(m, GM.$('#lbyou'));
+    GM.hiddenNameBanner(GM.$('#lbhidden'));
     if (GM.lb.enabled) {
       try {
         const rows = await GM.lb.top(m), pts = /^d?chaos/.test(m);
         const me = GM.getName();
         GM.$('#global').innerHTML = rows.length ? rows.map((r, i) =>
-          `<div class="lb-row ${r.name === me ? 'me' : ''}"><span>${i < 3 ? ['🥇', '🥈', '🥉'][i] : i + 1}</span><span>${GM.esc(r.name)}</span><b>${r.score.toLocaleString()}${pts ? '<small> pts</small>' : ''}</b></div>`).join('')
+          `<div ${GM.lbRow(r.name, me)}><span>${i < 3 ? ['🥇', '🥈', '🥉'][i] : i + 1}</span><span>${GM.esc(r.name)}</span><b>${r.score.toLocaleString()}${pts ? '<small> pts</small>' : ''}</b></div>`).join('')
+          + (rows.some(r => r.name !== me) ? GM.lbReportHint : '')
           : '<div class="muted">No scores yet – be the first!</div>';
       } catch (e) { GM.$('#global').innerHTML = '<div class="muted">Couldn’t load the global board.</div>'; }
     }
@@ -490,8 +492,9 @@
     if (!GM.lb.enabled) return;
     try {
       const rows = await GM.lb.dailyBoard(sort);
-      GM.$('#dboard').innerHTML = rows.length ? rows.map((r, i) => `<div class="lb-row ${r.name === me ? 'me' : ''}"><span>${i < 3 ? ['🥇', '🥈', '🥉'][i] : i + 1}</span>
+      GM.$('#dboard').innerHTML = rows.length ? rows.map((r, i) => `<div ${GM.lbRow(r.name, me)}><span>${i < 3 ? ['🥇', '🥈', '🥉'][i] : i + 1}</span>
         <span>${GM.esc(r.name)}<small class="muted"> · ${r.days_played} day${r.days_played === 1 ? '' : 's'}${r.current_streak > 1 ? ` · 🔥${r.current_streak}` : ''}</small></span><b>${r[sort]}</b></div>`).join('')
+        + (rows.some(r => r.name !== me) ? GM.lbReportHint : '')
         : '<div class="muted">No daily results yet. Be the first!</div>';
     } catch (e) { GM.$('#dboard').innerHTML = '<div class="muted">Couldn’t load the daily board.</div>'; }
   }
@@ -531,9 +534,9 @@
       <p>Goal Machine includes <b>${GM.players.length.toLocaleString()}</b> players who have made at least <b>50 Premier League appearances</b> since 1992/93, with their PL goals, assists, appearances, clubs, positions and nationality, plus honours for the full-time badges. Stats include matches up to <b>${GM.dataDate}</b> and refresh automatically every week.</p>
       <p>Stats are stitched together from public datasets: the official premierleague.com player pages (1992–2020), Fantasy Premier League gameweek data (2016–today) and Understat season stats (2014–2016). Which club a player was at in each season (for chemistry and title badges) comes from Transfermarkt transfer records. Assists after 2020 are FPL assists, which run slightly higher than the official count. A handful of players’ early seasons are estimated from minutes played, so the odd tally might be off by a game or a goal.</p>
       <p>Only Premier League appearances and goals count – no cups, Europe or Championship seasons.</p>
-      <p>📸 Player photos come from the Premier League, Transfermarkt and Wikimedia Commons (<a href="#/credits">photo credits</a>). Players without a photo show their initials in their club colours.</p>
+      <p>📸 Player photos come from ${GM.playSafe ? '' : 'the Premier League, Transfermarkt and '}Wikimedia Commons (<a href="#/credits">photo credits</a>). Players without a photo show their initials in their club colours.</p>
       ${GM.playSafe ? '' : `<p>📲 Android app: <a href="${GM.APK_URL}">download the latest APK</a>. Game updates arrive automatically in the app.</p>`}
-      <p>🎧 Soundtrack music from <a href="https://www.epidemicsound.com/">Epidemic Sound</a>: <span id="tune-credits">the songs in the playlist</span>.</p>
+      ${GM.playSafe ? '' : `<p>🎧 Soundtrack music from <a href="https://www.epidemicsound.com/">Epidemic Sound</a>: <span id="tune-credits">the songs in the playlist</span>.</p>`}
       <p>🔐 <a href="privacy.html">Privacy policy</a></p>
       <p>This is a fan-made game inspired by FourFourTwo’s 442GOALS and is not affiliated with the Premier League or FourFourTwo.</p>
       </div>`;
@@ -547,7 +550,7 @@
   function credits() {
     const list = GM.players.filter(p => p.photo && p.photo.w).sort((a, b) => a.name.localeCompare(b.name));
     app.innerHTML = `<div class="topbar"><a href="#/about" class="back">‹</a><h2>📸 Photo credits</h2><span></span></div>
-      <p class="muted">These photos come from Wikimedia Commons under the licences shown. Tap one to see the original file and its full licence. Other photos are from premierleague.com and Transfermarkt.</p>
+      <p class="muted">These photos come from Wikimedia Commons under the licences shown. Tap one to see the original file and its full licence.${GM.playSafe ? '' : ' Other photos are from premierleague.com and Transfermarkt.'}</p>
       <div class="plist">${list.length ? list.map(p => `<a class="prow credit" href="${GM.esc(p.photo.u)}" target="_blank" rel="noopener">${GM.avatar(p)}<div><b>${GM.esc(p.name)}</b>
         <small>📷 ${GM.esc(p.photo.a)} · ${GM.esc(p.photo.l)}</small></div></a>`).join('') : '<div class="muted">No Wikimedia photos in use yet.</div>'}</div>`;
   }

@@ -65,6 +65,11 @@ Everything goes through security-definer RPCs that check the account with `gm_au
 - Names: `gm_name_ok` (offensive-word filter, used by `claim_name`, `rename_account` and `name_available`, which returns
   null for a banned name), `report_name` (3 reports hide a name from `best_scores` / `daily_board` via `players.name_hidden`),
   `name_status`, `rename_account` (moves scores, friends, rooms and backup to the new name).
+- **Instant push (Firebase Cloud Messaging, project `opportunistic-games`):** phones register with `set_push_token`
+  (token + their notification choices, `push_tokens`). Triggers on `rooms` and `friends` call `gm_push`, which posts
+  (pg_net, shared secret in `private_config`) to the Edge Function `push`: for each phone it asks `app_inbox` and
+  pushes new game/result/friend items once (`push_sent`). Needs the `FCM_SERVICE_ACCOUNT` Edge Function secret. The
+  app's `PushService` shows them (same ids as the 15-minute check, so never twice). Reminders stay with the check.
 - Notifications: `app_inbox(p_user, p_prefs, p_state, p_tz)` returns what the Android app should notify about. The app
   sends the player's choices from Settings (`GM.notify`: move, friends, results, modes, streak, comeback, daily time),
   their daily streak and time zone. **To announce a new game mode**, insert a row into `announcements` (title, body,

@@ -9,7 +9,7 @@
 (function () {
   GM.UPDATES = [
     {
-      v: 30, label: '5.2', date: '2026-09-26', app: 26, title: 'Instant notifications, and faces on the cards',
+      v: 31, label: '5.2', date: '2026-09-26', app: 26, title: 'Instant notifications, and faces on the cards',
       items: [
         '⚡ Instant notifications: “your move”, challenges, results and new friends now arrive the moment they happen, not up to 15 minutes later. Get the new app (build 26) with the update button',
         '🔔 Found and fixed why notifications never came: Android had been refusing to schedule the app’s background check. After updating, ⚙️ Settings → Notifications should say “⚡ Instant notifications on” and “Checking every ~15 min”',

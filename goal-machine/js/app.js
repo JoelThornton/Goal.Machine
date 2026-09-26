@@ -349,6 +349,7 @@
         : st.sched && st.sched !== 'scheduled' ? `⚠️ Not scheduled: ${GM.esc(st.sched)}`
         : '⚠️ Not scheduled yet – open the app again, or tap Check now';
       el.innerHTML = `<span>${st.allowed && st.enabled ? '✅ Allowed' : '❌ Not allowed – tap Phone settings'}</span>
+        ${'push' in st ? `<span>${st.push ? '⚡ Instant notifications on' : '⏳ Instant notifications: waiting for Google Play services'}${st.lastPush ? ` · last one ${mins(st.lastPush)}` : ''}</span>` : ''}
         <span>${sched}</span>
         ${st.restricted ? '<span>⚠️ Your phone limits Goal Machine’s battery use, so it can’t check in the background. Phone settings → Battery → <b>Unrestricted</b> (or Optimised)</span>' : ''}
         ${st.bucket >= 40 ? `<span>💤 Android runs Goal Machine’s checks rarely (it’s been used little lately). Opening it more often speeds them up.</span>` : ''}

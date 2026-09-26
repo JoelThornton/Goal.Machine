@@ -675,7 +675,7 @@ GM.shareGame = () => GM.share('⚽ Goal Machine: spin the reels and build the bi
 GM.APK_URL = 'https://github.com/OpportunisticGames/opportunisticgames.github.io/releases/latest/download/goal-machine.apk';
 // Oldest Android app build that doesn't need replacing. Raise it after an app change players should pick up; older
 // apps then show an update link. Builds before AndroidApp.version() existed always count as out of date.
-GM.APP_MIN_BUILD = 25;  // build 25: notifications really schedule (ACCESS_NETWORK_STATE), restarts on open, diagnostics
+GM.APP_MIN_BUILD = 26;  // build 26: instant push notifications (Firebase), and the 15-minute check really schedules
 // Which app we're in: 'play' (Google Play), 'sideload' (the GitHub APK) or 'web'. The Play version never offers APK
 // downloads (Play doesn't allow apps to update themselves) and skips photos we don't have the rights to.
 GM.channel = (() => { try { return window.AndroidApp && typeof window.AndroidApp.channel === 'function' ? window.AndroidApp.channel() : window.AndroidApp ? 'sideload' : 'web'; } catch (e) { return 'web'; } })();

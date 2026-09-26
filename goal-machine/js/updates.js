@@ -9,9 +9,10 @@
 (function () {
   GM.UPDATES = [
     {
-      v: 30, label: '5.2', date: '2026-09-26', app: 25, title: 'Faces on the cards, and notifications that arrive',
+      v: 30, label: '5.2', date: '2026-09-26', app: 26, title: 'Instant notifications, and faces on the cards',
       items: [
-        '🔔 Found it: Android had been refusing to schedule the app’s background check, so “your move” and reminder notifications never came. The new app (build 25) fixes it – tap the update button, then check ⚙️ Settings → Notifications says “Checking every ~15 min”',
+        '⚡ Instant notifications: “your move”, challenges, results and new friends now arrive the moment they happen, not up to 15 minutes later. Get the new app (build 26) with the update button',
+        '🔔 Found and fixed why notifications never came: Android had been refusing to schedule the app’s background check. After updating, ⚙️ Settings → Notifications should say “⚡ Instant notifications on” and “Checking every ~15 min”',
         '🃏 Hat-Trick cards show the player’s face, with the number once on the edge strip',
         '🔍 Pick a card up to see it in full: photo, whole name, clubs and number, with a big ▶ Play button. Every card on the pitch shows its full name too',
         '⚽ Offline Hat-Trick: choose the card strength (goals, assists or apps) or let it surprise you',

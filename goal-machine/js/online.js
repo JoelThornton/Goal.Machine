@@ -731,6 +731,14 @@
       const cfg = { url: GM.lb.cfg.supabaseUrl, key: GM.lb.cfg.supabaseAnonKey, rpc: 'app_inbox', args: { p_user: a.name, p_prefs: GM.notify.prefs(), p_state: state, p_tz: tz } };
       if (typeof window.AndroidApp.setInbox === 'function') GM.app('setInbox', JSON.stringify(cfg));
       else GM.app('watchGames', a.name, GM.lb.cfg.supabaseUrl, GM.lb.cfg.supabaseAnonKey);
+      // instant notifications (app build 26+): tell the server this phone's push address and your choices
+      const token = GM.app('pushToken');
+      if (token === '' && !GM.notify._retry) { GM.notify._retry = setTimeout(() => GM.notify.sync(), 6000); return; }  // Firebase is still handing it over
+      if (!token) return;
+      const reg = JSON.stringify([a.name, token, cfg.args.p_prefs, tz]);
+      if (GM.store.get('pushReg', '') === reg) return;
+      GM.lb.rpc('set_push_token', { p_user: a.name, p_key: a.key, p_token: token, p_prefs: cfg.args.p_prefs, p_tz: tz })
+        .then(r => { if (r === 'ok') GM.store.set('pushReg', reg); }).catch(() => { });
     },
   };
 

@@ -501,7 +501,9 @@
 
   /* ---------------------------------------------------------------- player index */
   function playerIndex() {
-    app.innerHTML = `<div class="topbar"><a href="#/" class="back">‹</a><h2>📖 Player index</h2><span></span></div>
+    const from = menuTrail.filter(h => h !== location.hash).pop() || '#/';
+    app.innerHTML = `<div class="topbar"><a href="${GM.esc(from)}" class="back">‹</a><h2>📖 Player index</h2><span></span></div>
+      ${GM.albumTabs('players')}
       <div class="filters"><input class="input" id="pq" placeholder="Search name…" autocomplete="off">
       <select class="input" id="pc"><option value="">All clubs</option>${GM.clubs.map(c => `<option>${GM.esc(c)}</option>`).join('')}</select>
       <select class="input" id="pa"><option value="1">Every PL player</option><option value="50">50+ apps</option><option value="100">100+ apps</option><option value="300">300+ apps</option></select>
@@ -531,7 +533,7 @@
   function about() {
     app.innerHTML = `<div class="topbar"><a href="#/" class="back">‹</a><h2>ℹ️ About the data</h2><span></span></div>
       <div class="prose">
-      <p>Goal Machine includes <b>${GM.players.length.toLocaleString()}</b> players who have made at least <b>50 Premier League appearances</b> since 1992/93, with their PL goals, assists, appearances, clubs, positions and nationality, plus honours for the full-time badges. Stats include matches up to <b>${GM.dataDate}</b> and refresh automatically every week.</p>
+      <p>Goal Machine includes <b id="ab-all">${GM.allPlayers ? GM.allPlayers.length.toLocaleString() : '5,000+'}</b> players: <b>everyone to play in the Premier League</b> since 1992/93. Most modes draw from the <b>${GM.players.length.toLocaleString()}</b> with at least 50 PL appearances; ⚡ Extreme and 💎 Purist use everyone. Each player comes with their PL goals, assists, appearances, clubs, positions and nationality, plus honours for the full-time badges. Stats include matches up to <b>${GM.dataDate}</b> and refresh automatically every week.</p>
       <p>Stats are stitched together from public datasets: the official premierleague.com player pages (1992–2020), Fantasy Premier League gameweek data (2016–today) and Understat season stats (2014–2016). Which club a player was at in each season (for chemistry and title badges) comes from Transfermarkt transfer records. Assists after 2020 are FPL assists, which run slightly higher than the official count. A handful of players’ early seasons are estimated from minutes played, so the odd tally might be off by a game or a goal.</p>
       <p>Only Premier League appearances and goals count – no cups, Europe or Championship seasons.</p>
       <p>📸 Player photos come from ${GM.playSafe ? '' : 'the Premier League, Transfermarkt and '}Wikimedia Commons (<a href="#/credits">photo credits</a>). Players without a photo show their initials in their club colours.</p>
@@ -540,6 +542,7 @@
       <p>🔐 <a href="privacy.html">Privacy policy</a></p>
       <p>This is a fan-made game inspired by FourFourTwo’s 442GOALS and is not affiliated with the Premier League or FourFourTwo.</p>
       </div>`;
+    if (!GM.allPlayers) GM.loadAll().then(all => { const el = GM.$('#ab-all'); if (el) el.textContent = all.length.toLocaleString(); }).catch(() => { });
     GM.sound.tuneList().then(list => {
       const el = GM.$('#tune-credits');
       if (el && list && list.length) el.innerHTML = list.map(t => `“${GM.esc(t.title)}”${t.artist ? ' by ' + GM.esc(t.artist) : ''}`).join(', ');

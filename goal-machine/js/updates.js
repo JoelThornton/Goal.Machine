@@ -12,6 +12,8 @@
         '🃏 Player cards on the reels always show the stat box now, even with a two-line name or bigger text on your phone (the club badges and photo shrink to make room)',
         '🩹 Wildcards show their full description instead of cutting off after a few words',
         '📰 This What’s New pop-up stays open until you close it',
+        '📒 The Album, Purist and Players tabs fit on one line, and ‹ on the Players page takes you back to where you came from',
+        'ℹ️ About now says what’s really in the game: every one of the 5,000+ players to play in the Premier League',
       ],
     },
     {

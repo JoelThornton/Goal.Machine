@@ -2,6 +2,9 @@
 'use strict';
 
 (function () {
+  // the Album / Purist / Players tabs, on one line, at the top of all three pages
+  GM.albumTabs = on => `<div class="hard-toggle small three">${[['album', '#/album', '📒 Album'], ['purist', '#/album?b=purist', '💎 Purist'], ['players', '#/players', '📖 Players']]
+    .map(([k, h, l]) => `<a class="${k === on ? 'on' : ''}" href="${h}">${l}</a>`).join('')}</div>`;
   // Two books: the Album (players with 50+ PL apps, plus badges) and the Purist collection (every PL player, filled
   // only by Purist drafts). Players are keyed "name|first season", which stays put when the weekly data refresh
   // re-orders the list; albums saved with list positions are converted once.
@@ -229,7 +232,7 @@
     const main = load();
 
     root.innerHTML = `<div class="topbar"><a href="#/" class="back">‹</a><h2>${purist ? '💎 Purist collection' : '📒 Album'}</h2><span></span></div>
-      <div class="hard-toggle small"><a class="${purist ? '' : 'on'}" href="#/album">📒 Album</a><a class="${purist ? 'on' : ''}" href="#/album?b=purist">💎 Purist</a><a href="#/players">📖 Players</a></div>
+      ${GM.albumTabs(purist ? 'purist' : 'album')}
       <div class="album-head">
         <div><b>${fmt(ids.length)}</b><small>of ${fmt(list.length)} players</small></div>
         <div>${purist ? `<b>${list.length ? (100 * ids.length / list.length).toFixed(1) : 0}%</b><small>of every PL player</small>` : `<b>${Object.keys(main.ach).length}</b><small>of ${A.length} badges</small>`}</div>

@@ -7,6 +7,13 @@
 (function () {
   GM.UPDATES = [
     {
+      v: 23, label: '4.8', date: '2026-09-26', app: 16, title: 'Watch your opponent live',
+      items: [
+        '👀 In a Live, Target or CHAOS Race, the bar at the top now shows your opponent’s latest signing the moment they make it (it flashes), along with their score',
+        '⚽ Tap the bar to see their whole XI so far on a mini pitch, with their newest signing highlighted',
+      ],
+    },
+    {
       v: 22, label: '4.7', date: '2026-09-26', app: 16, title: 'All three wildcards, tidier stat buttons',
       items: [
         '🃏 Holding three wildcards? All three now fit on the bar (the third used to slide off the screen out of reach)',

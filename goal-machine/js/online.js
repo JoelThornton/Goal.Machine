@@ -276,7 +276,9 @@
       if (r.variant === 'chaos') GM.sound.scene('chaos');
       const bar = GM.$('#oppbar', root);
       const theirScore = r.variant === 'chaos' ? `${fmt(theirs.c || 0)} pts` : r.variant === 'target' ? `${theirs.n ? `${fmt(theirs.d || 0)} off` : '–'}` : `${fmt(theirs.t || 0)} ${GM.STATS[r.stat].label}`;
-      if (bar) bar.innerHTML = opp ? `<span>${KIND[gk(r)].icon} <b>${esc(opp)}</b>: ${theirScore} · ${theirs.n || 0}/11${theirs.done ? ' ✓ done' : ''}</span>`
+      if (opp) GM.online.setOppBar(r, opp, theirs, `${KIND[gk(r)].icon} <b>${esc(opp)}</b> ${theirScore} · ${theirs.n || 0}/11${theirs.done ? ' ✓' : ''}`);
+      if (bar && opp) bar.innerHTML = GM.online.oppBar(r.code);
+      else if (bar) bar.innerHTML = opp ? ''
         : `<span>🔗 Waiting for someone to join (code <b>${r.code}</b>) – play your XI now</span> <button class="btn small" id="oshare">📤</button>`;
       wireInvite(root, r);
       return;
@@ -292,6 +294,34 @@
     }
     summary(root, r, seat);
   }
+  // Your opponent's live feed in a race: their score, and each signing as it lands (tap for their whole XI).
+  // Kept here so the draft can redraw it on every tap without losing it.
+  const feed = {};
+  GM.online.setOppBar = function (r, opp, theirs, line) {
+    const f = feed[r.code] || (feed[r.code] = {}), lp = theirs.lp, key = lp ? lp[1] + ':' + lp[2] : '';
+    const fresh = !!(key && f.key != null && f.key !== key);  // a new signing since we last looked
+    if (fresh) { f.flashUntil = Date.now() + 2500; GM.buzz(12); }
+    f.key = key; f.theirs = theirs; f.opp = opp; f.stat = r.stat; f.variant = r.variant;
+    const p = lp && GM.byPk.get(lp[1]);
+    f.html = `<button class="ob-btn" data-oppxi="${r.code}"><span class="ob-line">${line}</span>${p ? `<span class="ob-last">✍️ ${esc(p.name.split(' ').slice(-1)[0])} <i>${fmt(lp[2])}</i></span>` : ''}<span class="ob-go">XI ›</span></button>`;
+  };
+  GM.online.oppBar = code => {
+    const f = feed[code];
+    if (!f) return '';
+    return f.html.replace('class="ob-btn"', `class="ob-btn ${f.flashUntil > Date.now() ? 'flash' : ''}"`);
+  };
+  function showOppXi(code) {
+    const f = feed[code]; if (!f) return;
+    const st = GM.STATS[f.stat] || GM.STATS.goals, x = f.theirs.x || FORMATION.map(pos => [pos]), lp = f.theirs.lp;
+    const cell = ([pos, pk, v]) => { const p = pk && GM.byPk.get(pk);
+      return `<div class="ox ${p ? 'on' : ''} ${lp && pk === lp[1] ? 'latest' : ''}"><span class="pos pos-${GM.GROUP[pos]}">${pos}</span>${p ? `${GM.avatar(p)}<b>${esc(p.name.split(' ').slice(-1)[0])}</b><i>${fmt(v)}</i>` : '<b class="muted">–</b>'}</div>`; };
+    const rows = ['F', 'M', 'D', 'G'].map(g => x.filter(c => GM.GROUP[c[0]] === g)).filter(r => r.length);
+    GM.modal(`<h3>${esc(f.opp)}’s XI</h3><p class="muted center small">${f.theirs.n || 0}/11 signed · ${fmt(f.theirs.t || 0)} ${st.label}${f.variant === 'chaos' ? ` · ${fmt(f.theirs.c || 0)} CHAOS pts` : ''}${f.variant === 'target' && f.theirs.n ? ` · ${fmt(f.theirs.d || 0)} off the target` : ''}</p>
+      <div class="opp-pitch">${rows.map(r => `<div class="op-row">${r.map(cell).join('')}</div>`).join('')}</div>
+      <div class="row"><button class="btn" data-close>Back to my XI</button></div>`);
+  }
+  document.addEventListener('click', e => { const b = e.target.closest && e.target.closest('[data-oppxi]'); if (b) showOppXi(b.dataset.oppxi); });
+
   // called by the draft engine after every signing and at full time: your running total, XI, rating and time taken
   GM.online.pushRace = function (S) {
     const o = S.online;
@@ -304,6 +334,8 @@
     const sum = { t: sc.t, n: xi.length, done: S.phase === 'done', r: xi.length ? GM.teamRating(xi).score : 0, ms: o.ms,
       ...(S.mode === 'target' ? { tg: S.target, d: Math.abs(S.target - sc.t) } : S.mode === 'chaos' ? { c: sc.total } : {}),
       x: S.xi.map(s => (s.p != null ? [s.pos, GM.players[s.p].pk, s.g] : [s.pos])) };
+    const ls = S.last != null && S.xi.find(s => s.p === S.last);
+    if (ls) sum.lp = [ls.pos, GM.players[ls.p].pk, ls.g];  // your latest signing, for your opponent's live feed
     GM.store.set('racep:' + o.code, { ...S, rules: undefined });
     rpc('online_move', { ...auth(), p_code: o.code, p_seq: 0, p_move: null, p_sum: sum, p_turn: null })
       .then(() => GM.online.refresh && GM.online.refresh()).catch(() => { });

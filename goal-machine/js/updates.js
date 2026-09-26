@@ -9,6 +9,12 @@
 (function () {
   GM.UPDATES = [
     {
+      v: 27, label: '4.10.1', date: '2026-09-26', app: 23, title: 'Time to update the Android app',
+      items: [
+        '📲 The Android app asks you to update to build 23, which fixes notifications that weren’t arriving. Tap the update button, install, and check ⚙️ Settings → Notifications says “Checking every ~15 min”',
+      ],
+    },
+    {
       v: 26, label: '4.10', date: '2026-09-26', app: 16, title: 'Formations, secrets and fairer targets',
       items: [
         '🌪️ CHAOS kicks off in a random formation: 4-4-2, 4-5-1, 3-5-2, 5-4-1, 4-3-3, 3-4-3 or 5-3-2 (the same for everyone in the Daily CHAOS and in a CHAOS Race)',
@@ -24,7 +30,7 @@
       ],
     },
     {
-      v: 25, label: '4.9.1', date: '2026-09-26', app: 16, title: 'Cards that always fit',
+      v: 25, label: '4.9.1', date: '2026-09-26', app: 23, title: 'Cards that always fit',
       items: [
         '🃏 Player cards on the reels always show the stat box now, even with a two-line name or bigger text on your phone (the club badges and photo shrink to make room)',
         '🩹 Wildcards show their full description instead of cutting off after a few words',

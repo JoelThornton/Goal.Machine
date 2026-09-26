@@ -25,6 +25,14 @@ go.** Each idea keeps its notes and questions so a later session can pick it up.
   matches? The data-only version can be automatic; topical questions need someone to write them each week (or a
   weekly data refresh that turns into questions). Leaderboard for the week, streaks across weeks?
 
+### Daily games reminder notification
+- **Owner's expectation:** a notification about the daily games. There isn't one yet: notifications only cover
+  online games (your move, challenges, results, new friends).
+- **Notes:** can be done on the server alone (no new app). `app_inbox` adds one item a day, e.g. "📅 Today's
+  Footle and Daily Ultimate are ready", if you haven't posted a daily score yet and it's after a set time. Questions:
+  what time (e.g. 10:00 UK)? Only if you have a streak going ("🔥 Keep your 12-day streak alive")? A setting to turn
+  it off? Later-evening "last chance" nudge for streaks?
+
 ### CHAOS: random formations
 - **Owner's idea:** CHAOS should randomise the formation: 4-4-2, 4-5-1, 3-5-2, 5-4-1 and so on.
 - **Notes:** fits CHAOS well. The pitch already supports formation changes (Gegenpress and Park the Bus move

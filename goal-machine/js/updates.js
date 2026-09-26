@@ -7,6 +7,14 @@
 (function () {
   GM.UPDATES = [
     {
+      v: 22, label: '4.7', date: '2026-09-26', app: 16, title: 'All three wildcards, tidier stat buttons',
+      items: [
+        '🃏 Holding three wildcards? All three now fit on the bar (the third used to slide off the screen out of reach)',
+        '⚽ Goals, assists and appearances look the same everywhere: icon on top, name underneath, all three in one row',
+        '🐛 Leaving a game mid-animation could flash the draft back up over the page you went to. Fixed',
+      ],
+    },
+    {
       v: 21, label: '4.6', date: '2026-09-26', app: 16, title: 'Target and CHAOS online',
       items: [
         '🎯 Target Race: a new online game. A different target every game (some much harder than others), the same spins for both of you, and whoever finishes closest wins',

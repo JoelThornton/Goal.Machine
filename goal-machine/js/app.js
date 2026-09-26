@@ -445,7 +445,7 @@
     const canHard = GM.HARD_MODES.includes(keyFor(base, stat, false));
     const pickers = `<div class="lb-cats">${CATS.map(([name, list], i) => `<a class="${i === cat ? 'on' : ''}" href="${link(keyFor(list[0]))}">${name}</a>`).join('')}</div>
       <div class="tabs">${CATS[cat][1].map(k => `<a class="tab ${k === base ? 'active' : ''}" href="${link(k === 'dailies' ? 'dailies' : keyFor(k))}">${label(k)}</a>`).join('')}</div>
-      ${hasStats(base) ? `<div class="hard-toggle small three">${Object.entries(GM.STATS).map(([k, st]) => `<a class="${k === stat ? 'on' : ''}" href="${link(keyFor(base, k))}">${st.icon} ${st.name}</a>`).join('')}</div>` : ''}
+      ${hasStats(base) ? `<div class="hard-toggle small three">${Object.entries(GM.STATS).map(([k, st]) => `<a class="${k === stat ? 'on' : ''}" href="${link(keyFor(base, k))}"><i class="sb-ico">${st.icon}</i>${st.name}</a>`).join('')}</div>` : ''}
       ${canHard ? `<div class="hard-toggle small"><a class="${hard ? '' : 'on'}" href="${link(keyFor(base, stat, false))}">🙂 Normal</a><a class="${hard ? 'on' : ''}" href="${link(keyFor(base, stat, true))}">🥵 Hard</a></div>` : ''}`;
     app.innerHTML = `<div class="topbar"><a href="#/" class="back">‹</a><h2>🏆 Leaderboards</h2><span></span></div>
       ${pickers}

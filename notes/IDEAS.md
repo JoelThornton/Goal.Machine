@@ -25,6 +25,28 @@ go.** Each idea keeps its notes and questions so a later session can pick it up.
   matches? The data-only version can be automatic; topical questions need someone to write them each week (or a
   weekly data refresh that turns into questions). Leaderboard for the week, streaks across weeks?
 
+### Hidden things: secrets, unlocks, easter eggs
+- **Owner's idea:** hidden items, unlocks and secrets to keep the game exciting.
+- **Notes:** some directions, from light to heavy:
+  - secret badges (hidden in the list as "???" until earned): an all-one-club XI, exactly 442 goals, a 0-goal XI
+  - easter eggs triggered by real football moments: sign Aguero with the last spin → "AGUEROOOO" commentary
+  - unlockable looks: pitch styles, retro kits for the card design, earned rather than bought
+  - a hidden mode that appears after something special (e.g. completing a club's full set in the Album)
+  - rare "legend" reel cards with a special shine (cosmetic)
+- **Questions:** cosmetic only, or can unlocks change gameplay (a new wildcard)? Should secrets be shareable
+  ("I found the hidden mode") to spread word of mouth?
+
+### Version numbers and the Updates page
+- **Owner's point:** we're going through 4.1, 4.2 … quickly. Either define versions better, or use something like
+  4.11 for very minor (bug-fix) updates.
+- **Suggestion:** three levels, like most apps:
+  - **5.0**: a big change to how the game plays (a new kind of game, a redesign)
+  - **4.10, 4.11**: new features or modes
+  - **4.10.1**: bug fixes and polish only
+- On the Updates page, fix-only releases fold into the release above ("+ 2 fix-ups") so the list stays about the
+  new things.
+- The release waiting now (fixes + notification repair) would be **4.9.1** under this scheme.
+
 ### Daily games reminder notification
 - **Owner's expectation:** a notification about the daily games. There isn't one yet: notifications only cover
   online games (your move, challenges, results, new friends).

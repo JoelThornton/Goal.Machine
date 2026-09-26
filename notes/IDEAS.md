@@ -6,6 +6,13 @@ go.** Each idea keeps its notes and questions so a later session can pick it up.
 
 ## 💬 To discuss
 
+### Settings: a sub-menu system
+- **Owner's idea:** Settings is getting long and needs sub-menus.
+- **Proposal:** the Settings page becomes a short menu, each row showing its current value, with one sub-page each:
+  👤 Account ("🔒 Joel") · 🎨 Look & club ("Dark · Arsenal") · 🔊 Sound & vibration ("Music: Game") ·
+  🔔 Notifications, app only ("6 of 7 on") · 🎮 Gameplay ("Normal"). The links underneath (share, how it works,
+  updates, about, privacy) stay as they are. ‹ on a sub-page goes back to Settings.
+
 ### Money games need more depth (Moneyball, Transfer Window, Auction)
 - **Owner's take:** there's something there, but it isn't satisfying. By two-thirds of the way through you're often
   left with one affordable option (a free transfer), and it boils down to "longest career for the cost". It lacks the

@@ -35,6 +35,14 @@
                 <data android:scheme="https" android:host="opportunisticgames.github.io" android:pathPrefix="/goal-machine" />
             </intent-filter>
         </activity>
+        <!-- instant notifications pushed by the server through Firebase -->
+        <service
+            android:name=".PushService"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="com.google.firebase.MESSAGING_EVENT" />
+            </intent-filter>
+        </service>
         <service
             android:name=".GameCheckService"
             android:exported="false"

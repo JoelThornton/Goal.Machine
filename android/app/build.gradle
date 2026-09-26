@@ -1,5 +1,6 @@
 plugins {
     id 'com.android.application'
+    id 'com.google.gms.google-services'   // reads app/google-services.json (Firebase project opportunistic-games)
 }
 
 // GitHub Actions run number -> versionCode, so every build installs over the previous one
@@ -68,4 +69,10 @@ android {
         sourceCompatibility JavaVersion.VERSION_1_8
         targetCompatibility JavaVersion.VERSION_1_8
     }
+}
+
+// Firebase Cloud Messaging: the server pushes "your move" the moment it happens (PushService)
+dependencies {
+    implementation platform('com.google.firebase:firebase-bom:33.7.0')
+    implementation 'com.google.firebase:firebase-messaging'
 }

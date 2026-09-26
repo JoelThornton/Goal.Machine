@@ -440,7 +440,12 @@
     render();
   }
   // #/hattrick: the menu (with Carry on if there's a game saved)
-  GM.hattrick = function (el) { root = el; G = null; busy = false; picked = null; intro(); };
+  GM.hattrick = function (el) {
+    root = el; G = null; busy = false; picked = null;
+    // from a Quick match nobody joined: straight into a game against the computers
+    if (GM.store.get('ht:autostart', 0)) { GM.store.set('ht:autostart', 0); return begin(GM.store.get('ht:level', 'medium'), GM.store.get('ht:hidden', false)); }
+    intro();
+  };
   /* ---------------------------------------------------------------- online: you + Skipper v your mate + their Skipper */
   // The room stores only the two humans' moves ({t:'b', n} bids and {t:'p', c} cards, with s = host/guest). Both phones
   // rebuild the game from the room's seed: the computers (seats 2 and 3) play the Hard, never-random way, so they make
@@ -482,7 +487,7 @@
       human: s => s < 2,
       bar: (api.inviteBar(r) || '') + (bad ? '<div class="banner">⚠️ This game got out of step. Tap ‹ and open it again.</div>' : '')
         + (done && res ? `<div class="banner race-final">${res.resigned ? (res.resigned === seat ? '🏳️ You resigned' : `🏳️ ${GM.esc(r[seat === 'host' ? 'guest' : 'host'])} resigned`) : res.winner === 'draw' ? '🤝 A draw' : iWon ? '🏆 You win!' : `😬 ${GM.esc(r[res.winner])} wins`}</div>` : ''),
-      foot: done ? '' : `<div class="actions"><button class="btn ghost small" id="oresign">🏳️ ${r.guest ? 'Resign' : 'Cancel invite'}</button></div>`,
+      foot: done ? '' : `<div class="actions"><button class="btn ghost small" id="oresign">🏳️ ${r.guest ? 'Resign' : r.quick ? 'Stop searching' : 'Cancel invite'}</button></div>`,
       wire: root => { api.wireInvite(root, r); api.resignButton(root, r, seat); },
       send: async move => {
         if (G.sending || done) return;
@@ -497,7 +502,7 @@
         api.refresh();
       },
     };
-    if (!r.guest && !done) G.names[seat === 'host' ? 1 : 0] = 'Your mate';
+    if (!r.guest && !done) G.names[seat === 'host' ? 1 : 0] = r.quick ? 'Opponent' : 'Your mate';
     render();
     // a finished hand (or the final whistle) you haven't seen yet
     if (G.history.length > seen) {

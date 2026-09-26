@@ -77,7 +77,7 @@ formations, and badges round 2.
   result plus your streak in one spoiler-free post, with the link. One post a day in a group chat is how Wordle
   spread.
 
-### Online lobby / quick match *(owner: "a BIG ask, fine if not right now")*
+### Online lobby / quick match *(step 1, Quick match, ✅ shipped in 5.1)*
 - **Idea:** a lobby to play people you don't know yet.
 - **What it could be, in steps:**
   1. **Quick match:** tap "Find me a game" for a Live Race (the easiest online game). You join the oldest open

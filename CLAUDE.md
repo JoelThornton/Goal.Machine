@@ -57,6 +57,9 @@ Everything goes through security-definer RPCs that check the account with `gm_au
 - Online: `online_create` (kind `race` / `duel` / `auction`, optional `p_variant`: `scout`, `target`, `chaos`),
   `online_join`, `online_get`, `online_move`, `online_bid`, `online_resign`, `online_games`, `online_waiting`,
   friends (`online_friends`, `online_add_friend`, `online_remove_friend`), `friends_week` (league).
+- Quick match: `quick_match(p_user, p_key, p_kind, p_stat, p_variant)` joins the oldest open `quick` room of that game
+  from the last 30 minutes, reuses your own waiting one, or opens one (max 3); no auto-befriend. Turn-by-turn games
+  offer the computer after a minute (`QM_WAIT` in online.js); a Live Race just starts.
 - `gm_finalise` decides results once both players are done: races 50/30/20 (total / rating / speed), duels and
   auction 60/40, Target Race = closest (`d`) wins 100–0, CHAOS Race = most CHAOS points (`c`) wins 100–0.
 - Names: `gm_name_ok` (offensive-word filter, used by `claim_name`, `rename_account` and `name_available`, which returns
@@ -84,6 +87,7 @@ There's no unit test suite; test in a real browser with Playwright (Chromium is 
    Supabase RPCs in memory (test accounts Alice/Bob/Cara), so nothing touches the real database.
    - `sweep.js` – opens every page in light, dark and club themes: page errors and sideways overflow.
    - `races.js` – two phones play a Target Race and a CHAOS Race end to end.
+   - `quickmatch.js` – pairing, no auto-friend, and the computer fallback after a minute.
    - `htonline.js` – two phones play Hat-Trick online to full time.
    - `hattrick.js` – 200 computer hands check the Hat-Trick rules, then a hand is played through the screen.
    - `features.js` – CHAOS formations, Target percentages, the Players filter, feedback and badges.

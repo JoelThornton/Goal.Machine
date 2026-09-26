@@ -9,6 +9,14 @@
 (function () {
   GM.UPDATES = [
     {
+      v: 29, label: '5.1', date: '2026-09-26', title: '🎲 Quick match',
+      items: [
+        '🎲 Quick match on the Online tab: pick a Live Race, Hat-Trick or Draft Duel and we’ll pair you with someone waiting for the same game. No chat, just football',
+        '🤖 Nobody about? After a minute you can play the computer instead, or keep waiting and we’ll let you know when someone joins',
+        '🧑‍🤝‍🧑 People you meet in a Quick match aren’t added to your friends automatically',
+      ],
+    },
+    {
       v: 28, label: '5.0', date: '2026-09-26', title: '🃏 Goal Machine 5: Hat-Trick goes online',
       items: [
         '⚽ Hat-Trick is now played on a Goal Machine pitch: the trick goes down in the centre circle, with a proper scoreboard. Us in lime, them in orange',

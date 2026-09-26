@@ -134,23 +134,25 @@
           : g.kind === 'auction' ? (myMove(g, seat) ? '👉 Your bid' : `⏳ Waiting for ${esc(opp)}’s bid`)
           : `You ${(s[seat] || {}).done ? '✓ done' : `${(s[seat] || {}).n || 0}/11`} · ${esc(opp)} ${(s[other(seat)] || {}).done ? '✓ done' : `${(s[other(seat)] || {}).n || 0}/11`}`;
         return `<a class="og-row ${o ? 'res-' + o.text.toLowerCase() : ''} ${!o && myMove(g, seat) ? 'mine' : ''}" href="#/online?room=${g.code}"><span class="og-icon">${opp ? GM.userPic(opp) : ''}<i>${k.icon}</i></span>
-          <span class="og-main"><b>${opp ? esc(opp) : 'Open invite'}</b><small>${k.name} · ${st.icon} ${st.name}</small><small class="og-sub">${sub}</small></span>
+          <span class="og-main"><b>${opp ? esc(opp) : g.quick ? '🔎 Finding an opponent' : 'Open invite'}</b><small>${k.name} · ${st.icon} ${st.name}</small><small class="og-sub">${sub}</small></span>
           <span class="og-when">${when(g.updated)}</span></a>`;
       };
       const block = (title, list, empty) => `<h3 class="section-title">${title}${list.length && list === yours ? ` <span class="count">${list.length}</span>` : ''}</h3>
         ${list.length ? `<div class="og-list">${list.map(line).join('')}</div>` : `<p class="muted center">${empty}</p>`}`;
       const quick = friends.slice(0, 5);
-      GM.$('#olists').innerHTML = (quick.length ? `<div class="og-quick"><small>⚡ Play again</small><div>${quick.map(f => `<button data-quick="${esc(f.name)}">${GM.userPic(f.name)}<span>${esc(f.name)}</span></button>`).join('')}</div></div>` : '')
+      const qmCard = `<button class="og-qm" id="oqm"><span>🎲</span><span><b>Quick match</b><small>Play someone new – we’ll find you a game</small></span><span>›</span></button>`;
+      GM.$('#olists').innerHTML = (quick.length ? `<div class="og-quick"><small>⚡ Play again</small><div>${quick.map(f => `<button data-quick="${esc(f.name)}">${GM.userPic(f.name)}<span>${esc(f.name)}</span></button>`).join('')}</div></div>` : '') + qmCard
         + (yours.length ? block('👉 Your move', yours, '')
           : !rows.length ? `<div class="og-empty og-first"><b>Play your mates online</b>
               <ol><li><b>Pick a game</b> – a Live Race is the easiest to start with</li><li><b>Send the invite</b> – your mate taps the link and they’re in</li><li><b>Play whenever suits</b> – you’ll get a notification when it’s your move</li></ol>
-              <button class="btn big" id="onew2">⚔️ Start a game</button>
+              <button class="btn big" id="onew2">⚔️ Play a mate</button>
               <div class="join-row"><input class="input" id="ocode2" maxlength="5" placeholder="Got a code?" autocapitalize="characters"><button class="btn ghost" id="ojoin2">Join</button></div></div>`
           : `<div class="og-empty"><b>Nothing waiting on you</b><span>Start a game, or check back when it’s your turn.</span><button class="btn" id="onew2">⚔️ New game</button></div>`)
         + (theirs.length ? block('⏳ Their move', theirs, '') : '');
       GM.$('#odone').innerHTML = done.length ? `<div class="og-list">${done.slice(0, 30).map(line).join('')}</div>` : '<p class="muted center">No finished games yet.</p>';
       const nb = GM.$('#onew2'); if (nb) nb.onclick = () => newGame();
       GM.$$('[data-quick]').forEach(b => b.onclick = () => newGame(b.dataset.quick));
+      GM.$('#oqm').onclick = quickMatch;
       const j2 = GM.$('#ojoin2'); if (j2) j2.onclick = () => { const c = GM.$('#ocode2').value.trim().toUpperCase(); if (c.length === 5) location.hash = '#/online?join=' + c; else GM.toast('Codes are 5 letters'); };
       // the Games tab shows how many are waiting on you; the list itself marks your moves loudly
       const n = GM.$('[data-n="games"]'); if (n) { n.textContent = yours.length || ''; n.classList.toggle('hot', !!yours.length); }
@@ -190,6 +192,26 @@
       ['chaos', 'CHAOS on the same spins, events and storms. Most points wins.'],
       ['auction', '£200m each and secret bids on every player.'],
     ];
+    // 🎲 Quick match: pick a game, and you're paired with whoever's waiting (or you wait for the next player)
+    function quickMatch() {
+      let kind = ['race', 'hattrick', 'duel'].includes(GM.store.get('qmKind')) ? GM.store.get('qmKind') : 'race', stat = GM.store.get('onlineStat', 'goals');
+      const QM = GAMES.filter(g => ['race', 'hattrick', 'duel'].includes(g[0]));
+      const card = ([k, d]) => `<button class="ng-game ${k === kind ? 'on' : ''}" data-k="${k}"><span>${KIND[k].icon}</span><b>${KIND[k].name}</b><small>${d}</small></button>`;
+      const m = GM.modal(`<h3>🎲 Quick match</h3><p class="muted small">We’ll pair you with someone waiting for the same game. No chat, just football.</p>
+        <div class="ng-games">${QM.map(card).join('')}</div>
+        <div class="ng-stat"><small>Counting</small><div class="seg stat-seg" id="qstat">${Object.entries(GM.STATS).map(([k, s]) => `<button data-v="${k}" class="${k === stat ? 'on' : ''}"><i class="sb-ico">${s.icon}</i>${s.name}</button>`).join('')}</div></div>
+        <div class="row"><button class="btn ghost" data-close>Cancel</button><button class="btn" id="qgo">🔎 Find me a game</button></div>`);
+      GM.$$('.ng-game', m.el).forEach(b => b.onclick = () => { kind = b.dataset.k; GM.store.set('qmKind', kind); GM.$$('.ng-game', m.el).forEach(x => x.classList.toggle('on', x === b)); GM.sound.play('tick'); });
+      GM.$$('#qstat button', m.el).forEach(b => b.onclick = () => { stat = b.dataset.v; GM.store.set('onlineStat', stat); GM.$$('#qstat button', m.el).forEach(x => x.classList.toggle('on', x === b)); });
+      GM.$('#qgo', m.el).onclick = async () => {
+        let r;
+        try { r = await rpc('quick_match', { ...auth(), p_kind: serverKind(kind), p_stat: stat, p_variant: kind === 'hattrick' ? 'hattrick' : null }); } catch (e) { GM.toast('Couldn’t reach the server – try again'); return; }
+        if (!r || !r.code) { GM.toast('Couldn’t start a quick match'); return; }
+        m.close();
+        if (r.matched) { GM.toast(`⚔️ You’re playing ${esc(r.opp)}!`); GM.sound.play('whistle'); }
+        location.hash = '#/online?room=' + r.code;
+      };
+    }
     function newGame(opp) {
       if (opp == null) opp = friends.length ? friends[0].name : '';  // most people play the same mates: the latest is picked
       const lastWith = GM.store.get('onlineLastKind', {});           // the game you last played with each friend
@@ -275,9 +297,30 @@
   }
   GM.online = { refresh: null };
 
-  const inviteBar = r => (r.guest ? '' : `<div class="banner invite"><span class="inv-text">🔗 Nobody’s joined yet. Send your mate the invite: they tap the link and they’re in.</span><span class="inv-code">Code <b>${r.code}</b></span>
+  const QM_WAIT = 60;
+  const inviteBar = r => (r.guest ? '' : r.quick ? `<div class="banner qm-wait"><span class="qm-spin">🔎</span><span><b>Finding you an opponent…</b> <i id="qm-t">0:00</i>
+      <small id="qm-more">Anyone who taps Quick match for the same game joins you here.</small></span>
+      <div id="qm-cpu" class="qm-cpu" hidden><b>Nobody’s about right now.</b><button class="btn small" id="qm-play">🤖 Play the computer instead</button><small>…or keep waiting: we’ll let you know when someone joins.</small></div></div>` : `<div class="banner invite"><span class="inv-text">🔗 Nobody’s joined yet. Send your mate the invite: they tap the link and they’re in.</span><span class="inv-code">Code <b>${r.code}</b></span>
       <button class="btn small" id="oshare">📤 Send invite</button></div>`);
+  let qmTimer = null;
   function wireInvite(root, r) {
+    if (r.quick && !r.guest) {
+      const started = Date.parse(r.created) || Date.now(), skew = Date.now() / 1000 - (r.now || Date.now() / 1000);
+      const show = () => {
+        const t = GM.$('#qm-t', root); if (!t) { clearInterval(qmTimer); return; }
+        const secs = Math.max(0, Math.floor(Date.now() / 1000 - skew - started / 1000));
+        t.textContent = `${Math.floor(secs / 60)}:${String(secs % 60).padStart(2, '0')}`;
+        const cpu = GM.$('#qm-cpu', root); if (cpu && secs >= QM_WAIT && cpu.hidden) { cpu.hidden = false; GM.sound.play('tick'); }
+      };
+      clearInterval(qmTimer); show(); qmTimer = setInterval(show, 1000);
+      const pc = GM.$('#qm-play', root);
+      if (pc) pc.onclick = async () => {  // cancel the waiting game, then the same game against the computer
+        try { await rpc('online_resign', { ...auth(), p_code: r.code }); } catch (e) { }
+        clearInterval(qmTimer);
+        if (r.variant === 'hattrick') { GM.store.set('ht:autostart', 1); location.hash = '#/hattrick'; }
+        else location.hash = '#/draft?m=ultimate' + (r.stat && r.stat !== 'goals' ? '&s=' + r.stat : '');
+      };
+    }
     const b = GM.$('#oshare', root);
     if (b) b.onclick = () => GM.share(`⚽ Goal Machine – ${KIND[gk(r)].name} me! Code ${r.code}`, GM.baseUrl() + '#/online?join=' + r.code);
   }
@@ -286,7 +329,7 @@
     if (!b) return;
     b.onclick = async () => {
       const started = r.race[seat] || r.moves.some(m => m.s === seat);
-      const ok = await GM.confirm(!r.guest ? 'Cancel this invite?' : started ? `Resign? ${esc(oppOf(r))} will win this one.` : `Decline ${esc(oppOf(r))}’s challenge?`);
+      const ok = await GM.confirm(!r.guest ? (r.quick ? 'Stop looking for an opponent?' : 'Cancel this invite?') : started ? `Resign? ${esc(oppOf(r))} will win this one.` : `Decline ${esc(oppOf(r))}’s challenge?`);
       if (!ok) return;
       try { await rpc('online_resign', { ...auth(), p_code: r.code }); } catch (e) { }
       GM.store.set('racep:' + r.code, null);
@@ -420,7 +463,7 @@
       <div class="actions col">
         ${r.result && r.guest ? `<button class="btn big" id="orematch">🔁 Rematch ${esc(opp)}</button><button class="btn ghost" id="oshareres">📤 Share the result</button>` : ''}
         ${A.n ? '<button class="btn ghost" id="osharepic">🖼️ Share a picture of your XI</button>' : ''}
-        ${!r.result && r.status !== 'declined' ? `<button class="btn ghost small" id="oresign">🏳️ ${r.guest ? 'Resign' : 'Cancel invite'}</button>` : ''}
+        ${!r.result && r.status !== 'declined' ? `<button class="btn ghost small" id="oresign">🏳️ ${r.guest ? 'Resign' : r.quick ? 'Stop searching' : 'Cancel invite'}</button>` : ''}
         <a class="btn ghost" href="#/online">🌐 All your games</a></div>`;
     wireInvite(root, r);
     resignButton(root, r, seat);
@@ -584,7 +627,7 @@
         <div class="h2h-mid"><small>${stat.icon} ${stat.name}</small><span>VS</span><small>${live ? '🟢 Both here' : 'Take your time'}</small></div>
         <div class="h2h-team p2">${opp ? GM.userPic(opp, 'board') : ''}<b>${esc(opp || '…')}</b><strong>${scoutGame ? '?' : tThem}</strong><small>${11 - st.open(them).length}/11</small></div></div>
       ${inviteBar(r)}
-      <div class="duel-turn ${mineNow ? 'mine' : ''}">${mineNow ? (st.first === you ? '👉 Your pick – first choice this spin' : '👉 Your pick – from what’s left') : !opp ? '⏳ Waiting for your mate to join. They get first pick.' : `⏳ ${esc(opp)} is picking…${live ? '' : ' They’ll see it’s their turn next time they open the game.'}`}
+      <div class="duel-turn ${mineNow ? 'mine' : ''}">${mineNow ? (st.first === you ? '👉 Your pick – first choice this spin' : '👉 Your pick – from what’s left') : !opp ? `⏳ Waiting for ${r.quick ? 'an opponent' : 'your mate'} to join. They get first pick.` : `⏳ ${esc(opp)} is picking…${live ? '' : ' They’ll see it’s their turn next time they open the game.'}`}
         <small>Spin ${st.spin + 1}</small>${mineNow && live ? `<span class="clock" id="dclock">${PICK_SECONDS}</span>` : ''}</div>
       ${blindNow ? `<div class="banner">🙈 ${esc(opp)} blindfolded you: positions only this pick</div>` : ''}
       ${scoutGame ? handHtml : ''}
@@ -592,7 +635,7 @@
       ${noFit ? '<div class="actions"><button class="btn ghost" id="dpass">None of these fit – pass</button></div>' : ''}
       <h3 class="section-title">Your XI</h3>${pitch(my)}
       <details class="set" open><summary><span>${opp ? esc(opp) + '’s' : 'Their'} XI</span><span>${scoutGame ? 'totals at full time' : `${tThem} ${stat.label}`}</span></summary>${pitch(st.xi[them])}</details>
-      <div class="actions"><button class="btn ghost small" id="oresign">🏳️ ${r.guest ? 'Resign' : 'Cancel invite'}</button></div>`;
+      <div class="actions"><button class="btn ghost small" id="oresign">🏳️ ${r.guest ? 'Resign' : r.quick ? 'Stop searching' : 'Cancel invite'}</button></div>`;
     wireInvite(root, r);
     resignButton(root, r, you);
     GM.$$('[data-pick]:not([disabled])', root).forEach(b => b.onclick = () => (scouting ? scoutOne(b.dataset.pick) : pick(b.dataset.pick)));

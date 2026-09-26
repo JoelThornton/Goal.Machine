@@ -2,6 +2,9 @@
 'use strict';
 
 (function () {
+  // the Album / Purist / Players tabs, on one line, at the top of all three pages
+  GM.albumTabs = on => `<div class="hard-toggle small three">${[['album', '#/album', '📒 Album'], ['purist', '#/album?b=purist', '💎 Purist'], ['players', '#/players', '📖 Players']]
+    .map(([k, h, l]) => `<a class="${k === on ? 'on' : ''}" href="${h}">${l}</a>`).join('')}</div>`;
   // Two books: the Album (players with 50+ PL apps, plus badges) and the Purist collection (every PL player, filled
   // only by Purist drafts). Players are keyed "name|first season", which stays put when the weekly data refresh
   // re-orders the list; albums saved with list positions are converted once.
@@ -26,6 +29,10 @@
   /* ---------------------------------------------------------------- achievements */
   // ev: { type: 'draft', mode, stat, total, hard, xi: [players], rating, pairs, wildUsed, coinWin, bull, closeness }
   //  or { type: 'game', mode, score, extra }
+  // badge categories, in the order the Album shows them
+  const CATS = [['draft', '⚽ Drafting'], ['daily', '📅 Dailies'], ['games', '⚡ Quick games'], ['online', '🌐 Online'], ['collect', '📒 Collecting'], ['secret', '🤫 Secret']];
+  const CAT_OF = (id, secret) => secret ? 'secret' : /^daily/.test(id) ? 'daily' : /^on/.test(id) ? 'online'
+    : /^(col|hofall|gball)/.test(id) ? 'collect' : /^(hop|hilo|who|grid|tally)/.test(id) ? 'games' : 'draft';
   const A = [
     // drafts
     ['first', '🥅', 'First XI', 'Finish your first draft.', e => e.type === 'draft'],
@@ -65,7 +72,23 @@
     ['col1000', '📚', 'Encyclopedia', 'Collect 1,000 players.', (e, a) => Object.keys(a.players).length >= 1000],
     ['hofall', '🏛️', 'Pantheon', 'Collect every Hall of Famer.', (e, a) => setDone(a, 'hof')],
     ['gball', '👟', 'Boot Room', 'Collect every Golden Boot winner.', (e, a) => setDone(a, 'boot')],
-  ].map(([id, icon, name, desc, test]) => ({ id, icon, name, desc, test }));
+    // dailies
+    ['daily14', '📆', 'Ever Present', 'Play the Daily Ultimate 14 days in a row.', (e, a) => streak(a.days) >= 14],
+    ['daily30', '🏟️', 'Season Ticket Holder', 'Play the Daily Ultimate 30 days in a row.', (e, a) => streak(a.days) >= 30],
+    // online (checked when a finished online game shows up: see GM.checkOnline)
+    ['on1', '🌐', 'Kick-off', 'Finish your first online game.', e => e.type === 'online'],
+    ['onwin', '⚔️', 'Away Win', 'Win an online game.', e => e.type === 'online' && e.won],
+    ['onwin10', '🏅', 'Serial Winners', 'Win 10 online games.', (e, a) => e.type === 'online' && (a.online || {}).wins >= 10],
+    ['onbeat5', '👥', 'Beat Them All', 'Beat 5 different friends online.', (e, a) => e.type === 'online' && ((a.online || {}).beat || []).length >= 5],
+    ['onall', '🎮', 'All-Rounder', 'Win a Draft Duel, a Live Race and a Transfer Auction.', (e, a) => e.type === 'online' && ['duel', 'race', 'auction'].every(k => ((a.online || {}).kinds || []).includes(k))],
+    ['onchaos', '🌀', 'Chaos Merchant', 'Win a CHAOS Race.', e => e.type === 'online' && e.won && e.variant === 'chaos'],
+    // secrets: shown as ??? until you find them
+    ['s442', '🔢', 'The Magic Number', 'Build an XI with exactly 442 goals.', e => e.type === 'draft' && e.stat === 'goals' && e.total === 442, true],
+    ['saguero', '🇦🇷', 'AGÜEROOOO', 'Sign Sergio Agüero in a draft.', e => e.type === 'draft' && e.xi.some(p => p.name === 'Sergio Agüero'), true],
+    ['sbus', '🚌', 'Parked the Bus', 'Finish a goals draft with under 40 goals.', e => e.type === 'draft' && e.stat === 'goals' && e.total < 40, true],
+    ['sloyal', '💙', 'Club Till I Die', 'Have 8+ players from the same club in one XI.', e => e.type === 'draft' && maxSameClub(e.xi) >= 8, true],
+    ['sowl', '🦉', 'Night Owl', 'Finish a draft between midnight and 4am.', e => e.type === 'draft' && new Date().getHours() < 4, true],
+  ].map(([id, icon, name, desc, test, secret]) => ({ id, icon, name, desc, test, secret: !!secret, cat: CAT_OF(id, secret) }));
 
   const ult = (e, stat) => e.type === 'draft' && (e.mode === 'ultimate' || e.mode === 'daily') && e.stat === stat;
   const game = (e, m) => e.type === 'game' && e.mode.replace(/h$/, '').replace(/:.*/, '') === m;
@@ -134,6 +157,23 @@
     if (purist) save(book, 'purist');
     celebrate(fresh, newPlayers);
     return { newPlayers, fresh, total: Object.keys(book.players).length, book: purist ? 'purist' : 'album' };
+  };
+
+  /** Called when a finished online game shows up (the Online list or its result screen). Counts each game once. */
+  GM.checkOnline = function (g, seat) {
+    if (!g || !g.result || !g.code || !seat) return;
+    const a = load(), o = a.online || (a.online = { rooms: [], wins: 0, beat: [], kinds: [] });
+    if (o.rooms.includes(g.code)) return;
+    o.rooms = o.rooms.concat(g.code).slice(-300);
+    const won = g.result.winner === seat, opp = seat === 'host' ? g.guest : g.host;
+    if (won) {
+      o.wins++;
+      if (opp && !o.beat.includes(opp)) o.beat.push(opp);
+      if (!o.kinds.includes(g.kind)) o.kinds.push(g.kind);
+    }
+    const fresh = check({ type: 'online', kind: g.kind, variant: g.variant, won }, a);
+    save(a);
+    celebrate(fresh, []);
   };
 
   /** Called when any other game finishes. */
@@ -229,7 +269,7 @@
     const main = load();
 
     root.innerHTML = `<div class="topbar"><a href="#/" class="back">‹</a><h2>${purist ? '💎 Purist collection' : '📒 Album'}</h2><span></span></div>
-      <div class="hard-toggle small"><a class="${purist ? '' : 'on'}" href="#/album">📒 Album</a><a class="${purist ? 'on' : ''}" href="#/album?b=purist">💎 Purist</a><a href="#/players">📖 Players</a></div>
+      ${GM.albumTabs(purist ? 'purist' : 'album')}
       <div class="album-head">
         <div><b>${fmt(ids.length)}</b><small>of ${fmt(list.length)} players</small></div>
         <div>${purist ? `<b>${list.length ? (100 * ids.length / list.length).toFixed(1) : 0}%</b><small>of every PL player</small>` : `<b>${Object.keys(main.ach).length}</b><small>of ${A.length} badges</small>`}</div>
@@ -245,8 +285,11 @@
         ${lines.map(l => `<div class="pitch-row">${l.map(([s]) => slot(s)).join('')}</div>`).join('')}</div>
 
       ${purist ? '' : `<h3 class="section-title">🏅 Badges</h3>
-      <div class="ach-grid">${A.map(x => `<div class="ach ${a.ach[x.id] ? 'got' : ''}" title="${GM.esc(x.desc)}">
-        <span class="ach-icon">${a.ach[x.id] ? x.icon : '🔒'}</span><b>${x.name}</b><small>${x.desc}</small></div>`).join('')}</div>`}
+      ${CATS.map(([c, label]) => { const list = A.filter(x => x.cat === c), got = list.filter(x => a.ach[x.id]).length;
+        return `<h4 class="ach-cat">${label} <small>${got}/${list.length}</small></h4><div class="ach-grid">${list.map(x => {
+          const hide = x.secret && !a.ach[x.id];
+          return `<div class="ach ${a.ach[x.id] ? 'got' : ''} ${hide ? 'secret' : ''}" title="${hide ? 'A secret badge' : GM.esc(x.desc)}">
+            <span class="ach-icon">${a.ach[x.id] ? x.icon : hide ? '❓' : '🔒'}</span><b>${hide ? '???' : x.name}</b><small>${hide ? 'Secret – keep playing to find it' : x.desc}</small></div>`; }).join('')}</div>`; }).join('')}`}
 
       ${purist ? '' : picksHtml()}
       <h3 class="section-title">🗂️ Sets</h3>

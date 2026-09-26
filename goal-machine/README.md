@@ -13,7 +13,7 @@ Live: `https://opportunisticgames.github.io/goal-machine/` (a free site by Oppor
 | 🎛️ The six biggest-total modes | Two switches on the main card. **Players:** ⭐ Classic (50+ apps, well-known players more likely), 👑 Ultimate (50+ apps, all equally likely), ⚡ Extreme (all 5,157 players to play in the PL, equally likely). **Wildcards:** on or off. That gives Classic Wildcard / Classic, Ultimate Wildcard / Ultimate, Extreme Wildcard / Extreme Purist. Extreme Purist fills its own **Purist collection** |
 | 🌐 Online | **Draft Duel** (take turns picking from one set of reels, and a player your rival signs is gone) or **Live Race** (both play the same spins at once), via a 5-letter room code |
 | 📅 Daily Ultimate | Ultimate Wildcard (goals) with the same spins for everyone that day and one attempt |
-| 🎯 Target | Hit the number: **500 goals**, **350 assists** or **3,750 apps**. The reels lean towards well-known players. Closeness scores up to 1,000 points, and hitting it exactly adds a +500 bullseye bonus |
+| 🎯 Target | Hit the number: **500 goals**, **325 assists** or **3,400 apps**. The reels lean towards well-known players. Closeness scores up to 1,000 points, and hitting it exactly adds a +500 bullseye bonus |
 | 🏆 The Treble | One XI, three targets: **400 goals, 300 assists and 3,300 apps**. Up to 333 points per stat. All three within 3% wins the Treble (+500), and two within 3% is the Double (+150) |
 | 🎲 Mystery Target | A random stat and a secret number (e.g. somewhere between 300 and 650 goals). A thermometer shows how close you are (🥶 → 🔥 → 🎯 → 💥), and the target is revealed at full time |
 | 🦘 Club Hopper | Name a player from the club on screen, then hop to one of his other PL clubs. See how many hops you can make in 90 seconds |

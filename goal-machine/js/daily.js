@@ -65,6 +65,7 @@
     const l = log();
     l[day] = { ...(l[day] || {}), [game]: value };
     store.set('dlog', l);
+    if (GM.notify) GM.notify.sync();  // no streak or daily reminder once you've played today
   };
   GM.dailyResult = (game, day = GM.today()) => (log()[day] || {})[game];
 
@@ -143,7 +144,7 @@
           <span class="dr-text"><b>${name}</b><small>${st.text || (g === 'footle' ? 'Guess the player in 8' : g === 'daily' ? 'Same spins for everyone. One shot.' : g === 'grid' ? 'Played for both? Fill the grid.' : g === 'moneyball' ? 'Same market for everyone' : g === 'chaos' ? 'Same chaos for everyone · one go' : 'Mystery player from your club')}</small></span>
           <span class="dr-streak">${gs ? `🔥${gs}` : ''}</span><span class="dr-go">${st.done ? 'View' : st.text ? 'Continue' : 'Play'}</span></a>`;
       }).join('')}</div>
-      ${club ? '' : `<a class="pick-club" href="#/settings">🏟️ Pick your favourite club to unlock a daily <b>Club Footle</b> and your club's colours</a>`}
+      ${club ? '' : `<a class="pick-club" href="#/settings?s=look">🏟️ Pick your favourite club to unlock a daily <b>Club Footle</b> and your club's colours</a>`}
       <h3 class="section-title">Last 4 weeks</h3>
       <div class="calendar">${cal.join('')}</div>
       <p class="muted center">New daily games in <b>${GM.untilTomorrow()}</b> · <a href="#/leaderboard?m=dailies">📊 Daily leaderboard</a></p>`;
@@ -183,7 +184,7 @@
 
   GM.footle = function (root, clubMode) {
     const club = clubMode ? GM.favClub() : '';
-    if (clubMode && !club) { location.hash = '#/settings'; GM.toast('Pick your favourite club first'); return; }
+    if (clubMode && !club) { location.hash = '#/settings?s=look'; GM.toast('Pick your favourite club first'); return; }
     const day = GM.today(), key = clubMode ? `cfootle:${day}:${GM.slug(club)}` : 'footle:' + day, game = clubMode ? 'club' : 'footle';
     const ans = answerFor(day, club);
     const st = store.get(key, { guesses: [] });

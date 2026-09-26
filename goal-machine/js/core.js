@@ -387,7 +387,7 @@ GM.accountModal = function (note = '', rename = false) {
       <form class="claim"><input class="input" maxlength="20" placeholder="e.g. Joel" value="${rename ? '' : GM.esc(GM.store.get('name', ''))}" autocomplete="off">
         <small class="claim-msg muted">3–20 letters, numbers, spaces, dots, dashes or underscores</small>
         <div class="row"><button type="button" class="btn ghost" data-close>Not now</button><button class="btn">${rename ? 'Change' : 'Claim'}</button></div></form>
-      ${rename ? '' : '<p class="muted center"><a href="#/settings" data-close>Moving from another phone? Use a transfer code in ⚙️ Settings</a></p>'}`, { onClose: () => res(null) });
+      ${rename ? '' : '<p class="muted center"><a href="#/settings?s=account" data-close>Moving from another phone? Use a transfer code in ⚙️ Settings</a></p>'}`, { onClose: () => res(null) });
     const f = m.el.querySelector('form'), inp = f.querySelector('input'), msg = f.querySelector('.claim-msg');
     let t = null;
     inp.oninput = () => {
@@ -533,24 +533,34 @@ GM.lbModal = async function (key) {
   try {
     const rows = await GM.lb.top(key), el = GM.$('#lbpop', m.el);
     if (!el) return;
-    el.innerHTML = rows.length ? rows.slice(0, 25).map((r, i) => `<div ${GM.lbRow(r.name, me)}><span>${i < 3 ? ['🥇', '🥈', '🥉'][i] : i + 1}</span><span>${GM.esc(r.name)}</span><b>${r.score.toLocaleString()}${pts}</b></div>`).join('')
+    el.innerHTML = rows.length ? rows.slice(0, 25).map((r, i) => `<div ${GM.lbRow(r.name, me)}><span>${i < 3 ? ['🥇', '🥈', '🥉'][i] : i + 1}</span><span>${GM.esc(r.name)}${GM.pctTag(key, r.meta)}</span><b>${r.score.toLocaleString()}${pts}</b></div>`).join('')
       : '<div class="muted">No scores yet – be the first!</div>';
     if (rows.some(r => r.name !== me)) el.insertAdjacentHTML('beforeend', GM.lbReportHint);
     const mine = GM.$('.lb-row.me', el); if (mine) mine.scrollIntoView({ block: 'nearest' });
   } catch (e) { const el = GM.$('#lbpop', m.el); if (el) el.innerHTML = '<div class="muted">Couldn’t load the leaderboard.</div>'; }
 };
+// How close a Target score came, as a share of the target ("97.6%"): meta.t is your total, meta.g the target.
+// Scores from before the target was saved use the target of the time.
+GM.TARGET_OLD = { target: 500, targetast: 350, targetapps: 3750 };
+GM.pctOf = function (mode, meta) {
+  const base = String(mode || '').replace(/h$/, '');
+  if (!meta || meta.t == null || !/^(target|mystery)/.test(base)) return '';
+  const g = meta.g || GM.TARGET_OLD[base];
+  return g ? `${Math.round(meta.t / g * 1000) / 10}%` : '';
+};
+GM.pctTag = (mode, meta) => { const p = GM.pctOf(mode, meta); return p ? `<small class="muted"> · ${p}</small>` : ''; };
 // your line on a board: your account's best and where it ranks (this phone's best if you've no score online yet)
 GM.lbYou = async function (key, el) {
   if (!el) return;
   const pts = /^d?chaos/.test(key) ? '<small> pts</small>' : '', name = GM.getName();
-  const localBest = (GM.store.get('hist:' + key, [])[0] || {}).s;
+  const localTop = GM.store.get('hist:' + key, [])[0] || {}, localBest = localTop.s;
   const show = (html) => { if (el.isConnected) el.innerHTML = html; };
   const row = (rank, label, score) => `<div class="lb-row me"><span>${rank}</span><span>${label}</span><b>${score.toLocaleString()}${pts}</b></div>`;
   show('<div class="muted">Loading…</div>');
   let mine = null;
   if (GM.lb.enabled && name) { try { mine = await GM.lb.mine(key, name); } catch (e) { } }
-  if (mine) show(row(`#${mine.rank}`, `${GM.esc(name)}<small class="muted"> · of ${mine.of.toLocaleString()} · ${new Date(mine.at).toLocaleDateString()}</small>`, mine.score));
-  else if (localBest != null) show(row('–', `${name ? GM.esc(name) : 'You'}<small class="muted"> · not on the board yet</small>`, localBest));
+  if (mine) show(row(`#${mine.rank}`, `${GM.esc(name)}${GM.pctTag(key, mine.meta)}<small class="muted"> · of ${mine.of.toLocaleString()} · ${new Date(mine.at).toLocaleDateString()}</small>`, mine.score));
+  else if (localBest != null) show(row('–', `${name ? GM.esc(name) : 'You'}${GM.pctTag(key, localTop.m)}<small class="muted"> · not on the board yet</small>`, localBest));
   else show('<div class="muted">You haven’t played this one yet</div>');
 };
 document.addEventListener('click', e => { const b = e.target.closest && e.target.closest('[data-lb]'); if (b) { e.preventDefault(); GM.lbModal(b.dataset.lb); } });
@@ -614,6 +624,30 @@ GM.confirm = function (question, yes = 'Yes', no = 'No') {
     const m = GM.modal(`<h3>${question}</h3><div class="row"><button class="btn ghost" data-close>${no}</button><button class="btn" data-yes>${yes}</button></div>`, { onClose: () => res(false) });
     GM.$('[data-yes]', m.el).onclick = () => { res(true); m.close(); };
   });
+};
+// 🐞 / 💡 from Settings: saved to the feedback table with the version, app build, phone and the page you were on
+GM.feedback = function (kind = 'bug') {
+  const m = GM.modal(`<h3>✉️ Tell us something</h3>
+    <div class="seg" id="fb-kind"><button data-v="bug">🐞 Report a bug</button><button data-v="idea">💡 Suggest something</button></div>
+    <textarea class="input" id="fb-text" rows="5" maxlength="2000"></textarea>
+    <p class="muted small">We’ll see your leaderboard name (if you have one), the game version and your phone type, nothing else.</p>
+    <div class="row"><button class="btn ghost" data-close>Cancel</button><button class="btn" id="fb-send">Send</button></div>`);
+  const ta = GM.$('#fb-text', m.el);
+  const pick = k => { kind = k; GM.$$('#fb-kind button', m.el).forEach(b => b.classList.toggle('on', b.dataset.v === k));
+    ta.placeholder = k === 'bug' ? 'What went wrong? Which screen were you on, and what did you tap?' : 'What would make Goal Machine better?'; };
+  GM.$$('#fb-kind button', m.el).forEach(b => b.onclick = () => pick(b.dataset.v));
+  pick(kind);
+  GM.$('#fb-send', m.el).onclick = async () => {
+    const text = ta.value.trim();
+    if (text.length < 3) { GM.toast('Write a few words first'); return; }
+    const meta = { v: GM.versionLabel, build: GM.appBuild(), from: GM.lastPage || '', screen: `${innerWidth}x${innerHeight}`, ua: navigator.userAgent.slice(0, 200), theme: GM.getTheme ? GM.getTheme() : '' };
+    try {
+      const r = await GM.lb.rpc('send_feedback', { p_kind: kind, p_body: text, p_name: GM.getName() || null, p_meta: meta });
+      if (r !== 'ok') throw new Error(r);
+      m.close(); GM.toast(kind === 'bug' ? '🐞 Thanks – we’ll look into it' : '💡 Thanks for the idea!');
+    } catch (e) { GM.toast('Couldn’t send – check your connection and try again'); }
+  };
+  setTimeout(() => ta.focus(), 50);
 };
 GM.prompt = function (title, value = '', placeholder = '', max = 20) {
   return new Promise(res => {
@@ -695,8 +729,8 @@ GM.MODES = {
   ultimateast: { name: 'Ultimate Wildcard – Assists', icon: '👑' },
   ultimateapps: { name: 'Ultimate Wildcard – Apps', icon: '👑' },
   target: { name: 'Target 500 – Goals', icon: '🎯' },
-  targetast: { name: 'Target 350 – Assists', icon: '🎯' },
-  targetapps: { name: 'Target 3,750 – Apps', icon: '🎯' },
+  targetast: { name: 'Target 325 – Assists', icon: '🎯' },
+  targetapps: { name: 'Target 3,400 – Apps', icon: '🎯' },
   treble: { name: 'The Treble', icon: '🏆' },
   mystery: { name: 'Mystery Target', icon: '🎲' },
   daily: { name: 'Daily Ultimate', get icon() { return GM.calIcon(); } },
@@ -788,6 +822,8 @@ GM.recordScore = async function (mode, score, meta = {}) {
   const isBest = score > GM.best(mode);
   if (isBest) GM.store.set('best:' + mode, score);
   GM.store.set('played', GM.store.get('played', 0) + 1);
+  GM.store.set('lastPlayed', GM.today());
+  if (GM.notify) GM.notify.sync();  // the app's reminders know you've played (streak, come back)
   GM.backup.save(true);
   if (GM.lb.enabled && score > 0) {
     const name = await GM.askName();
@@ -818,7 +854,7 @@ GM.lb = {
     if (res !== 'ok') throw new Error(res);
   },
   async top(mode, limit = 25) {
-    const r = await fetch(`${this.cfg.supabaseUrl}/rest/v1/best_scores?select=name,score,created_at&mode=eq.${encodeURIComponent(mode)}&order=score.desc,created_at.asc&limit=${limit}`,
+    const r = await fetch(`${this.cfg.supabaseUrl}/rest/v1/best_scores?select=name,score,created_at,meta&mode=eq.${encodeURIComponent(mode)}&order=score.desc,created_at.asc&limit=${limit}`,
       { headers: this.headers() });
     if (!r.ok) throw new Error(await r.text());
     return r.json();
@@ -832,11 +868,11 @@ GM.lb = {
       if (!r.ok && r.status !== 206) throw new Error(await r.text());
       return +((r.headers.get('content-range') || '').split('/')[1] || 0);
     };
-    const r = await fetch(`${base}&name=eq.${encodeURIComponent(name)}&select=score,created_at&limit=1`, { headers: this.headers() });
+    const r = await fetch(`${base}&name=eq.${encodeURIComponent(name)}&select=score,created_at,meta&limit=1`, { headers: this.headers() });
     if (!r.ok) throw new Error(await r.text());
     const [row] = await r.json();
     if (!row) return null;
     const [above, of] = await Promise.all([count(`&score=gt.${row.score}`), count('')]);
-    return { score: row.score, at: row.created_at, rank: above + 1, of };
+    return { score: row.score, at: row.created_at, meta: row.meta, rank: above + 1, of };
   },
 };

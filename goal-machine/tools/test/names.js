@@ -20,7 +20,7 @@ const ok = (c, msg) => { console.log((c ? '✓ ' : '✗ ') + msg); if (!c) proce
   server.fns.claim_name({ p_username: 'Alice', p_key: 'a'.repeat(28) });
   server.fns.claim_name({ p_username: 'Bob', p_key: 'b'.repeat(28) });
   let pg = await open(false);
-  await pg.goto(U + '#/settings'); await pg.waitForTimeout(600);
+  await pg.goto(U + '#/settings?s=account'); await pg.waitForTimeout(600);
   await pg.click('#s-name'); await pg.fill('.claim input', 'shithead'); await pg.click('.claim .btn:not(.ghost)'); await pg.waitForTimeout(300);
   ok((await pg.textContent('.claim-msg')).includes('isn’t allowed'), 'rude name refused');
   await pg.fill('.claim input', 'Dani'); await pg.click('.claim .btn:not(.ghost)'); await pg.waitForTimeout(300);
@@ -43,7 +43,7 @@ const ok = (c, msg) => { console.log((c ? '✓ ' : '✗ ') + msg); if (!c) proce
   await pg.close();
   // the Play app: no Soundtrack, and a saved Soundtrack choice falls back to the game's music
   pg = await open(true);
-  await pg.goto(U + '#/settings'); await pg.reload(); await pg.waitForTimeout(800);
+  await pg.goto(U + '#/settings?s=sound'); await pg.reload(); await pg.waitForTimeout(800);
   ok(!(await pg.textContent('#app')).includes('Soundtrack'), 'Play: no Soundtrack in Settings');
   ok(await pg.evaluate(() => GM.sound.settings().bg) === 'music', 'Play: saved Soundtrack becomes game music');
   await pg.goto(U + '#/about'); await pg.waitForTimeout(500);

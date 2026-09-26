@@ -68,7 +68,7 @@
     const TABS = [['games', '🎮 Games'], ['done', '✅ Finished'], ['league', '🏆 League'], ['friends', '👥 Friends']];
     let tab = TABS.some(t => t[0] === q.tab) ? q.tab : GM.store.get('onlineTab', 'games');
     root.innerHTML = `${top('Online')}
-      <div class="online-me"><a href="#/settings" class="me-pic">${GM.userPic(me())}</a><span>Playing as <b>🔒 ${esc(me())}</b></span><button class="btn small" id="onew">⚔️ New game</button></div>
+      <div class="online-me"><a href="#/settings?s=account" class="me-pic">${GM.userPic(me())}</a><span>Playing as <b>🔒 ${esc(me())}</b></span><button class="btn small" id="onew">⚔️ New game</button></div>
       <div class="seg online-tabs" id="otabs">${TABS.map(([k, l]) => `<button data-t="${k}">${l}<i class="ot-n" data-n="${k}"></i></button>`).join('')}</div>
       <div data-panel="games"><div id="olists"><p class="muted center">Loading your games…</p></div></div>
       <div data-panel="done"><div id="odone"></div></div>
@@ -124,6 +124,7 @@
       friends = fr || [];
       const rows = (games || []).map(g => ({ g, seat: seatOf(g) })).filter(x => x.seat);
       const yours = rows.filter(x => myMove(x.g, x.seat)), theirs = rows.filter(x => x.g.status !== 'done' && !myMove(x.g, x.seat)), done = rows.filter(x => x.g.status === 'done');
+      if (GM.checkOnline) done.forEach(x => GM.checkOnline(x.g, x.seat));  // online badges
       const line = ({ g, seat }) => {
         const opp = oppOf(g), k = KIND[gk(g)], st = GM.STATS[g.stat] || GM.STATS.goals, s = g.sums || {}, o = outcome(g, seat);
         const sub = o ? `${o.icon} ${o.text} ${o.score}${o.resigned ? ` (${o.resigned === seat ? 'you' : 'they'} resigned)` : ''}`
@@ -289,7 +290,7 @@
       const res = GM.$('#race-result', root);
       if (res) res.innerHTML = r.result ? `<div class="banner race-final">${resultLine(r, seat)}</div>`
         : `<div class="banner">⏳ ${opp ? `${esc(opp)} is on ${theirs.n || 0}/11 – tap below to watch their XI` : 'Waiting for someone to join'}</div>`;
-      if (r.result && !root.dataset.played) { root.dataset.played = 1; GM.sound.play(r.result.winner === seat ? 'fanfare' : 'fulltime'); }
+      if (r.result && !root.dataset.played) { root.dataset.played = 1; GM.sound.play(r.result.winner === seat ? 'fanfare' : 'fulltime'); if (GM.checkOnline) GM.checkOnline(r, seat); }
       return;
     }
     summary(root, r, seat);
@@ -404,7 +405,7 @@
     if (sp) sp.onclick = () => GM.shareImage(GM.teamPicture(team(seat).map(x => ({ pos: x.pos, p: x.p, v: x.v })), {
       title: `${KIND[gk(r)].name} v ${opp}`, sub: r.result ? resultLine(r, seat).replace(/<[^>]+>/g, '') : `${st.icon} ${st.name}`, total: A.t, totalLabel: st.label }),
       `⚽ Goal Machine ${KIND[gk(r)].name} v ${opp}`);
-    if (r.result && !root.dataset.played) { root.dataset.played = r.code; GM.sound.play(r.result.winner === seat ? 'fanfare' : 'fulltime'); }
+    if (r.result && !root.dataset.played) { root.dataset.played = r.code; GM.sound.play(r.result.winner === seat ? 'fanfare' : 'fulltime'); if (GM.checkOnline) GM.checkOnline(r, seat); }
     if (r.guest) rpc('online_friends', auth()).then(fr => {
       const f = (fr || []).find(x => x.name === opp), el = GM.$('#orec', root);
       if (el && f) el.innerHTML = `Record W${f.w} D${f.d} L${f.l}`;
@@ -637,7 +638,33 @@
   }
   GM.online.duelState = duelState;  // for tests
 
-  /* ================================================================ "your move" badge + notifications */
+  /* ================================================================ notifications (Android app) */
+  // The app checks the server's app_inbox every ~15 minutes. It sends your choices from Settings, your time zone
+  // and your daily streak, and the server decides what to notify about (see app_inbox in Supabase).
+  GM.notify = {
+    KINDS: [
+      ['move', '⚔️ Your move', 'It’s your turn in an online game'],
+      ['friends', '👋 Challenges and friends', 'A friend challenges you or adds you'],
+      ['results', '🏁 Results', 'An online game finishes'],
+      ['modes', '🆕 New game modes', 'When something new comes out'],
+      ['streak', '🔥 Streak reminder', 'At 8pm, if your daily streak is about to end'],
+      ['comeback', '💤 Come back', 'If you haven’t played for a few days'],
+    ],
+    prefs() { return { move: true, friends: true, results: true, modes: true, streak: true, comeback: true, daily: null, ...GM.store.get('notif', {}) }; },
+    set(k, v) { GM.store.set('notif', { ...GM.store.get('notif', {}), [k]: v }); GM.notify.sync(); },
+    sync() {
+      const a = GM.account();
+      if (!a || !GM.lb.enabled || !window.AndroidApp) return;
+      const today = GM.today(), log = GM.dailyLog ? GM.dailyLog() : {};
+      const state = { day: Object.keys(log[today] || {}).length ? today : '', streak: GM.streak ? GM.streak() : 0, played: GM.store.get('lastPlayed', '') };
+      let tz = 'Europe/London'; try { tz = Intl.DateTimeFormat().resolvedOptions().timeZone || tz; } catch (e) { }
+      const cfg = { url: GM.lb.cfg.supabaseUrl, key: GM.lb.cfg.supabaseAnonKey, rpc: 'app_inbox', args: { p_user: a.name, p_prefs: GM.notify.prefs(), p_state: state, p_tz: tz } };
+      if (typeof window.AndroidApp.setInbox === 'function') GM.app('setInbox', JSON.stringify(cfg));
+      else GM.app('watchGames', a.name, GM.lb.cfg.supabaseUrl, GM.lb.cfg.supabaseAnonKey);
+    },
+  };
+
+  /* ================================================================ "your move" badge */
   GM.online.setWaiting = n => {
     GM.store.set('onlineWaiting', n);
     GM.$$('.online-badge').forEach(b => { b.textContent = n; b.hidden = !n; });
@@ -646,8 +673,7 @@
   GM.online.check = async function () {
     const a = GM.account();
     if (!a || !GM.lb.enabled) return;
-    // the Android app checks every 15 minutes and notifies; the server's app_inbox decides what about (build 12+)
-    GM.app('watchGames', a.name, GM.lb.cfg.supabaseUrl, GM.lb.cfg.supabaseAnonKey);
+    GM.notify.sync();
     const lastCheck = GM.online._checked || 0;
     if (Date.now() - lastCheck < 30000) return GM.online._pending;  // a check just ran (or is running): share it
     GM.online._checked = Date.now();

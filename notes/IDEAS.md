@@ -1,0 +1,91 @@
+# 💡 Ideas bank
+
+Ideas for Goal Machine and future games. **Nothing here gets built until we've talked it through and the owner says
+go.** Each idea keeps its notes and questions so a later session can pick it up. Status: 💬 to discuss · 🟢 agreed
+(ready to build) · 🚧 being built · ✅ shipped · 🧊 parked.
+
+## 🗺️ Priority order (agreed with the owner as we go)
+
+Aim: have a sticky, polished game for the Play closed test (12 testers × 14 days), then launch.
+
+**Done in 4.10:** Target percentages and fairer targets, the Players signed filter, in-app feedback, CHAOS random
+formations, and badges round 2.
+
+**Next: medium (a day or two each), a reason to come back**
+6. Weekly Premier League quiz, generated from our own data, with a weekly leaderboard
+7. Share your whole day *(Claude's idea)*: one post for the group chat with every daily result ("Goal Machine ·
+   26 Sep 🟩 Footle 3/8 · ⚽ Daily Ultimate 512 · #️⃣ Grid 7/9 · 🔥 12"), our best free advertising
+
+**Later: big, design first**
+8. Money games rework (an AI rival, hidden values, a deadline-day squeeze)
+9. Top Trumps-style card game (vs the computer and online), maybe using your Album as your deck
+10. Manager mode
+
+## 💬 To discuss
+
+### Money games need more depth (Moneyball, Transfer Window, Auction)
+- **Owner's take:** there's something there, but it isn't satisfying. By two-thirds of the way through you're often
+  left with one affordable option (a free transfer), and it boils down to "longest career for the cost". It lacks the
+  tension of the spin games. It probably needs an opponent (the computer, or a person online) and more depth.
+- **Notes:** the fun in the spin games is risk and the unknown. Here everything is known and the budget squeezes out
+  choice. Directions to talk through:
+  - an AI rival bidding on the same market, who takes players you hesitate on
+  - hidden or partly hidden values (a scout report gives a range, not the number)
+  - prices that move as the window goes on (deadline-day panic, bargains late)
+  - selling: buy low, sell a player back mid-window to fund a star
+  - a squad need each round ("you need a CB by round 6")
+  - a guaranteed floor so the last picks are still choices, not one free transfer
+
+### Weekly Premier League trivia quiz
+- **Owner's idea:** a weekly quiz.
+- **Questions:** questions from our own data (tallies, clubs, seasons), or hand-written about that week's real
+  matches? The data-only version can be automatic; topical questions need someone to write them each week (or a
+  weekly data refresh that turns into questions). Leaderboard for the week, streaks across weeks?
+
+### Hidden things: secrets, unlocks, easter eggs
+- **Owner's idea:** hidden items, unlocks and secrets to keep the game exciting.
+- **Notes:** some directions, from light to heavy:
+  - secret badges (hidden in the list as "???" until earned): an all-one-club XI, exactly 442 goals, a 0-goal XI
+  - easter eggs triggered by real football moments: sign Aguero with the last spin → "AGUEROOOO" commentary
+  - unlockable looks: pitch styles, retro kits for the card design, earned rather than bought
+  - a hidden mode that appears after something special (e.g. completing a club's full set in the Album)
+  - rare "legend" reel cards with a special shine (cosmetic)
+- **Questions:** cosmetic only, or can unlocks change gameplay (a new wildcard)? Should secrets be shareable
+  ("I found the hidden mode") to spread word of mouth?
+
+### Card game against the computer or online (Top Trumps style)
+- **Owner's idea:** something like Top Trumps.
+- **Notes:** fits our data well (goals, assists, apps, seasons, clubs, honours). Questions: a deck from your Album
+  (collecting gets a purpose), or random? One stat per round chosen by the winner (classic), or the whole hand at
+  once? The computer opponent needs to be beatable but not dumb. Online could reuse the Draft Duel turn system.
+
+### Manager mode
+- **Owner's idea:** some form of manager mode.
+- **Questions:** what's the fantasy? Build a squad over a "season" of fixtures, simulate results from squad
+  strength, manage a budget and transfers between gameweeks? It's a big feature, so a small first version would help
+  work out whether it's fun.
+
+### Share your whole day *(Claude's idea)*
+- Footle and the drafts already have share buttons. This adds one "Share my day" on the Today page: every daily
+  result plus your streak in one spoiler-free post, with the link. One post a day in a group chat is how Wordle
+  spread.
+
+## 🟢 Agreed
+
+_None yet._
+
+## ✅ Shipped
+
+- **4.10 top five:** Target games show a percentage (full time, PB, boards) and targets are fairer (apps 3,400,
+  assists 325, from a 20,000-game simulation: a typical random XI has ~478 goals, ~288 assists, ~2,671 apps).
+  Players page ✅/❌ filter. In-app feedback (`feedback` table). CHAOS random formations (7 shapes, seeded).
+  13 new badges in 6 categories, incl. 6 online and 5 secret ("???") ones. The secret ones are the first step of
+  *hidden things*.
+- **Settings sub-menus** (4.10): a menu of Account, Look & club, Sound & vibration, Notifications and Gameplay,
+  each showing its current value.
+- **Version numbers** (4.10): three levels (5.0 big, 4.10 features, 4.10.1 fixes); fix-ups fold into their
+  release on the Updates page.
+- **Notification choices and reminders** (4.10): owner's spec. Each kind can be switched off in Settings. On by
+  default: friend invites and challenges, your move, new game modes, come back (from noon on the 4th day without a
+  game, and again after 2 weeks) and an 8pm streak reminder if the streak is about to end. Results are also on. There's
+  a daily reminder at a chosen time (off by default). Announce a new mode by adding a row to `announcements`.

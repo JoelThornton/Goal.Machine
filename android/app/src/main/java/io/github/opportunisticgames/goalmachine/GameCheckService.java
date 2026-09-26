@@ -38,21 +38,36 @@ public class GameCheckService extends JobService {
 
     /** Remembers what to ask the server ({url, key, rpc, args}) and makes sure the periodic check is scheduled. */
     static void configure(Context ctx, String configJson) {
+        ctx.getSharedPreferences(PREFS, MODE_PRIVATE).edit().putString("config", configJson).apply();
+        ensureScheduled(ctx);
+    }
+
+    /** Schedules the 15-minute check if Android has dropped it (a force stop, a battery saver, a failed schedule).
+     *  Called whenever the app opens, and what happened is saved for the Settings page. */
+    static void ensureScheduled(Context ctx) {
         SharedPreferences p = ctx.getSharedPreferences(PREFS, MODE_PRIVATE);
-        p.edit().putString("config", configJson).apply();
-        JobScheduler js = (JobScheduler) ctx.getSystemService(Context.JOB_SCHEDULER_SERVICE);
-        if (js == null) return;
-        js.cancel(OLD_JOB_ID);
-        if (js.getPendingJob(JOB_ID) != null) return;
-        js.schedule(new JobInfo.Builder(JOB_ID, new ComponentName(ctx, GameCheckService.class))
-            .setRequiredNetworkType(JobInfo.NETWORK_TYPE_ANY)
-            .setPeriodic(15 * 60 * 1000L)
-            .setPersisted(true)  // survives a phone restart (RECEIVE_BOOT_COMPLETED)
-            .build());
+        if (p.getString("config", "").isEmpty()) return;
+        String result;
+        try {
+            JobScheduler js = (JobScheduler) ctx.getSystemService(Context.JOB_SCHEDULER_SERVICE);
+            if (js == null) result = "no job scheduler";
+            else {
+                js.cancel(OLD_JOB_ID);
+                if (js.getPendingJob(JOB_ID) != null) return;  // already scheduled: nothing to do
+                int r = js.schedule(new JobInfo.Builder(JOB_ID, new ComponentName(ctx, GameCheckService.class))
+                    .setRequiredNetworkType(JobInfo.NETWORK_TYPE_ANY)
+                    .setPeriodic(15 * 60 * 1000L)
+                    .setPersisted(true)  // survives a phone restart (RECEIVE_BOOT_COMPLETED)
+                    .build());
+                result = r == JobScheduler.RESULT_SUCCESS ? "scheduled" : "Android refused the schedule";
+            }
+        } catch (Exception e) { result = "schedule error: " + e.getClass().getSimpleName() + " " + e.getMessage(); }
+        p.edit().putString("sched", result).putLong("schedAt", System.currentTimeMillis()).apply();
     }
 
     @Override
     public boolean onStartJob(JobParameters params) {
+        getSharedPreferences(PREFS, MODE_PRIVATE).edit().putLong("lastJob", System.currentTimeMillis()).apply();
         new Thread(() -> {
             try { check(this, false); } catch (Exception e) { note(this, "error: " + e.getClass().getSimpleName() + " " + e.getMessage(), -1); }
             jobFinished(params, false);
@@ -98,7 +113,14 @@ public class GameCheckService extends JobService {
         try {
             return new JSONObject().put("allowed", allowed(ctx)).put("enabled", nm.areNotificationsEnabled())
                 .put("scheduled", js != null && js.getPendingJob(JOB_ID) != null).put("configured", !p.getString("config", "").isEmpty())
-                .put("lastRun", p.getLong("lastRun", 0)).put("lastResult", p.getString("lastResult", "")).put("lastCount", p.getInt("lastCount", -1)).toString();
+                .put("lastRun", p.getLong("lastRun", 0)).put("lastResult", p.getString("lastResult", "")).put("lastCount", p.getInt("lastCount", -1))
+                // why checks might not run: the last schedule attempt, the last time Android ran the check in the
+                // background, whether the phone restricts the app's battery use, and its standby bucket
+                // (10 active, 20 working set, 30 frequent, 40 rare, 45 restricted: rarer buckets run less often)
+                .put("sched", p.getString("sched", "")).put("schedAt", p.getLong("schedAt", 0)).put("lastJob", p.getLong("lastJob", 0))
+                .put("restricted", Build.VERSION.SDK_INT >= 28 && ((android.app.ActivityManager) ctx.getSystemService(Context.ACTIVITY_SERVICE)).isBackgroundRestricted())
+                .put("bucket", Build.VERSION.SDK_INT >= 28 ? ((android.app.usage.UsageStatsManager) ctx.getSystemService(Context.USAGE_STATS_SERVICE)).getAppStandbyBucket() : 0)
+                .toString();
         } catch (Exception e) { return "{}"; }
     }
 

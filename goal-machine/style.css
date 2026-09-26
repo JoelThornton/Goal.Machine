@@ -1104,3 +1104,40 @@ button.icon-btn.lb-btn { font: inherit; font-size: 1.1rem; cursor: pointer; }
 .ox .avatar { width: 30px; height: 30px; font-size: .7rem; }
 .ox b { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .ox i { font-style: normal; font-weight: 800; color: #ffe27a; }
+/* cards that don't fit give way step by step (fitReels in draft.js) */
+.stage .reel.fit1 .chips, .stage .reel.fit2 .mate { display: none; }
+.stage .reel.fit2 .avatar.lg { width: 30px; height: 30px; font-size: .7rem; }
+.stage .reel.fit3 .avatar { display: none; }
+.stage .reel.fit1 .wild-icon { font-size: 1.4rem; }
+.stage .reel.fit1 .wild-desc { -webkit-line-clamp: 6; }
+.stage .reel.fit2 .wild-card .tag { display: none; }
+.stage .reel.fit3 .wild-icon { display: none; }
+.stage .reel.fit3 .wild-desc { -webkit-line-clamp: 8; font-size: .62rem; }
+/* Settings → Notifications: one row per kind */
+.ntoggles { display: grid; gap: 2px; margin: 8px 0; }
+.ntoggles label { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 8px 2px; border-bottom: 1px solid var(--line); cursor: pointer; }
+.ntoggles label:last-child { border-bottom: 0; }
+.ntoggles label span { display: grid; gap: 1px; min-width: 0; }
+.ntoggles label small { margin: 0; }
+.ntoggles input[type="checkbox"] { width: 22px; height: 22px; accent-color: var(--accent); flex: none; }
+.ntoggles select.input { width: auto; flex: none; padding: 6px 8px; }
+/* Updates: fix-up releases folded into the release they patch */
+.release .fixups { margin-top: 8px; border-top: 1px dashed var(--line); padding-top: 8px; }
+.release .fixups summary { cursor: pointer; font-size: .82rem; color: var(--muted); font-weight: 700; }
+.release .fixups .fix-head { margin: 8px 0 2px; font-size: .85rem; }
+.release .fixups .fix-head small { color: var(--muted); }
+.release .fixups ul { margin: 0; font-size: .85rem; }
+/* Settings menu: each row shows its current value */
+.settings.smenu a { display: grid; grid-template-columns: 1fr auto; align-items: center; column-gap: 8px; }
+.settings.smenu a small { grid-column: 1; grid-row: 2; color: var(--muted); font-size: .8rem; font-weight: 400; margin-top: 1px; }
+.settings.smenu a span { grid-column: 2; grid-row: 1 / span 2; }
+.settings[hidden], .sgroup[hidden] { display: none !important; }
+.plist .prow.unowned { opacity: .72; }
+/* player index: search on its own line, the four filters two by two */
+.page-players .filters { grid-template-columns: 1fr 1fr; }
+.page-players .filters #pq { grid-column: 1 / -1; }
+#fb-text { width: 100%; margin: 10px 0 4px; resize: vertical; font: inherit; }
+/* Album badges, in categories; secrets hidden until found */
+.ach-cat { margin: 14px 0 6px; font: 700 .95rem Oswald, sans-serif; }
+.ach-cat small { color: var(--muted); font-weight: 400; margin-left: 4px; }
+.ach.secret { border-style: dashed; }
